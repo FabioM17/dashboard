@@ -1,0 +1,167 @@
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || "",
+      { 
+        global: { 
+          headers: { Authorization: authHeader } 
+        } 
+      }
+    );
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(JSON.stringify({ error: "Usuario no autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+    );
+
+    console.log("🔵 [VERIFY ONBOARDING] Starting verification for user:", user.email);
+
+    // Verificar email confirmado
+    if (!user.email_confirmed_at) {
+      console.log("⚠️ Email not confirmed yet for:", user.email);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: "El email aún no ha sido verificado",
+          emailConfirmed: false 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    console.log("✅ Email confirmed for user:", user.email);
+
+    // Obtener perfil
+    const { data: profile, error: profileError } = await adminClient
+      .from("profiles")
+      .select("id, email, full_name, role, organization_id, phone")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Profile error:", profileError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: "Perfil no encontrado" 
+        }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    console.log("✅ Profile found:", profile.id);
+
+    // Obtener organización
+    let organization = null;
+    if (profile.organization_id) {
+      const { data: org, error: orgError } = await adminClient
+        .from("organizations")
+        .select("id, name, support_email, created_at")
+        .eq("id", profile.organization_id)
+        .single();
+
+      if (!orgError && org) {
+        organization = org;
+        console.log("✅ Organization found:", organization.id);
+      }
+    }
+
+    // Obtener metadatos
+    let onboardingData = null;
+    if (profile.organization_id) {
+      const { data: settings, error: settingsError } = await adminClient
+        .from("integration_settings")
+        .select("credentials")
+        .eq("organization_id", profile.organization_id)
+        .eq("service_name", "onboarding")
+        .single();
+
+      if (!settingsError && settings) {
+        onboardingData = settings.credentials;
+        console.log("✅ Onboarding metadata retrieved");
+      }
+    }
+
+    console.log("✅ [VERIFY ONBOARDING COMPLETE] User verified successfully");
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        emailConfirmed: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          emailConfirmed: true,
+        },
+        profile: {
+          id: profile.id,
+          fullName: profile.full_name,
+          phone: profile.phone,
+          role: profile.role,
+          organizationId: profile.organization_id,
+        },
+        organization: organization,
+        onboarding: onboardingData,
+        message: "Verificación completada exitosamente",
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+
+  } catch (error) {
+    console.error("❌ [VERIFY ONBOARDING ERROR]:", error.message || error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Error durante la verificación"
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
+});

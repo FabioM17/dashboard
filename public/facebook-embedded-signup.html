@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Business - Sign Up</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #1a202c;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: #718096;
+    }
+
+    .status-box {
+      background: #f7fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      font-size: 13px;
+      color: #2d3748;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .status-box.loading {
+      background: #ebf8ff;
+      border-color: #90cdf4;
+      color: #2c5282;
+    }
+
+    .status-box.success {
+      background: #f0fff4;
+      border-color: #9ae6b4;
+      color: #22543d;
+    }
+
+    .status-box.error {
+      background: #fff5f5;
+      border-color: #fc8181;
+      color: #742a2a;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #2d3748;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #cbd5e0;
+    }
+
+    .logs-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .logs-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .logs {
+      background: #1a202c;
+      color: #48bb78;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+
+    .log-line {
+      margin-bottom: 3px;
+    }
+
+    .log-info {
+      color: #cbd5e0;
+    }
+
+    .log-success {
+      color: #68d391;
+    }
+
+    .log-error {
+      color: #fc8181;
+    }
+
+    .log-warn {
+      color: #fbd38d;
+    }
+
+    .response-data {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      color: #2d3748;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(102, 126, 234, 0.3);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📱 WhatsApp Business</h1>
+      <p>Complete your WhatsApp Business Account registration</p>
+    </div>
+
+    <div id="status" class="status-box">Initializing...</div>
+
+    <div class="button-group">
+      <button id="launchBtn" class="btn-primary" onclick="launchEmbeddedSignup()">
+        Launch Embedded Signup
+      </button>
+      <button id="closeBtn" class="btn-secondary" onclick="window.close()">
+        Close
+      </button>
+    </div>
+
+    <div class="logs-section">
+      <div class="logs-title">Event Log</div>
+      <div id="logs" class="logs"></div>
+    </div>
+
+    <div id="responseData" class="response-data" style="display: none;"></div>
+  </div>
+
+  <!-- Facebook SDK -->
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const APP_ID = urlParams.get('app_id') || '';
+    const CONFIG_ID = urlParams.get('config_id') || '';
+    const ORGANIZATION_ID = urlParams.get('organization_id') || '';
+
+    // ============================================
+    // UI ELEMENTS
+    // ============================================
+
+    const statusEl = document.getElementById('status');
+    const logsEl = document.getElementById('logs');
+    const launchBtn = document.getElementById('launchBtn');
+    const responseDataEl = document.getElementById('responseData');
+
+    // ============================================
+    // LOGGING UTILITY
+    // ============================================
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logLine = document.createElement('div');
+      logLine.className = `log-line log-${type}`;
+      logLine.textContent = `[${timestamp}] ${message}`;
+      logsEl.appendChild(logLine);
+      logsEl.scrollTop = logsEl.scrollHeight;
+      console.log(`[WhatsApp Signup ${type.toUpperCase()}] ${message}`);
+    }
+
+    function setStatus(message, type = 'loading') {
+      statusEl.className = `status-box ${type}`;
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '⏳';
+      statusEl.innerHTML = 
+        type === 'loading' 
+          ? `<span class="spinner"></span>${message}`
+          : `${icon} ${message}`;
+    }
+
+    function displayResponse(data) {
+      responseDataEl.style.display = 'block';
+      responseDataEl.textContent = JSON.stringify(data, null, 2);
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    log(`Page loaded`, 'info');
+    log(`App ID: ${APP_ID}`, 'info');
+    log(`Config ID: ${CONFIG_ID}`, 'info');
+    log(`Organization ID: ${ORGANIZATION_ID}`, 'info');
+
+    if (!APP_ID || !CONFIG_ID) {
+      setStatus('Missing required configuration', 'error');
+      log('❌ APP_ID or CONFIG_ID not provided', 'error');
+      launchBtn.disabled = true;
+      launchBtn.textContent = 'Configuration Missing';
+    } else {
+      setStatus('Ready to launch embedded signup', 'info');
+      log('✅ Configuration validated', 'success');
+    }
+
+    // ============================================
+    // FACEBOOK SDK LOADING
+    // ============================================
+
+    window.fbAsyncInit = function() {
+      log('FB SDK fbAsyncInit called', 'info');
+      
+      FB.init({
+        appId: APP_ID,
+        xfbml: true,
+        version: 'v24.0'
+      });
+      
+      log('✅ FB.init() completed', 'success');
+      setStatus('Facebook SDK ready', 'info');
+    };
+
+    // Load Facebook SDK asynchronously
+    (function(d, s, id) {
+      const fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      const js = d.createElement(s);
+      js.id = id;
+      js.async = true;
+      js.defer = true;
+      js.src = `https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v24.0&appId=${APP_ID}&onload=fbAsyncInit`;
+      fjs.parentNode.insertBefore(js, fjs);
+      log('Loading Facebook SDK from CDN', 'info');
+    }(document, 'script', 'facebook-jssdk'));
+
+    // ============================================
+    // EMBEDDED SIGNUP - MAIN FUNCTION
+    // ============================================
+
+    function launchEmbeddedSignup() {
+      log('launchEmbeddedSignup() called', 'info');
+      setStatus('Launching embedded signup...', 'loading');
+      launchBtn.disabled = true;
+
+      if (!window.FB) {
+        log('❌ Facebook SDK not available', 'error');
+        setStatus('Facebook SDK not loaded', 'error');
+        launchBtn.disabled = false;
+        return;
+      }
+
+      log('Calling FB.login() with embedded signup config', 'info');
+
+      // Call FB.login with WhatsApp embedded signup config
+      FB.login(function(response) {
+        log('FB.login callback invoked', 'info');
+        log(`Response: ${JSON.stringify(response)}`, 'info');
+
+        if (response.authResponse) {
+          log(`✅ Auth response received with code`, 'success');
+          const code = response.authResponse.code;
+          log(`Authorization code: ${code.substring(0, 25)}...`, 'success');
+          
+          // Send code to parent window for backend exchange
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'FACEBOOK_AUTH_CODE_RECEIVED',
+              code: code,
+              organizationId: ORGANIZATION_ID
+            }, '*');
+            log('✅ Auth code sent to parent window', 'success');
+            setStatus('Auth code sent to parent window', 'success');
+            
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          } else {
+            log('⚠️ No window.opener found', 'warn');
+          }
+        } else {
+          log('❌ No authResponse in FB.login callback', 'error');
+          setStatus('Authorization failed', 'error');
+          launchBtn.disabled = false;
+        }
+      }, {
+        // WhatsApp embedded signup configuration
+        config_id: CONFIG_ID,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          version: 'v3'
+        }
+      });
+    }
+
+    // ============================================
+    // POSTMESSAGE LISTENER FOR WA_EMBEDDED_SIGNUP
+    // ============================================
+    
+    window.addEventListener('message', (event) => {
+      log(`postMessage received from: ${event.origin}`, 'info');
+
+      // Only accept messages from Facebook
+      if (event.origin !== 'https://www.facebook.com' && 
+          event.origin !== 'https://web.facebook.com') {
+        log(`⚠️ Message from untrusted origin, ignoring`, 'warn');
+        return;
+      }
+
+      const data = event.data;
+      log(`Message data: ${JSON.stringify(data)}`, 'info');
+
+      if (!data || !data.type) {
+        return;
+      }
+
+      // Handle WA_EMBEDDED_SIGNUP events
+      if (data.type === 'WA_EMBEDDED_SIGNUP') {
+        log(`📨 WA_EMBEDDED_SIGNUP event received`, 'info');
+        log(`Event type: ${data.event}`, 'info');
+
+        if (data.event === 'FINISH') {
+          handleSignupFinish(data.data);
+        } else if (data.event === 'CANCEL') {
+          handleSignupCancel(data.data);
+        } else if (data.event === 'ERROR') {
+          handleSignupError(data.data);
+        }
+      }
+    });
+
+    // ============================================
+    // EVENT HANDLERS
+    // ============================================
+
+    function handleSignupFinish(data) {
+      log('🎉 SIGNUP FINISHED', 'success');
+      log(`Phone Number ID: ${data.phone_number_id || 'N/A'}`, 'success');
+      log(`WABA ID: ${data.waba_id || 'N/A'}`, 'success');
+      log(`Business ID: ${data.business_id || 'N/A'}`, 'success');
+      
+      displayResponse(data);
+      setStatus('✅ WhatsApp registration completed successfully!', 'success');
+
+      // Send finish event to parent window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'WA_EMBEDDED_SIGNUP_FINISHED',
+          data: data
+        }, '*');
+        log('✅ FINISH event sent to parent window', 'success');
+      }
+
+      launchBtn.textContent = 'Complete!';
+      launchBtn.disabled = true;
+    }
+
+    function handleSignupCancel(data) {
+      log('⚠️ SIGNUP CANCELLED', 'warn');
+      log(`Current step: ${data.current_step || 'unknown'}`, 'warn');
+      displayResponse(data);
+      setStatus('Signup cancelled by user', 'error');
+
+      // Send cancel event to parent window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'WA_EMBEDDED_SIGNUP_CANCELLED',
+          data: data
+        }, '*');
+        log('⚠️ CANCEL event sent to parent window', 'warn');
+      }
+
+      launchBtn.disabled = false;
+      launchBtn.textContent = 'Try Again';
+    }
+
+    function handleSignupError(data) {
+      log('❌ SIGNUP ERROR', 'error');
+      log(`Error message: ${data.error_message || 'Unknown error'}`, 'error');
+      displayResponse(data);
+      setStatus(`Error: ${data.error_message || 'Unknown error'}`, 'error');
+
+      // Send error event to parent window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'WA_EMBEDDED_SIGNUP_ERROR',
+          data: data
+        }, '*');
+        log('❌ ERROR event sent to parent window', 'error');
+      }
+
+      launchBtn.disabled = false;
+      launchBtn.textContent = 'Try Again';
+    }
+
+    // ============================================
+    // STARTUP
+    // ============================================
+
+    log('Initialization complete, waiting for user action', 'success');
+  </script>
+</body>
+</html>

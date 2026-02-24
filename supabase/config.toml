@@ -1,0 +1,44 @@
+
+[functions.whatsapp-sync-templates]
+enabled = true
+verify_jwt = true
+import_map = "./functions/whatsapp-sync-templates/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/whatsapp-sync-templates/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/whatsapp-sync-templates/*.html" ]
+
+[functions.facebook-auth-callback]
+enabled = true
+verify_jwt = false
+import_map = "./functions/facebook-auth-callback/deno.json"
+entrypoint = "./functions/facebook-auth-callback/index.ts"
+
+[functions.google-auth-callback]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/google-auth-callback/index.ts"
+
+[functions.resolve-facebook-configuration]
+enabled = true
+verify_jwt = false
+import_map = "./functions/resolve-facebook-configuration/deno.json"
+entrypoint = "./functions/resolve-facebook-configuration/index.ts"
+
+[functions.generate-signed-urls]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-signed-urls/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-signed-urls/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-signed-urls/*.html" ]
+
+[functions.external-api]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/external-api/index.ts"

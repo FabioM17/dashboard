@@ -1,0 +1,15 @@
+# Allow all crawlers to access the site
+User-agent: *
+Allow: /
+
+# Explicitly allow access to privacy policy
+# This ensures search engines can crawl it
+Allow: /politicas-de-privacidad
+
+# Disallow unnecessary paths
+Disallow: /auth/
+Disallow: /.htaccess
+Disallow: /node_modules/
+
+# Point to sitemap
+Sitemap: https://dashboardchat.docreativelatam.com/sitemap.xml

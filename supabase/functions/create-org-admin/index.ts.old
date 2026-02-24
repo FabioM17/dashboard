@@ -1,0 +1,205 @@
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/+esm";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get user with their auth token
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || "",
+      { 
+        global: { 
+          headers: { Authorization: authHeader } 
+        } 
+      }
+    );
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(JSON.stringify({ error: "Usuario no autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+    );
+
+    console.log("🔵 [CREATE-ORG-ADMIN] Processing user:", user.email);
+
+    // PASO 1: Obtener metadata del usuario
+    const metadata = user.user_metadata || {};
+    console.log("📦 User metadata:", metadata);
+
+    // PASO 2: Crear organización
+    console.log("📝 Creating organization...");
+    const orgName = metadata.organizationName || "Mi Organización";
+    const { data: orgData, error: orgError } = await adminClient
+      .from("organizations")
+      .insert({
+        name: orgName,
+        support_email: user.email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (orgError) {
+      console.error("❌ Error creating organization:", orgError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Error creando organización",
+          details: orgError.message 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    const orgId = orgData.id;
+    console.log("✅ Organization created:", orgId);
+
+    // PASO 3: Crear perfil
+    console.log("📝 Creating profile...");
+    const fullName = metadata.fullName || 
+      `${metadata.firstName || ""} ${metadata.lastName || ""}`.trim() || 
+      "Usuario";
+
+    const { error: profileError } = await adminClient
+      .from("profiles")
+      .insert({
+        id: user.id,
+        email: user.email,
+        full_name: fullName,
+        organization_id: orgId,
+        role: "admin",
+        phone: metadata.whatsappNumber || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (profileError) {
+      console.error("❌ Error creating profile:", profileError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Error creando perfil",
+          details: profileError.message 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    console.log("✅ Profile created");
+
+    // PASO 4: Guardar metadatos
+    console.log("📝 Saving metadata...");
+    const { error: settingsError } = await adminClient
+      .from("integration_settings")
+      .insert({
+        organization_id: orgId,
+        service_name: "onboarding",
+        credentials: {
+          firstName: metadata.firstName,
+          lastName: metadata.lastName,
+          fullName: fullName,
+          organizationName: orgName,
+          country: metadata.country,
+          whatsappNumber: metadata.whatsappNumber,
+          companySize: metadata.companySize,
+          platformUse: metadata.platformUse,
+          industry: metadata.industry,
+          botName: metadata.botName,
+          email: user.email,
+          userId: user.id,
+          createdAt: new Date().toISOString(),
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (settingsError) {
+      console.error("❌ Error saving metadata:", settingsError);
+      return new Response(
+        JSON.stringify({ 
+          error: "Error guardando metadatos",
+          details: settingsError.message 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    console.log("✅ Metadata saved");
+
+    // PASO 5: Retornar datos completos
+    console.log("✅ [CREATE-ORG-ADMIN] Completed successfully");
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          emailConfirmed: user.email_confirmed_at !== null,
+        },
+        organization: {
+          id: orgId,
+          name: orgName,
+        },
+        profile: {
+          fullName: fullName,
+          role: "admin",
+        },
+        message: "Organización, perfil y metadatos creados exitosamente",
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+
+  } catch (error) {
+    console.error("❌ [CREATE-ORG-ADMIN] Error:", error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Error desconocido"
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
+});
+
