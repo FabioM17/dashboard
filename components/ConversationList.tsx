@@ -29,7 +29,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, acti
         <div className="relative">
           <input 
             type="text" 
-            placeholder="Search conversations..." 
+            placeholder="Buscar conversaciones..." 
             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -43,7 +43,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, acti
         {filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-slate-400">
             <Search size={40} className="mb-2 opacity-50" />
-            <p className="text-sm">No conversations found</p>
+            <p className="text-sm">Sin conversaciones</p>
           </div>
         ) : (
           filteredConversations.map((conv) => (

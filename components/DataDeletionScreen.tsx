@@ -9,7 +9,8 @@ import { navigateTo } from '../services/navigationService';
 interface DataDeletionScreenProps {
   currentUser: User;
   onBack: () => void;
-  onOrganizationDeleted: () => void; // Callback to sign out after org deletion
+  onOrganizationDeleted: () => void;
+  hideHeader?: boolean;
 }
 
 type DeletionLevel = 'anonymize' | 'delete_member' | 'delete_organization';
@@ -26,6 +27,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
   currentUser,
   onBack,
   onOrganizationDeleted,
+  hideHeader = false,
 }) => {
   const [isCreator, setIsCreator] = useState(false);
   const [isLoadingCreator, setIsLoadingCreator] = useState(true);
@@ -188,6 +190,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
   return (
     <div className="h-full overflow-auto bg-slate-50">
       {/* Header */}
+      {!hideHeader && (
       <div className="sticky top-0 bg-white border-b border-slate-200 shadow-sm z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
           <button
@@ -203,6 +206,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
         {/* Info Banner */}

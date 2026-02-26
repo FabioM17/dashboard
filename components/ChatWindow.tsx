@@ -483,14 +483,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           
           // Detect message type based on file MIME type or extension
           let type: MessageType = 'file';
-          let displayText = 'File Attachment';
+          let displayText = 'Archivo adjunto';
           
           if (file.type.startsWith('image/')) {
               type = 'image';
-              displayText = 'Image Attachment';
+              displayText = 'Imagen adjunta';
           } else if (file.type.startsWith('audio/')) {
               type = 'audio';
-              displayText = 'Audio Attachment';
+              displayText = 'Audio adjunto';
           } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
               type = 'document';
               displayText = 'PDF Document';
@@ -779,7 +779,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               {isCompleted && msg.attachmentUrl && (
                   <div className="mt-3 bg-white p-2 rounded border border-slate-200 flex items-center gap-2">
                       <div className="bg-indigo-100 p-1.5 rounded-full text-indigo-600"><Play size={12}/></div>
-                      <a href={msg.attachmentUrl} target="_blank" className="text-xs font-medium text-indigo-600 hover:underline">Listen to Recording</a>
+                      <a href={msg.attachmentUrl} target="_blank" className="text-xs font-medium text-indigo-600 hover:underline">Escuchar grabación</a>
                   </div>
               )}
               
@@ -793,7 +793,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div className="flex h-full w-full">
         {/* MAIN CHAT AREA */}
-        <div className="flex flex-col h-full bg-[#efeae2] relative overflow-hidden flex-1 min-w-0">
+        <div className="flex flex-col h-full bg-[#efeae2] chat-bg relative overflow-hidden flex-1 min-w-0">
                 <LoadingOverlay show={isActionLoading} message={actionLoadingMsg || 'Procesando...'} />
                 <ResultOverlay
                     show={resultNotice.show}
@@ -1071,7 +1071,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                             <div className={`flex-1 bg-white rounded-lg flex items-center border shadow-sm relative ${isWindowClosed ? 'bg-slate-100' : ''}`}>
                                 <input 
                                     type="text" 
-                                    placeholder={isWindowClosed ? "Session expired. Send a Template to reopen." : "Type a message (Type / for snippets)"} 
+                                    placeholder={isWindowClosed ? "Sesión expirada. Envía una Plantilla para reabrir." : "Escribe un mensaje (escribe / para snippets)"} 
                                     className="flex-1 px-4 py-3 bg-transparent outline-none text-sm w-full" 
                                     value={inputText} 
                                     onChange={handleInputChange} 
@@ -1107,8 +1107,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             ) : (
                 !isViewer && (
                     <div className="flex gap-2 w-full">
-                        <input type="text" className="flex-1 px-4 py-3 bg-white border border-yellow-200 rounded-lg outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Add an internal note..." value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-                        <button onClick={handleSaveNote} className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-600">Save</button>
+                        <input type="text" className="flex-1 px-4 py-3 bg-white border border-yellow-200 rounded-lg outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Agregar nota interna..." value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+                        <button onClick={handleSaveNote} className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-600">Guardar</button>
                     </div>
                 )
             )}
@@ -1150,7 +1150,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                     </div>
                                 ))}
                                 {customProperties.length > 0 && (
-                                    <button onClick={handleSaveContact} className="w-full bg-emerald-600 text-white text-xs py-2 rounded mt-2">Update Properties</button>
+                                    <button onClick={handleSaveContact} className="w-full bg-emerald-600 text-white text-xs py-2 rounded mt-2">Actualizar propiedades</button>
                                 )}
                             </div>
                         </div>
@@ -1166,7 +1166,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 max-h-[80vh] flex flex-col">
                     <div className="flex justify-between items-center mb-4 border-b pb-2">
-                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><FileJson size={20} className="text-emerald-600"/> Send Template</h3>
+                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><FileJson size={20} className="text-emerald-600"/> Enviar Plantilla</h3>
                         <button onClick={() => setShowTemplateModal(false)}><X size={20} className="text-slate-400"/></button>
                     </div>
                     <div className="overflow-y-auto flex-1 space-y-4 pr-1">
@@ -1188,7 +1188,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         )}
                     </div>
                     <div className="mt-4 pt-2 border-t text-right">
-                        <button onClick={() => setShowTemplateModal(false)} className="text-slate-500 text-sm hover:underline">Cancel</button>
+                        <button onClick={() => setShowTemplateModal(false)} className="text-slate-500 text-sm hover:underline">Cancelar</button>
                     </div>
                 </div>
             </div>
@@ -1200,16 +1200,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 {/* ... CRM Modal Content ... */}
                   <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
                   <div className="flex justify-between items-center p-6 pb-4 border-b">
-                      <h3 className="text-lg font-bold text-slate-800">{existingContact ? 'Edit Contact' : 'Add to CRM'}</h3>
+                      <h3 className="text-lg font-bold text-slate-800">{existingContact ? 'Editar Contacto' : 'Agregar al CRM'}</h3>
                       <button onClick={()=>setShowContactModal(false)}><X size={20} className="text-slate-400"/></button>
                   </div>
                   <div className="overflow-y-auto flex-1 px-6 py-4">
                       <div className="space-y-3 mb-6">
-                        <label className="block text-xs font-bold text-slate-500 uppercase">Basic Info</label>
-                        <input type="text" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Full Name" value={contactForm.name} onChange={e=>setContactForm({...contactForm, name: e.target.value})} />
-                        <input type="email" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Email" value={contactForm.email} onChange={e=>setContactForm({...contactForm, email: e.target.value})} />
-                        <input type="tel" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Phone" value={contactForm.phone} onChange={e=>setContactForm({...contactForm, phone: e.target.value})} />
-                        <input type="text" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Company" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Información Básica</label>
+                        <input type="text" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Nombre completo" value={contactForm.name} onChange={e=>setContactForm({...contactForm, name: e.target.value})} />
+                        <input type="email" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Correo electrónico" value={contactForm.email} onChange={e=>setContactForm({...contactForm, email: e.target.value})} />
+                        <input type="tel" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Teléfono" value={contactForm.phone} onChange={e=>setContactForm({...contactForm, phone: e.target.value})} />
+                        <input type="text" className="w-full border border-slate-300 p-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" placeholder="Empresa" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
                       </div>
                       
                       {customProperties.length > 0 && (
@@ -1302,7 +1302,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                     properties: {...contactForm.properties, [prop.id]: e.target.value}
                                   })}
                                 >
-                                  <option value="">Select {prop.name}</option>
+                                  <option value="">Seleccionar {prop.name}</option>
                                   {(prop.options || []).map((option, idx) => (
                                     <option key={idx} value={option}>{option}</option>
                                   ))}
@@ -1314,8 +1314,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                       )}
                   </div>
                   <div className="flex gap-2 p-6 pt-4 border-t bg-white">
-                      <button onClick={handleSaveContact} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">Save Contact</button>
-                      <button onClick={()=>setShowContactModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-300 transition-colors">Cancel</button>
+                      <button onClick={handleSaveContact} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">Guardar Contacto</button>
+                      <button onClick={()=>setShowContactModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-300 transition-colors">Cancelar</button>
                   </div>
               </div>
             </div>
@@ -1324,12 +1324,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 {showTaskModal && (
                         <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
                                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
-                                    <h3 className="text-lg font-bold mb-4">New Task</h3>
-                                    <input type="text" className="w-full border p-2 rounded mb-3" placeholder="Task title" value={newTaskTitle} onChange={e=>setNewTaskTitle(e.target.value)} />
-                                    <textarea className="w-full border p-2 rounded mb-3 text-sm" placeholder="Description (optional)" rows={3} value={newTaskDescription} onChange={e=>setNewTaskDescription(e.target.value)} />
+                                    <h3 className="text-lg font-bold mb-4">Nueva Tarea</h3>
+                                    <input type="text" className="w-full border p-2 rounded mb-3" placeholder="Título de la tarea" value={newTaskTitle} onChange={e=>setNewTaskTitle(e.target.value)} />
+                                    <textarea className="w-full border p-2 rounded mb-3 text-sm" placeholder="Descripción (opcional)" rows={3} value={newTaskDescription} onChange={e=>setNewTaskDescription(e.target.value)} />
 
                                     <div className="grid grid-cols-1 gap-3 mb-3">
-                                        <label className="text-xs text-slate-600 font-medium">Assign to</label>
+                                        <label className="text-xs text-slate-600 font-medium">Asignar a</label>
                                         <div ref={assigneeRef} className="relative">
                                             <button
                                                 type="button"
@@ -1345,7 +1345,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                     ) : (
                                                         <>
                                                             <img src={currentUser.avatar} className="w-6 h-6 rounded-full" />
-                                                            <span className="truncate">{currentUser.name} (You)</span>
+                                                            <span className="truncate">{currentUser.name} (Tú)</span>
                                                         </>
                                                     )}
                                                 </div>
@@ -1363,13 +1363,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             </div>
                                                         </button>
                                                     )) : (
-                                                        <div className="p-3 text-xs text-slate-500">No team members found</div>
+                                                        <div className="p-3 text-xs text-slate-500">No hay miembros del equipo</div>
                                                     )}
                                                 </div>
                                             )}
                                         </div>
 
-                                        <label className="text-xs text-slate-600 font-medium">Due date / Schedule</label>
+                                        <label className="text-xs text-slate-600 font-medium">Fecha límite / Programar</label>
                                         <input
                                             type="datetime-local"
                                             value={newTaskDueDate}
@@ -1405,8 +1405,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                     </div>
 
                                     <div className="flex gap-2">
-                                            <button onClick={handleCreateTask} disabled={!!dueDateError || !newTaskTitle.trim() || isActionLoading} className={`flex-1 py-2 rounded ${!!dueDateError || !newTaskTitle.trim() || isActionLoading ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 text-white'}`}>Create</button>
-                                            <button onClick={()=>{setShowTaskModal(false); setNewTaskAssignee(currentUser.id); setNewTaskDueDate('');}} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded">Cancel</button>
+                                            <button onClick={handleCreateTask} disabled={!!dueDateError || !newTaskTitle.trim() || isActionLoading} className={`flex-1 py-2 rounded ${!!dueDateError || !newTaskTitle.trim() || isActionLoading ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 text-white'}`}>Crear</button>
+                                            <button onClick={()=>{setShowTaskModal(false); setNewTaskAssignee(currentUser.id); setNewTaskDueDate('');}} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded">Cancelar</button>
                                     </div>
                             </div>
                         </div>

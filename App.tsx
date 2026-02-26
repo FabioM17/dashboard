@@ -15,7 +15,8 @@ import WorkflowsScreen from './components/WorkflowsScreen';
 import PrivacyPolicyScreen from './components/PrivacyPolicyScreen';
 import DataDeletionPolicyScreen from './components/DataDeletionPolicyScreen';
 import DataDeletionScreen from './components/DataDeletionScreen';
-import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff, Zap } from 'lucide-react';
+import { AppearanceProvider } from './contexts/AppearanceContext';
 import { chatService } from './services/chatService';
 import { authService } from './services/authService';
 import { crmService } from './services/crmService';
@@ -760,7 +761,8 @@ const App: React.FC = () => {
                     ) : (
                         <div className="hidden md:flex flex-col items-center justify-center w-full h-full bg-[#f0f2f5] text-slate-400">
                             <div className="bg-white p-8 rounded-full shadow-sm mb-6"><MessageSquare size={64} className="text-emerald-500 opacity-80" /></div>
-                            <h3 className="text-xl font-light text-slate-700">Docre-A Web</h3>
+                            <h3 className="text-xl font-light text-slate-700">Selecciona una conversación</h3>
+                            <p className="text-sm text-slate-400 mt-2">Elige un chat de la lista para comenzar</p>
                         </div>
                     )}
                 </div>
@@ -852,95 +854,92 @@ const App: React.FC = () => {
     );
   }
 
+  const navItems = [
+      { view: 'chats' as DashboardView, icon: <MessageSquare size={20}/>, label: 'Conversaciones', roles: ['admin','manager','community'] },
+      { view: 'crm' as DashboardView, icon: <Users size={20}/>, label: 'CRM', roles: ['admin','manager'] },
+      { view: 'tasks' as DashboardView, icon: <CheckSquare size={20}/>, label: 'Tareas', roles: ['admin','manager'] },
+      { view: 'workflows' as DashboardView, icon: <Zap size={20}/>, label: 'Flujos', roles: ['admin','manager'] },
+      { view: 'stats' as DashboardView, icon: <BarChart3 size={20}/>, label: 'Estadísticas', roles: ['admin','manager'] },
+  ];
+
+  const visibleNav = navItems.filter(item =>
+    currentUser && (item.roles as string[]).includes(currentUser.role)
+  );
+
+  const roleLabels: Record<string, string> = { admin: 'Admin', manager: 'Gerente', community: 'Agente' };
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 relative">
-      <nav className="w-16 md:w-20 bg-slate-900 flex flex-col items-center py-6 gap-6 flex-shrink-0 z-50 shadow-xl">
-        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">D</div>
-        
-        {/* CHATS - All roles can access */}
-        <button 
-          onClick={() => setDashboardView('chats')} 
-          className={`p-3 rounded-xl transition-all ${dashboardView === 'chats' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-          title="Conversations"
-        >
-          <MessageSquare size={20} />
-        </button>
+    <AppearanceProvider userId={currentUser?.id}>
+    <div data-app-root className="flex h-screen w-screen overflow-hidden bg-slate-50 relative">
+      {/* ── Desktop Left Sidebar ─────────────────────────────────────── */}
+      <nav className="hidden sm:flex w-16 md:w-20 bg-slate-900 flex-col items-center py-6 gap-4 flex-shrink-0 z-50 shadow-xl overflow-y-auto">
+        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-2">D</div>
 
-        {/* CRM - Admin and Manager */}
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-          <button 
-            onClick={() => setDashboardView('crm')} 
-            className={`p-3 rounded-xl transition-all ${dashboardView === 'crm' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-            title="CRM & Contacts"
+        {visibleNav.map(item => (
+          <button
+            key={item.view}
+            onClick={() => setDashboardView(item.view)}
+            className={`p-3 rounded-xl transition-all ${dashboardView === item.view ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+            title={item.label}
           >
-            <Users size={20} />
+            {item.icon}
           </button>
-        )}
+        ))}
 
-        {/* TASKS - Admin and Manager */}
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-          <button 
-            onClick={() => setDashboardView('tasks')} 
-            className={`p-3 rounded-xl transition-all ${dashboardView === 'tasks' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-            title="Tasks"
-          >
-            <CheckSquare size={20} />
-          </button>
-        )}
-
-        {/* WORKFLOWS - Admin and Manager */}
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-          <button 
-            onClick={() => setDashboardView('workflows')} 
-            className={`p-3 rounded-xl transition-all ${dashboardView === 'workflows' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-            title="Workflows"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </button>
-        )}
-
-        {/* STATISTICS - Admin and Manager */}
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-          <button 
-            onClick={() => setDashboardView('stats')} 
-            className={`p-3 rounded-xl transition-all ${dashboardView === 'stats' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-            title="Statistics"
-          >
-            <BarChart3 size={20} />
-          </button>
-        )}
-
-        <div className="mt-auto flex flex-col gap-4">
-          {/* SETTINGS - All roles can access (community sees limited tabs: profile + data management) */}
-          <button 
-            onClick={() => setDashboardView('settings')} 
+        <div className="mt-auto flex flex-col items-center gap-3">
+          <button
+            onClick={() => setDashboardView('settings')}
             className={`p-3 rounded-xl transition-all ${dashboardView === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-            title="Settings"
+            title="Configuración"
           >
             <Settings size={20} />
           </button>
 
-          <button 
-            onClick={handleLogout} 
-            className="p-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all mt-2"
-            title="Logout"
+          <button
+            onClick={handleLogout}
+            className="p-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+            title="Cerrar sesión"
           >
             <LogOut size={20} />
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-slate-700 mt-2 border-2 border-slate-600 overflow-hidden" title={currentUser?.role}>
-            <img src={currentUser?.avatar} className="w-full h-full object-cover" />
+          <div className="w-8 h-8 rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden" title={roleLabels[currentUser?.role || ''] || currentUser?.role}>
+            <img src={currentUser?.avatar} className="w-full h-full object-cover" alt=""/>
           </div>
 
-          {/* Role Badge */}
-          <div className="text-xs text-center text-slate-400 font-semibold uppercase mt-2 px-2 py-1 bg-slate-800 rounded">
-            {currentUser?.role}
+          <div className="text-[9px] text-center text-slate-500 font-semibold uppercase px-1 py-0.5 bg-slate-800 rounded">
+            {roleLabels[currentUser?.role || ''] || currentUser?.role}
           </div>
         </div>
       </nav>
-      <main className="flex-1 overflow-hidden relative w-full">{renderDashboardContent()}</main>
+
+      {/* ── Main content ─────────────────── */}
+      <main className="flex-1 overflow-hidden relative w-full pb-14 sm:pb-0">{renderDashboardContent()}</main>
+
+      {/* ── Mobile Bottom Navigation ─────────────────────────────────── */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-50 flex items-center justify-around px-1 py-1">
+        {visibleNav.map(item => (
+          <button
+            key={item.view}
+            onClick={() => setDashboardView(item.view)}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-all min-w-0 ${
+              dashboardView === item.view ? 'text-emerald-400' : 'text-slate-500'
+            }`}
+          >
+            {React.cloneElement(item.icon as React.ReactElement<any>, { size: 18 })}
+            <span className="text-[8px] font-medium truncate max-w-[40px]">{item.label}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => setDashboardView('settings')}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-all min-w-0 ${
+            dashboardView === 'settings' ? 'text-emerald-400' : 'text-slate-500'
+          }`}
+        >
+          <Settings size={18}/>
+          <span className="text-[8px] font-medium">Ajustes</span>
+        </button>
+      </nav>
 
             {/* Global Result Overlay */}
             <ResultOverlay
@@ -960,32 +959,32 @@ const App: React.FC = () => {
       {/* FORCE PASSWORD CHANGE MODAL */}
       {showPasswordResetModal && (
           <div className="absolute inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
                   <div className="flex justify-center mb-6">
                       <div className="bg-emerald-100 p-4 rounded-full">
                           <Lock size={32} className="text-emerald-600"/>
                       </div>
                   </div>
-                  <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Set New Password</h2>
-                  <p className="text-center text-slate-500 mb-8">Please set a secure password for your account to continue.</p>
+                  <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Establece tu contraseña</h2>
+                  <p className="text-center text-slate-500 mb-8">Crea una contraseña segura para continuar usando tu cuenta.</p>
                   
                   <div className="space-y-4">
                       <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">New Password</label>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Nueva contraseña</label>
                           <input 
                               type="password" 
                               className="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" 
-                              placeholder="Min. 6 characters"
+                              placeholder="Mínimo 6 caracteres"
                               value={newPassword}
                               onChange={e => setNewPassword(e.target.value)}
                           />
                       </div>
                       <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Confirm Password</label>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Confirmar contraseña</label>
                           <input 
                               type="password" 
                               className="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" 
-                              placeholder="Repeat password"
+                              placeholder="Repite la contraseña"
                               value={confirmPassword}
                               onChange={e => setConfirmPassword(e.target.value)}
                           />
@@ -996,13 +995,14 @@ const App: React.FC = () => {
                           disabled={isResetting || !newPassword || !confirmPassword}
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 mt-4"
                       >
-                          {isResetting ? <Loader2 className="animate-spin"/> : 'Set Password & Login'}
+                          {isResetting ? <Loader2 className="animate-spin"/> : 'Guardar contraseña e ingresar'}
                       </button>
                   </div>
               </div>
           </div>
       )}
     </div>
+    </AppearanceProvider>
   );
 };
 export default App;

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code, ChevronDown, ChevronUp, Database } from 'lucide-react';
+import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code, ChevronDown, ChevronUp, Database, Palette, Sun, Moon, Type, Monitor } from 'lucide-react';
 import { WebhookConfig, ChannelConfig, User, UserRole, Snippet, Template } from '../types';
+import { useAppearance, AccentColor, ThemeMode, FontSize, ChatBg, UserAppearance } from '../contexts/AppearanceContext';
 import { MOCK_CHANNELS } from '../constants';
 import { chatService } from '../services/chatService';
 import { authService } from '../services/authService';
@@ -20,8 +21,10 @@ import ApiDocumentation from './ApiDocumentation';
 import DataDeletionScreen from './DataDeletionScreen';
 
 const SettingsScreen: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'retell' | 'templates' | 'snippets' | 'api' | 'data'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'retell' | 'templates' | 'snippets' | 'api' | 'data'>('profile');
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const { appearance, updateAppearance } = useAppearance();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Profile State
   const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
@@ -341,7 +344,7 @@ const SettingsScreen: React.FC = () => {
       
       // Validar teléfono si se proporciona
       if (inviteForm.phone && inviteForm.phone.trim() && !validationService.validatePhoneNumber(inviteForm.phone)) {
-          alert("Invalid phone number format. Use international format (E.164), e.g., +54911...");
+          alert("Formato de número inválido. Usa formato internacional (E.164), ej: +54911...");
           return;
       }
       
@@ -426,10 +429,10 @@ const SettingsScreen: React.FC = () => {
               support_email: supportEmail
           });
           setOrgDetailsSaveStatus('success');
-          alert('Organization details saved successfully!');
+          alert('¡Detalles guardados correctamente!');
       } catch (e: any) {
           setOrgDetailsSaveStatus('error');
-          alert('Error saving organization details: ' + e.message);
+          alert('Error al guardar los detalles: ' + e.message);
       } finally {
           setIsSavingOrgDetails(false);
       }
@@ -667,28 +670,54 @@ const SettingsScreen: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-8 py-6">
-        <h1 className="text-2xl font-bold text-slate-800">Settings & Configurations</h1>
-        <p className="text-slate-500">Manage your workspace, integrations, and developer tools.</p>
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 sm:py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Configuración</h1>
+            <p className="text-slate-500 text-sm">Gestiona tu espacio de trabajo, integraciones y herramientas.</p>
+          </div>
+          {/* Mobile sidebar toggle */}
+          <button
+            className="sm:hidden p-2 rounded-lg bg-slate-100 text-slate-600"
+            onClick={() => setSidebarOpen(s => !s)}
+          >
+            <ChevronDown size={18} className={`transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
         {currentUser && (
             <div className="flex items-center gap-2 mt-2">
                 <span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold
                     ${currentUser.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                    {currentUser.role}
+                    {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'manager' ? 'Gerente' : 'Agente'}
                 </span>
-                <p className="text-xs text-slate-400 font-mono">Org ID: {currentUser.organizationId}</p>
+                <p className="text-xs text-slate-400 font-mono hidden sm:block">Org: {currentUser.organizationId?.slice(0,8)}...</p>
             </div>
         )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-slate-200 p-4 space-y-1 overflow-y-auto">
+        {/* Sidebar — hidden on mobile unless open */}
+        <div className={`${
+            sidebarOpen ? 'flex' : 'hidden'
+          } sm:flex w-full sm:w-56 md:w-64 bg-white border-r border-slate-200 p-3 sm:p-4 space-y-1 overflow-y-auto flex-col absolute sm:relative z-10 top-0 bottom-0 left-0`}>
+
+          {/* Close btn mobile */}
+          <button className="sm:hidden flex justify-end mb-2" onClick={() => setSidebarOpen(false)}>
+            <XCircle size={20} className="text-slate-400" />
+          </button>
+
           <button 
-            onClick={() => setActiveTab('profile')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'profile' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
+            className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'profile' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
           >
-            <div className="flex items-center gap-2"><UserCog size={16}/> My Profile</div>
+            <div className="flex items-center gap-2"><UserCog size={15}/> Mi Perfil</div>
+          </button>
+
+          <button 
+            onClick={() => { setActiveTab('appearance'); setSidebarOpen(false); }}
+            className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'appearance' ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            <div className="flex items-center gap-2"><Palette size={15}/> Apariencia</div>
           </button>
 
           {/* Admin and Manager tabs */}
@@ -696,125 +725,264 @@ const SettingsScreen: React.FC = () => {
             <>
               <div className="my-2 border-b border-slate-100"></div>
               <button 
-                onClick={() => setActiveTab('general')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'general' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('general'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'general' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 General
               </button>
               <button 
-                onClick={() => setActiveTab('team')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'team' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('team'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'team' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                Team Management
+                Equipo
               </button>
             </>
           )}
 
-          {/* Only Admin can access these tabs */}
+          {/* Only Admin */}
           {currentUser?.role === 'admin' && (
             <>
               <button 
-                onClick={() => setActiveTab('channels')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'channels' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('channels'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'channels' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                Channels
+                Canales
               </button>
               <button 
-                onClick={() => setActiveTab('ai')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'ai' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('ai'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'ai' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><Sparkles size={16}/> AI Agent</div>
+                <div className="flex items-center gap-2"><Sparkles size={15}/> Agente IA</div>
               </button>
               <button 
-                onClick={() => setActiveTab('automation')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'automation' ? 'bg-orange-50 text-orange-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('automation'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'automation' ? 'bg-orange-50 text-orange-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><Workflow size={16}/> Automation (n8n)</div>
+                <div className="flex items-center gap-2"><Workflow size={15}/> Automatización (n8n)</div>
               </button>
               <button 
-                onClick={() => setActiveTab('retell')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'retell' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('retell'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'retell' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><PhoneCall size={16}/> Voice Bot (Retell)</div>
+                <div className="flex items-center gap-2"><PhoneCall size={15}/> Bot de Voz (Retell)</div>
               </button>
               <div className="my-2 border-b border-slate-100"></div>
               <button 
-                onClick={() => setActiveTab('api')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'api' ? 'bg-cyan-50 text-cyan-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('api'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'api' ? 'bg-cyan-50 text-cyan-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><Key size={16}/> API</div>
+                <div className="flex items-center gap-2"><Key size={15}/> API</div>
               </button>
             </>
           )}
 
-          {/* Templates and Snippets - Admin and Manager */}
+          {/* Templates & Snippets - Admin and Manager */}
           {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
             <>
               <button 
-                onClick={() => setActiveTab('templates')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'templates' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('templates'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'templates' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                Meta Templates
+                Plantillas Meta
               </button>
               <button 
-                onClick={() => setActiveTab('snippets')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'snippets' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('snippets'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'snippets' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 Snippets
               </button>
             </>
           )}
 
-          {/* Data Management - ALL roles can access */}
+          {/* Data Management - ALL roles */}
           <div className="my-2 border-b border-slate-100"></div>
           <button 
-            onClick={() => setActiveTab('data')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'data' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => { setActiveTab('data'); setSidebarOpen(false); }}
+            className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'data' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
           >
-            <div className="flex items-center gap-2"><Database size={16}/> Gestión de Datos</div>
+            <div className="flex items-center gap-2"><Database size={15}/> Gestión de Datos</div>
           </button>
           
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
           
           {activeTab === 'profile' && currentUser && (
               <div className="max-w-2xl space-y-6">
-                   <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                       <h3 className="text-lg font-semibold mb-6 flex items-center gap-2"><UserIcon size={20} className="text-emerald-600"/> My Profile</h3>
-                       <div className="flex items-center gap-6 mb-8">
-                           <img src={currentUser.avatar} className="w-20 h-20 rounded-full border-4 border-slate-100" />
+                   <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+                       <h3 className="text-lg font-semibold mb-6 flex items-center gap-2"><UserIcon size={20} className="text-emerald-600"/> Mi Perfil</h3>
+                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mb-8">
+                           <img src={currentUser.avatar} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-slate-100" />
                            <div>
                                <h4 className="text-xl font-bold text-slate-800">{currentUser.name}</h4>
                                <p className="text-slate-500">{currentUser.email}</p>
-                               <span className="inline-block mt-2 px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold uppercase rounded">{currentUser.role}</span>
+                               <span className="inline-block mt-2 px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold uppercase rounded">{currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'manager' ? 'Gerente' : 'Agente'}</span>
                            </div>
                        </div>
                        <div className="border-t pt-6">
-                           <h4 className="font-bold text-slate-700 mb-4">Change Password</h4>
+                           <h4 className="font-bold text-slate-700 mb-4">Cambiar Contraseña</h4>
                            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleUpdatePassword(); }}>
                                <div>
-                                   <label className="block text-sm font-medium text-slate-600 mb-1">New Password</label>
+                                   <label className="block text-sm font-medium text-slate-600 mb-1">Nueva contraseña</label>
                                    <input name="newPassword" type="password" className="w-full border p-2 rounded text-sm outline-none focus:ring-2 focus:ring-emerald-500" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
                                </div>
                                <div>
-                                   <label className="block text-sm font-medium text-slate-600 mb-1">Confirm New Password</label>
+                                   <label className="block text-sm font-medium text-slate-600 mb-1">Confirmar nueva contraseña</label>
                                    <input name="confirmPassword" type="password" className="w-full border p-2 rounded text-sm outline-none focus:ring-2 focus:ring-emerald-500" value={passwordForm.confirmPassword} onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
                                </div>
                                <button type="submit" disabled={isUpdatingPassword || !passwordForm.newPassword} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-900 disabled:opacity-50">
-                                   {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                                   {isUpdatingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
                                </button>
                            </form>
                        </div>
                    </div>
               </div>
           )}
+
+          {/* ===== APPEARANCE TAB ===== */}
+          {activeTab === 'appearance' && (
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Palette size={20} className="text-violet-600"/> Apariencia</h3>
+                <p className="text-sm text-slate-500 mt-1">Personaliza la interfaz según tus preferencias. Estos ajustes son solo para tu cuenta.</p>
+              </div>
+
+              {/* Theme */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><Monitor size={16}/> Tema</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {([['light', 'Claro', Sun], ['dark', 'Oscuro', Moon]] as [ThemeMode, string, React.FC<any>][]).map(([val, label, Icon]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateAppearance({ theme: val })}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                        appearance.theme === val
+                          ? 'border-violet-500 bg-violet-50 text-violet-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      <Icon size={18}/>
+                      <span className="font-medium text-sm">{label}</span>
+                      {appearance.theme === val && <CheckCircle size={14} className="ml-auto text-violet-600"/>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Accent Color */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><Palette size={16}/> Color de Acento</h4>
+                <div className="flex flex-wrap gap-3">
+                  {([
+                    ['emerald', 'Verde',  '#059669'],
+                    ['blue',    'Azul',   '#2563eb'],
+                    ['violet',  'Violeta','#7c3aed'],
+                    ['orange',  'Naranja','#ea580c'],
+                    ['rose',    'Rosa',   '#e11d48'],
+                  ] as [AccentColor, string, string][]).map(([val, label, hex]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateAppearance({ accentColor: val })}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-medium ${
+                        appearance.accentColor === val
+                          ? 'border-slate-800 shadow-md scale-105'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: hex }}></span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Font Size */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><Type size={16}/> Tamaño de Fuente</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {([['compact', 'Compacto', 'text-xs'], ['normal', 'Normal', 'text-sm'], ['large', 'Grande', 'text-base']] as [FontSize, string, string][]).map(([val, label, cls]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateAppearance({ fontSize: val })}
+                      className={`p-3 rounded-xl border-2 transition-all ${
+                        appearance.fontSize === val
+                          ? 'border-violet-500 bg-violet-50 text-violet-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      <span className={`${cls} font-medium block text-center`}>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chat Background */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h4 className="font-semibold text-slate-700 mb-4">Fondo del Chat</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {([
+                    ['default', 'Por defecto'],
+                    ['plain',   'Liso'],
+                    ['dots',    'Puntos'],
+                    ['lines',   'Líneas'],
+                  ] as [ChatBg, string][]).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateAppearance({ chatBg: val })}
+                      className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        appearance.chatBg === val
+                          ? 'border-violet-500 bg-violet-50 text-violet-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Border Radius */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h4 className="font-semibold text-slate-700 mb-4">Bordes</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {([
+                    ['none', 'Cuadrado'],
+                    ['sm',   'Sutil'],
+                    ['md',   'Medio'],
+                    ['xl',   'Redondeado'],
+                  ] as [UserAppearance['borderRadius'], string][]).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateAppearance({ borderRadius: val })}
+                      className={`p-3 border-2 text-sm font-medium transition-all ${
+                        appearance.borderRadius === val
+                          ? 'border-violet-500 bg-violet-50 text-violet-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      } ${ val === 'none' ? 'rounded-none' : val === 'sm' ? 'rounded' : val === 'md' ? 'rounded-lg' : 'rounded-xl'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reset button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => updateAppearance({ accentColor: 'emerald', theme: 'light', fontSize: 'normal', chatBg: 'default', borderRadius: 'xl', sidebarSize: 'normal' })}
+                  className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+                >
+                  Restablecer valores por defecto
+                </button>
+              </div>
+            </div>
+          )}
           
           {activeTab === 'general' && (
             <div className="max-w-2xl space-y-6">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Workspace Details</h3>
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-semibold mb-4">Detalles del Espacio de Trabajo</h3>
                 {isLoadingOrgDetails ? (
                     <div className="flex justify-center py-8">
                         <Loader2 className="animate-spin text-emerald-600" size={32} />
@@ -822,7 +990,7 @@ const SettingsScreen: React.FC = () => {
                 ) : (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la Empresa</label>
                         <input 
                             type="text" 
                             value={companyName} 
@@ -832,7 +1000,7 @@ const SettingsScreen: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Support Email</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Correo de Soporte</label>
                         <input 
                             type="email" 
                             value={supportEmail} 
@@ -849,21 +1017,21 @@ const SettingsScreen: React.FC = () => {
                                 className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isSavingOrgDetails ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
-                                Save Changes
+                                Guardar cambios
                             </button>
                             {orgDetailsSaveStatus === 'success' && (
                                 <span className="flex items-center gap-1 text-sm text-emerald-600">
-                                    <CheckCircle size={16} /> Saved successfully
+                                    <CheckCircle size={16} /> Guardado correctamente
                                 </span>
                             )}
                             {orgDetailsSaveStatus === 'error' && (
                                 <span className="flex items-center gap-1 text-sm text-red-600">
-                                    <XCircle size={16} /> Error saving
+                                    <XCircle size={16} /> Error al guardar
                                 </span>
                             )}
                         </div>
                       ) : (
-                          <p className="text-xs text-orange-600 flex items-center gap-1"><Lock size={12}/> View Only mode (Admin access required to edit)</p>
+                          <p className="text-xs text-orange-600 flex items-center gap-1"><Lock size={12}/> Solo lectura (se requiere acceso de Admin para editar)</p>
                       )}
                     </div>
                 )}
@@ -1123,8 +1291,8 @@ const SettingsScreen: React.FC = () => {
           {activeTab === 'channels' && (
               <div className="max-w-3xl space-y-6">
                  <div>
-                    <h3 className="text-lg font-semibold flex items-center gap-2"><Share2 size={20} className="text-emerald-600"/> Channels</h3>
-                    <p className="text-sm text-slate-500">Connect your social accounts to receive messages.</p>
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><Share2 size={20} className="text-emerald-600"/> Canales</h3>
+                    <p className="text-sm text-slate-500">Conecta tus cuentas sociales para recibir mensajes.</p>
                  </div>
 
                  {/* WhatsApp Business Account Card - Unified State Management */}
@@ -1137,15 +1305,15 @@ const SettingsScreen: React.FC = () => {
                            <div>
                                <h4 className="font-bold text-slate-800">
                                    {isWhatsAppConfigured 
-                                       ? 'WhatsApp Configuration' 
-                                       : 'WhatsApp Business Account'}
+                                       ? 'Configuración WhatsApp' 
+                                       : 'Cuenta WhatsApp Business'}
                                </h4>
                                <p className="text-sm text-slate-500">
                                    {isLoadingWhatsApp
-                                       ? 'Loading status...'
+                                       ? 'Cargando estado...'
                                        : isWhatsAppConfigured
-                                           ? `✅ Configurado - WABA: ${whatsappConfig?.waba_id || 'Active'}`
-                                           : 'Not connected'}
+                                           ? `✅ Configurado - WABA: ${whatsappConfig?.waba_id || 'Activo'}`
+                                           : 'No conectado'}
                                </p>
                            </div>
                        </div>
@@ -1173,7 +1341,7 @@ const SettingsScreen: React.FC = () => {
                            <button
                                onClick={() => toggleChannelExpand('whatsapp')}
                                className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                               title={expandedChannels['whatsapp'] ? 'Collapse' : 'Expand'}
+                               title={expandedChannels['whatsapp'] ? 'Contraer' : 'Expandir'}
                            >
                                {expandedChannels['whatsapp'] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                            </button>
@@ -1198,10 +1366,10 @@ const SettingsScreen: React.FC = () => {
                        <div className="bg-green-50 p-6 border-t border-slate-200 space-y-6">
                            {/* Current Configuration - Read Only */}
                            <div>
-                               <h5 className="font-semibold text-sm text-slate-800 mb-3">Current Configuration</h5>
+                               <h5 className="font-semibold text-sm text-slate-800 mb-3">Configuración Actual</h5>
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                    <div className="md:col-span-2">
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">📞 Phone Number</label>
+                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">📞 Número de Teléfono</label>
                                        <input 
                                            type="text" 
                                            readOnly 
@@ -1213,11 +1381,11 @@ const SettingsScreen: React.FC = () => {
                                            }`}
                                        />
                                        {!whatsappConfig.phone_number && (
-                                           <p className="text-xs text-yellow-600 mt-1">⏳ Retrieving phone number from WhatsApp API...</p>
+                                           <p className="text-xs text-yellow-600 mt-1">⏳ Obteniendo número desde WhatsApp API...</p>
                                        )}
                                    </div>
                                    <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Phone Number ID</label>
+                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">ID del Número</label>
                                        <input 
                                            type="text" 
                                            readOnly 
@@ -1230,7 +1398,7 @@ const SettingsScreen: React.FC = () => {
                                        <input 
                                            type="text" 
                                            readOnly 
-                                           value={whatsappConfig.waba_id || 'Not available'}
+                                           value={whatsappConfig.waba_id || 'No disponible'}
                                            className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-slate-600 text-sm font-mono"
                                        />
                                    </div>
@@ -1244,7 +1412,7 @@ const SettingsScreen: React.FC = () => {
                                        />
                                    </div>
                                    <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Source</label>
+                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Fuente</label>
                                        <input 
                                            type="text" 
                                            readOnly 
@@ -1384,11 +1552,11 @@ const SettingsScreen: React.FC = () => {
                     )}
                  </div>
 
-                 {/* Existing Channels - WhatsApp excluded */}
+                 {/* Canales existentes - WhatsApp excluido */}
                  <div className="grid gap-4">
                      {channels.filter(channel => channel.platform !== 'whatsapp').map(channel => (
                          <div key={channel.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <div className="p-6 flex items-center justify-between">
+                             <div className="p-4 sm:p-6 flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex items-center gap-4">
                                     <div className={`p-3 rounded-full 
                                         ${channel.platform === 'facebook' ? 'bg-blue-600 text-white' : 
@@ -1402,8 +1570,8 @@ const SettingsScreen: React.FC = () => {
                                         <h4 className="font-bold text-slate-800 capitalize">{channel.platform} Inbox</h4>
                                         <p className="text-sm text-slate-500">
                                             {channel.platform === 'facebook' || channel.platform === 'instagram'
-                                                ? 'Coming Soon'
-                                                : (channel.isConnected ? `Connected` : 'Not connected')}
+                                                ? 'Próximamente'
+                                                : (channel.isConnected ? 'Conectado y activo' : 'No conectado')}
                                         </p>
                                     </div>
                                 </div>
@@ -1417,15 +1585,15 @@ const SettingsScreen: React.FC = () => {
                                               : 'bg-emerald-600 text-white hover:bg-emerald-700'}
                                       `}
                                   >
-                                      {channel.isConnected ? 'Disconnect' : 'Setup'}
+                                      {channel.isConnected ? 'Desconectar' : 'Configurar'}
                                   </button>
                                 ) : (
-                                  <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Coming Soon</span>
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Próximamente</span>
                                 )}
                                 <button
                                     onClick={() => toggleChannelExpand(channel.id)}
                                     className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                                    title={expandedChannels[channel.id] ? 'Collapse' : 'Expand'}
+                                    title={expandedChannels[channel.id] ? 'Contraer' : 'Expandir'}
                                 >
                                     {expandedChannels[channel.id] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </button>
@@ -1435,10 +1603,10 @@ const SettingsScreen: React.FC = () => {
                                  <div className="px-6 pb-5 border-t border-slate-100 bg-slate-50">
                                      <p className="text-sm text-slate-500 pt-4">
                                          {channel.platform === 'facebook' || channel.platform === 'instagram'
-                                             ? 'This integration is coming soon. Stay tuned for updates.'
+                                             ? 'Esta integración estará disponible próximamente.'
                                              : channel.isConnected
-                                                 ? `${channel.platform} channel is connected and active.`
-                                                 : `Set up ${channel.platform} to start receiving messages.`}
+                                                 ? `${channel.platform} conectado y activo.`
+                                                 : `Configura ${channel.platform} para empezar a recibir mensajes.`}
                                      </p>
                                  </div>
                              )}
@@ -1451,26 +1619,26 @@ const SettingsScreen: React.FC = () => {
           {activeTab === 'ai' && (
               <div className="max-w-3xl space-y-6">
                  <div>
-                    <h3 className="text-lg font-semibold flex items-center gap-2"><Sparkles size={20} className="text-purple-600"/> AI Agent (Gemini)</h3>
-                    <p className="text-sm text-slate-500">Configure your AI assistant's personality and credentials.</p>
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><Sparkles size={20} className="text-purple-600"/> Agente IA (Gemini)</h3>
+                    <p className="text-sm text-slate-500">Configura la personalidad y credenciales de tu asistente IA.</p>
                  </div>
                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                      <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">Google Gemini API Key</label>
+                         <label className="block text-sm font-medium text-slate-700 mb-1">Clave API de Google Gemini</label>
                          <div className="flex gap-2">
                              <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm" />
-                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="px-3 py-2 bg-slate-100 text-slate-600 rounded-md text-sm hover:bg-slate-200 flex items-center gap-2">Get Key <ExternalLink size={14}/></a>
+                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="px-3 py-2 bg-slate-100 text-slate-600 rounded-md text-sm hover:bg-slate-200 flex items-center gap-2">Obtener clave <ExternalLink size={14}/></a>
                          </div>
-                         <p className="text-xs text-slate-500 mt-1">Your key is stored securely encrypted in your organization's settings.</p>
+                         <p className="text-xs text-slate-500 mt-1">Tu clave se almacena cifrada en los ajustes de tu organización.</p>
                      </div>
                      <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">Agent Persona (System Instruction)</label>
-                         <textarea value={systemInstruction} onChange={(e) => setSystemInstruction(e.target.value)} rows={6} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none text-sm" placeholder="You are a helpful customer support agent..." />
+                         <label className="block text-sm font-medium text-slate-700 mb-1">Personalidad del Agente (Instrucción del Sistema)</label>
+                         <textarea value={systemInstruction} onChange={(e) => setSystemInstruction(e.target.value)} rows={6} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none text-sm" placeholder="Eres un agente de soporte al cliente amable y profesional..." />
                      </div>
                      <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-3">
-                         {aiSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Saved successfully</span>}
-                         {aiSaveStatus === 'error' && <span className="text-xs text-red-600">Error saving configuration</span>}
-                         <button onClick={handleSaveAI} disabled={isSavingAI || !geminiKey} className="bg-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">{isSavingAI ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save AI Configuration</button>
+                         {aiSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
+                         {aiSaveStatus === 'error' && <span className="text-xs text-red-600">Error al guardar la configuración</span>}
+                         <button onClick={handleSaveAI} disabled={isSavingAI || !geminiKey} className="bg-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">{isSavingAI ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Guardar Configuración IA</button>
                      </div>
                  </div>
               </div>
@@ -1479,8 +1647,8 @@ const SettingsScreen: React.FC = () => {
           {activeTab === 'automation' && (
               <div className="max-w-3xl space-y-6">
                  <div>
-                    <h3 className="text-lg font-semibold flex items-center gap-2"><Workflow size={20} className="text-orange-600"/> Automation (n8n)</h3>
-                    <p className="text-sm text-slate-500">Connect your WhatsApp flow to n8n workflows for advanced logic.</p>
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><Workflow size={20} className="text-orange-600"/> Automatización (n8n)</h3>
+                    <p className="text-sm text-slate-500">Conecta tu flujo de WhatsApp a flujos de trabajo n8n para lógica avanzada.</p>
                  </div>
                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -1490,10 +1658,10 @@ const SettingsScreen: React.FC = () => {
                          </div>
                      </div>
                      <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">n8n Webhook URL (POST)</label>
+                         <label className="block text-sm font-medium text-slate-700 mb-1">URL del Webhook n8n (POST)</label>
                          <div className="flex gap-2">
                              <input type="url" value={n8nUrl} onChange={(e) => setN8nUrl(e.target.value)} placeholder="https://your-n8n-instance.com/webhook/..." className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm" />
-                             <button onClick={handleTestN8n} disabled={!n8nUrl || isTestingN8n} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-md text-sm font-medium hover:bg-slate-200 flex items-center gap-2 border border-slate-200">{isTestingN8n ? <Loader2 size={16} className="animate-spin"/> : <Activity size={16} />} Test Connection</button>
+                             <button onClick={handleTestN8n} disabled={!n8nUrl || isTestingN8n} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-md text-sm font-medium hover:bg-slate-200 flex items-center gap-2 border border-slate-200">{isTestingN8n ? <Loader2 size={16} className="animate-spin"/> : <Activity size={16} />} Probar Conexión</button>
                          </div>
                      </div>
                      <div className="bg-orange-50 border border-orange-100 rounded-lg p-4 text-sm text-orange-800">
@@ -1504,9 +1672,9 @@ const SettingsScreen: React.FC = () => {
                          </ul>
                      </div>
                      <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-3">
-                         {n8nSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Saved successfully</span>}
-                         {n8nSaveStatus === 'error' && <span className="text-xs text-red-600">Error saving configuration</span>}
-                         <button onClick={handleSaveN8n} disabled={isSavingN8n || !n8nUrl} className="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2">{isSavingN8n ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Save Automation Config</button>
+                         {n8nSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
+                         {n8nSaveStatus === 'error' && <span className="text-xs text-red-600">Error al guardar la configuración</span>}
+                         <button onClick={handleSaveN8n} disabled={isSavingN8n || !n8nUrl} className="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2">{isSavingN8n ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Guardar Automatización</button>
                      </div>
                  </div>
               </div>
@@ -1516,17 +1684,17 @@ const SettingsScreen: React.FC = () => {
               <div className="max-w-3xl space-y-6">
                  <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-lg font-semibold flex items-center gap-2"><PhoneCall size={20} className="text-indigo-600"/> Voice Bot (Retell AI via n8n)</h3>
-                        <p className="text-sm text-slate-500">Coming soon: outbound calling automation.</p>
+                        <h3 className="text-lg font-semibold flex items-center gap-2"><PhoneCall size={20} className="text-indigo-600"/> Bot de Voz (Retell AI vía n8n)</h3>
+                        <p className="text-sm text-slate-500">Próximamente: automatización de llamadas salientes.</p>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Coming Soon</span>
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Próximamente</span>
                  </div>
                  <div className="bg-white rounded-xl border border-dashed border-slate-200 shadow-sm p-6 space-y-4">
                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-700">
-                         Retell voice bot configuration will be available here shortly. Stay tuned.
+                         Retell ya estará disponible aquí pronto. Mantente atento.
                      </div>
                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                         <Lock size={14}/> Configuration is temporarily disabled.
+                         <Lock size={14}/> Configuración temporalmente deshabilitada.
                      </div>
                  </div>
               </div>
@@ -1536,12 +1704,12 @@ const SettingsScreen: React.FC = () => {
               <div className="max-w-4xl space-y-6">
                   <div className="flex justify-between items-center">
                       <div>
-                          <h3 className="text-lg font-semibold flex items-center gap-2"><FileJson size={20} className="text-emerald-600"/> Meta Templates</h3>
-                          <p className="text-sm text-slate-500">Sync templates created in Meta Business Manager.</p>
+                          <h3 className="text-lg font-semibold flex items-center gap-2"><FileJson size={20} className="text-emerald-600"/> Plantillas Meta</h3>
+                          <p className="text-sm text-slate-500">Sincroniza plantillas creadas en Meta Business Manager.</p>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={handleSyncTemplates} disabled={isSyncingTemplates} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50">
-                            {isSyncingTemplates ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>} Sync from Meta
+                            {isSyncingTemplates ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>} Sincronizar desde Meta
                         </button>
                       </div>
                   </div>
@@ -1550,8 +1718,8 @@ const SettingsScreen: React.FC = () => {
                   ) : templates.length === 0 ? (
                       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-10 text-center">
                            <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><FileJson size={32}/></div>
-                           <h3 className="font-bold text-slate-700">No Templates Found</h3>
-                           <p className="text-slate-500 text-sm mb-6">Create templates in Meta Business Manager, then click Sync.</p>
+                           <h3 className="font-bold text-slate-700">Sin Plantillas</h3>
+                           <p className="text-slate-500 text-sm mb-6">Crea las plantillas en Meta Business Manager y luego haz clic en Sincronizar.</p>
                        </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1733,14 +1901,14 @@ const SettingsScreen: React.FC = () => {
           {activeTab === 'snippets' && (
               <div className="max-w-4xl space-y-6">
                   <div className="flex justify-between items-center">
-                      <div><h3 className="text-lg font-semibold flex items-center gap-2"><Zap size={20} className="text-emerald-600"/> Snippets</h3><p className="text-sm text-slate-500">Create quick shortcuts (e.g., /hi) for common replies.</p></div>
-                      <button onClick={() => setShowSnippetModal(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2"><Plus size={16} /> New Snippet</button>
+                      <div><h3 className="text-lg font-semibold flex items-center gap-2"><Zap size={20} className="text-emerald-600"/> Snippets</h3><p className="text-sm text-slate-500">Crea atajos (ej: /hola) para respuestas rápidas.</p></div>
+                      <button onClick={() => setShowSnippetModal(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2"><Plus size={16} /> Nuevo Snippet</button>
                   </div>
                   {isLoadingSnippets ? (<div className="flex justify-center p-10"><Loader2 className="animate-spin text-emerald-600"/></div>) : snippets.length === 0 ? (
                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-10 text-center">
                            <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Zap size={32}/></div>
-                           <h3 className="font-bold text-slate-700">No Snippets Yet</h3>
-                           <button onClick={handleSeedSnippets} className="text-emerald-600 text-sm font-medium hover:underline flex items-center justify-center gap-2 mt-2"><RefreshCw size={14}/> Load Example Defaults</button>
+                           <h3 className="font-bold text-slate-700">Sin Snippets Aún</h3>
+                           <button onClick={handleSeedSnippets} className="text-emerald-600 text-sm font-medium hover:underline flex items-center justify-center gap-2 mt-2"><RefreshCw size={14}/> Cargar Ejemplos</button>
                        </div>
                   ) : (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -1762,14 +1930,21 @@ const SettingsScreen: React.FC = () => {
           )}
 
           {activeTab === 'data' && currentUser && (
-            <DataDeletionScreen
-              currentUser={currentUser}
-              onBack={() => setActiveTab('profile')}
-              onOrganizationDeleted={async () => {
-                await authService.signOut();
-                window.location.href = '/';
-              }}
-            />
+            <div className="max-w-3xl space-y-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Database size={20} className="text-red-600"/> Gestión de Datos</h3>
+                <p className="text-sm text-slate-500">Eliminación y privacidad de datos. Las acciones son permanentes e irreversibles.</p>
+              </div>
+              <DataDeletionScreen
+                currentUser={currentUser}
+                onBack={() => setActiveTab('profile')}
+                hideHeader={true}
+                onOrganizationDeleted={async () => {
+                  await authService.signOut();
+                  window.location.href = '/';
+                }}
+              />
+            </div>
           )}
 
           
@@ -1781,20 +1956,20 @@ const SettingsScreen: React.FC = () => {
        {showSnippetModal && (
           <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                  <h3 className="text-lg font-bold text-slate-800 mb-1">Create Snippet</h3>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">Crear Snippet</h3>
                   <div className="space-y-4">
                       <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase">Shortcut</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase">Atajo</label>
                           <input type="text" className="w-full border p-2 rounded text-sm mt-1 font-mono text-emerald-600" placeholder="/example" value={snippetForm.shortcut} onChange={e => setSnippetForm({...snippetForm, shortcut: e.target.value})} />
                       </div>
                       <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase">Full Message Content</label>
-                          <textarea rows={4} className="w-full border p-2 rounded text-sm mt-1" placeholder="Type message..." value={snippetForm.content} onChange={e => setSnippetForm({...snippetForm, content: e.target.value})} />
+                          <label className="text-xs font-bold text-slate-600 uppercase">Contenido del Mensaje</label>
+                          <textarea rows={4} className="w-full border p-2 rounded text-sm mt-1" placeholder="Escribe el mensaje..." value={snippetForm.content} onChange={e => setSnippetForm({...snippetForm, content: e.target.value})} />
                       </div>
                   </div>
                   <div className="flex gap-2 mt-6">
-                      <button onClick={handleCreateSnippet} disabled={!snippetForm.shortcut || !snippetForm.content} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">Save Snippet</button>
-                      <button onClick={() => setShowSnippetModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-300">Cancel</button>
+                      <button onClick={handleCreateSnippet} disabled={!snippetForm.shortcut || !snippetForm.content} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50">Guardar Snippet</button>
+                      <button onClick={() => setShowSnippetModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-300">Cancelar</button>
                   </div>
               </div>
           </div>
@@ -1810,14 +1985,14 @@ const SettingsScreen: React.FC = () => {
                           <div className="flex items-center gap-3 mb-4">
                               <div className="p-2 bg-green-100 rounded-lg"><CheckCircle size={24} className="text-green-600" /></div>
                               <div>
-                                  <h3 className="text-lg font-bold text-slate-800">API Key Created!</h3>
-                                  <p className="text-xs text-slate-500">Copy and save your key now. It won't be shown again.</p>
+                                  <h3 className="text-lg font-bold text-slate-800">¡Clave API Creada!</h3>
+                                  <p className="text-xs text-slate-500">Copia y guarda tu clave ahora. No se mostrará de nuevo.</p>
                               </div>
                           </div>
                           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
                               <p className="text-xs text-amber-800 flex items-center gap-1">
                                   <AlertTriangle size={14} />
-                                  <strong>Important:</strong> This is the only time the full key will be displayed. Save it securely.
+                                  <strong>Importante:</strong> Esta es la única vez que se mostrará la clave completa. Guárdala de forma segura.
                               </p>
                           </div>
                           <div className="bg-slate-900 rounded-lg p-4 flex items-center justify-between gap-2">
@@ -1828,7 +2003,7 @@ const SettingsScreen: React.FC = () => {
                               onClick={() => { setShowCreateKeyModal(false); setNewlyCreatedKey(null); }}
                               className="w-full mt-4 bg-slate-800 text-white py-2.5 rounded-lg font-medium hover:bg-slate-900 transition-colors"
                           >
-                              Done
+                              Hecho
                           </button>
                       </div>
                   ) : (
@@ -1837,24 +2012,24 @@ const SettingsScreen: React.FC = () => {
                           <div className="flex items-center gap-3 mb-4">
                               <div className="p-2 bg-cyan-100 rounded-lg"><Key size={24} className="text-cyan-600" /></div>
                               <div>
-                                  <h3 className="text-lg font-bold text-slate-800">Create API Key</h3>
-                                  <p className="text-xs text-slate-500">Generate a new key for external integrations</p>
+                                  <h3 className="text-lg font-bold text-slate-800">Crear Clave API</h3>
+                                  <p className="text-xs text-slate-500">Genera una nueva clave para integraciones externas</p>
                               </div>
                           </div>
                           <div className="space-y-4">
                               <div>
-                                  <label className="text-xs font-bold text-slate-600 uppercase">Key Name <span className="text-red-500">*</span></label>
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Nombre de la Clave <span className="text-red-500">*</span></label>
                                   <input
                                       type="text"
                                       className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
-                                      placeholder="e.g., Production Key, n8n Integration"
+                                      placeholder="Ej: Clave Producción, Integración n8n"
                                       value={newKeyForm.name}
                                       onChange={e => setNewKeyForm({ ...newKeyForm, name: e.target.value })}
                                   />
                               </div>
                               <div>
-                                  <label className="text-xs font-bold text-slate-600 uppercase">Scopes <span className="text-red-500">*</span></label>
-                                  <p className="text-[10px] text-slate-400 mb-2">Select which permissions this key should have:</p>
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Permisos <span className="text-red-500">*</span></label>
+                                  <p className="text-[10px] text-slate-400 mb-2">Selecciona los permisos que tendrá esta clave:</p>
                                   <div className="space-y-2 max-h-48 overflow-y-auto">
                                       {API_SCOPES.map(scope => (
                                           <label key={scope.value} className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
@@ -1879,7 +2054,7 @@ const SettingsScreen: React.FC = () => {
                                   </div>
                               </div>
                               <div>
-                                  <label className="text-xs font-bold text-slate-600 uppercase">Expiration Date (Optional)</label>
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Fecha de Expiración (Opcional)</label>
                                   <input
                                       type="date"
                                       className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
@@ -1887,7 +2062,7 @@ const SettingsScreen: React.FC = () => {
                                       onChange={e => setNewKeyForm({ ...newKeyForm, expiresAt: e.target.value })}
                                       min={new Date().toISOString().split('T')[0]}
                                   />
-                                  <p className="text-[10px] text-slate-400 mt-1">Leave empty for a key that never expires</p>
+                                  <p className="text-[10px] text-slate-400 mt-1">Deja vacío para una clave que nunca expire</p>
                               </div>
                           </div>
                           <div className="flex gap-2 mt-6">
@@ -1896,14 +2071,14 @@ const SettingsScreen: React.FC = () => {
                                   disabled={isCreatingKey || !newKeyForm.name || newKeyForm.scopes.length === 0}
                                   className="flex-1 bg-cyan-600 text-white py-2.5 rounded-lg font-medium hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                               >
-                                  {isCreatingKey ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Key size={16} /> Generate Key</>)}
+                                  {isCreatingKey ? (<><Loader2 size={16} className="animate-spin" /> Generando...</>) : (<><Key size={16} /> Generar Clave</>)}
                               </button>
                               <button
                                   onClick={() => { setShowCreateKeyModal(false); setNewKeyForm({ name: '', scopes: [], expiresAt: '' }); }}
                                   disabled={isCreatingKey}
                                   className="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50 transition-colors"
                               >
-                                  Cancel
+                                  Cancelar
                               </button>
                           </div>
                       </div>
@@ -1921,8 +2096,8 @@ const SettingsScreen: React.FC = () => {
                           <UserIcon size={24} className="text-emerald-600"/>
                       </div>
                       <div>
-                          <h3 className="text-lg font-bold text-slate-800">Invite Team Member</h3>
-                          <p className="text-xs text-slate-500">Send an invitation to join your organization</p>
+                          <h3 className="text-lg font-bold text-slate-800">Invitar Miembro</h3>
+                          <p className="text-xs text-slate-500">Enviar una invitación para unirse a tu organización</p>
                       </div>
                   </div>
                   
@@ -1942,12 +2117,12 @@ const SettingsScreen: React.FC = () => {
                       
                       <div>
                           <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <UserIcon size={12}/> Full Name <span className="text-red-500">*</span>
+                              <UserIcon size={12}/> Nombre Completo <span className="text-red-500">*</span>
                           </label>
                           <input 
                               type="text" 
                               className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
-                              placeholder="John Doe" 
+                              placeholder="Juan Pérez" 
                               value={inviteForm.name} 
                               onChange={e => setInviteForm({...inviteForm, name: e.target.value})} 
                           />
@@ -1955,7 +2130,7 @@ const SettingsScreen: React.FC = () => {
                       
                       <div>
                           <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <PhoneCall size={12}/> Phone Number (Optional)
+                              <PhoneCall size={12}/> Número de Teléfono (Opcional)
                           </label>
                           <input 
                               type="tel" 
@@ -1966,29 +2141,29 @@ const SettingsScreen: React.FC = () => {
                           />
                           <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                               <AlertTriangle size={10}/>
-                              Use international format (E.164), e.g., +54911234567
+                              Usa formato internacional (E.164), ej: +54911234567
                           </p>
                       </div>
                       
                       <div>
                           <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <UserCog size={12}/> Role <span className="text-red-500">*</span>
+                              <UserCog size={12}/> Rol <span className="text-red-500">*</span>
                           </label>
                           <select 
                               value={inviteForm.role} 
                               onChange={e => setInviteForm({...inviteForm, role: e.target.value as UserRole})} 
                               className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                           >
-                              <option value="admin">Admin - Full access to all features</option>
-                              <option value="manager">Manager - Manage team and view reports</option>
-                              <option value="community">Community - Basic access</option>
+                              <option value="admin">Admin - Acceso completo a todas las funciones</option>
+                              <option value="manager">Gerente - Gestiona el equipo y ve reportes</option>
+                              <option value="community">Agente - Acceso básico</option>
                           </select>
                       </div>
                   </div>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
                       <p className="text-xs text-blue-800">
-                          <strong>Note:</strong> An invitation email will be sent to the user with instructions to set their password and join your organization.
+                          <strong>Nota:</strong> Se enviará un correo de invitación al usuario con instrucciones para establecer su contraseña y unirse a tu organización.
                       </p>
                   </div>
                   
@@ -2001,12 +2176,12 @@ const SettingsScreen: React.FC = () => {
                           {isInviting ? (
                               <>
                                   <Loader2 size={16} className="animate-spin"/>
-                                  Sending...
+                                  Enviando...
                               </>
                           ) : (
                               <>
                                   <Mail size={16}/>
-                                  Send Invitation
+                                  Enviar Invitación
                               </>
                           )}
                       </button>
@@ -2018,7 +2193,7 @@ const SettingsScreen: React.FC = () => {
                           disabled={isInviting}
                           className="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50 transition-colors"
                       >
-                          Cancel
+                          Cancelar
                       </button>
                   </div>
               </div>

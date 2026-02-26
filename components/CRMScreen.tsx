@@ -871,20 +871,29 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                     onClose={() => setResultNotice({ ...resultNotice, show: false })}
                     autoCloseMs={3000}
                 />
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-800">CRM</h2>
-            <div className="flex gap-2 items-center">
-              <button onClick={handleExportExcel} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-700">Export Excel</button>
-              <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-emerald-700">Import Excel</button>
-              <input type="file" accept=".xlsx,.xls" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportExcel} />
-              <div className="flex bg-slate-100 p-1 rounded-lg ml-2">
-                  <button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'contacts' ? 'bg-white shadow' : 'text-slate-500'}`}>Contacts</button>
-                  <button onClick={() => setActiveTab('pipeline')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'pipeline' ? 'bg-white shadow' : 'text-slate-500'}`}>Pipeline</button>
-                  <button onClick={() => setActiveTab('properties')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'properties' ? 'bg-white shadow' : 'text-slate-500'}`}>Properties</button>
-                  <button onClick={() => setActiveTab('lists')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'lists' ? 'bg-white shadow' : 'text-slate-500'}`}>Lists</button>
-                  <button onClick={() => setActiveTab('campaigns')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'campaigns' ? 'bg-white shadow' : 'text-slate-500'}`}>Campaigns</button>
+        <div className="bg-white border-b border-slate-200 px-3 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center justify-between sm:justify-start">
+              <h2 className="text-xl font-bold text-slate-800">CRM</h2>
+              <div className="flex sm:hidden gap-1 ml-auto">
+                <button onClick={handleExportExcel} className="bg-blue-600 text-white px-2 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700">Exportar</button>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-2 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-700">Importar</button>
+                <input type="file" accept=".xlsx,.xls" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportExcel} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <div className="hidden sm:flex gap-1 flex-shrink-0">
+                <button onClick={handleExportExcel} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-700 whitespace-nowrap">Exportar Excel</button>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-emerald-700 whitespace-nowrap">Importar Excel</button>
+                <input type="file" accept=".xlsx,.xls" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportExcel} />
+              </div>
+              <div className="flex bg-slate-100 p-1 rounded-lg flex-shrink-0">
+                  <button onClick={() => setActiveTab('contacts')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'contacts' ? 'bg-white shadow' : 'text-slate-500'}`}>Contactos</button>
+                  <button onClick={() => setActiveTab('pipeline')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'pipeline' ? 'bg-white shadow' : 'text-slate-500'}`}>Pipeline</button>
+                  <button onClick={() => setActiveTab('properties')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'properties' ? 'bg-white shadow' : 'text-slate-500'}`}>Propiedades</button>
+                  <button onClick={() => setActiveTab('lists')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'lists' ? 'bg-white shadow' : 'text-slate-500'}`}>Listas</button>
+                  <button onClick={() => setActiveTab('campaigns')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'campaigns' ? 'bg-white shadow' : 'text-slate-500'}`}>Campañas</button>
                   {isManagerOrAdmin && (
-                    <button onClick={() => setActiveTab('assignments')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'assignments' ? 'bg-white shadow' : 'text-slate-500'}`}>
+                    <button onClick={() => setActiveTab('assignments')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'assignments' ? 'bg-white shadow' : 'text-slate-500'}`}>
                       <span className="flex items-center gap-1"><UserPlus size={14} /> Asignaciones</span>
                     </button>
                   )}
@@ -895,7 +904,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
             {showImportModal && importHeaders.length > 0 && (
                 <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
-                        <h3 className="text-lg font-bold mb-4">Map Excel Columns</h3>
+                        <h3 className="text-lg font-bold mb-4">Mapear columnas Excel</h3>
                         {existingImportCount > 0 && (
                             <div className="mb-3 p-3 border rounded bg-yellow-50 text-sm text-slate-700">
                                 <div>Hay <strong>{existingImportCount}</strong> contactos que ya existen y se van a actualizar si marcas la casilla.</div>
@@ -910,7 +919,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                         )}
                         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Base Fields</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Campos base</label>
                                 {['name','email','phone','company','pipelineStageId'].map(field => (
                                     <div key={field} className="mb-2 flex items-center gap-2">
                                         <span className="w-40 text-xs text-slate-700 font-medium">{field}</span>
@@ -919,7 +928,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                             value={importMapping[field] || ''}
                                             onChange={e => setImportMapping(m => ({ ...m, [field]: e.target.value }))}
                                         >
-                                            <option value="">-- Not Mapped --</option>
+                                            <option value="">-- Sin mapear --</option>
                                             {importHeaders.map(h => (
                                                 <option key={h} value={h}>{h}</option>
                                             ))}
@@ -937,7 +946,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                             value={importMapping[p.id] || ''}
                                             onChange={e => setImportMapping(m => ({ ...m, [p.id]: e.target.value }))}
                                         >
-                                            <option value="">-- Not Mapped --</option>
+                                            <option value="">-- Sin mapear --</option>
                                             {importHeaders.map(h => (
                                                 <option key={h} value={h}>{h}</option>
                                             ))}
@@ -947,14 +956,14 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                             </div>
                         </div>
                         <div className="flex gap-2 mt-6">
-                            <button onClick={handleImportSubmit} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Import</button>
-                            <button onClick={() => setShowImportModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium">Cancel</button>
+                            <button onClick={handleImportSubmit} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Importar</button>
+                            <button onClick={() => setShowImportModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium">Cancelar</button>
                         </div>
                     </div>
                 </div>
             )}
 
-      <div className="flex-1 overflow-auto bg-slate-50 p-6">
+      <div className="flex-1 overflow-auto bg-slate-50 p-3 sm:p-6">
         {/* Contacts View */}
                 {activeTab === 'contacts' && (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible"> 
@@ -1046,11 +1055,11 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                   {selectedContacts.size > 0 && selectedContacts.size === filteredContacts.length ? <CheckSquare size={18} /> : <Square size={18} />}
                                 </button>
                               </th>
-                              <th className="px-6 py-4">Name</th>
-                              <th className="px-6 py-4">Email</th>
-                              <th className="px-6 py-4">Company</th>
-                              <th className="px-6 py-4">Stage</th>
-                              <th className="px-6 py-4">Actions</th>
+                              <th className="px-6 py-4">Nombre</th>
+                              <th className="px-6 py-4 hidden sm:table-cell">Correo</th>
+                              <th className="px-6 py-4 hidden md:table-cell">Empresa</th>
+                              <th className="px-6 py-4 hidden sm:table-cell">Etapa</th>
+                              <th className="px-6 py-4">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -1066,9 +1075,9 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full bg-slate-200" />
                                         {contact.name}
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600">{contact.email || '-'}</td>
-                                    <td className="px-6 py-4 text-slate-600">{contact.company || '-'}</td>
-                                    <td className="px-6 py-4"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{MOCK_PIPELINES.find(p => p.id === contact.pipelineStageId)?.name}</span></td>
+                                    <td className="px-6 py-4 text-slate-600 hidden sm:table-cell">{contact.email || '-'}</td>
+                                    <td className="px-6 py-4 text-slate-600 hidden md:table-cell">{contact.company || '-'}</td>
+                                    <td className="px-6 py-4 hidden sm:table-cell"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{MOCK_PIPELINES.find(p => p.id === contact.pipelineStageId)?.name}</span></td>
                                     <td className="px-6 py-4 relative">
                                         <div className="flex items-center gap-2">
                                             {onChatSelect && (
@@ -1113,7 +1122,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                               <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full border border-slate-100" />
                                               <div>
                                                   <h4 className="font-bold text-slate-800 text-sm">{contact.name}</h4>
-                                                  <p className="text-xs text-slate-500">{contact.company || 'No Company'}</p>
+                                                  <p className="text-xs text-slate-500">{contact.company || 'Sin empresa'}</p>
                                               </div>
                                          </div>
                                     </div>
@@ -2210,10 +2219,10 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                                 {contactFormError && (
                                                     <div className="bg-red-50 text-red-700 px-3 py-2 rounded mb-2 text-xs font-semibold border border-red-200">{contactFormError}</div>
                                                 )}
-                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Full Name" value={contactForm.name} onChange={e=>setContactForm({...contactForm, name: e.target.value})} />
-                        <input type="email" className="w-full border p-2 rounded text-sm" placeholder="Email" value={contactForm.email} onChange={e=>setContactForm({...contactForm, email: e.target.value})} />
-                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Phone" value={contactForm.phone} onChange={e=>setContactForm({...contactForm, phone: e.target.value})} />
-                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Company" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
+                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Nombre completo" value={contactForm.name} onChange={e=>setContactForm({...contactForm, name: e.target.value})} />
+                        <input type="email" className="w-full border p-2 rounded text-sm" placeholder="Correo electrónico" value={contactForm.email} onChange={e=>setContactForm({...contactForm, email: e.target.value})} />
+                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Teléfono" value={contactForm.phone} onChange={e=>setContactForm({...contactForm, phone: e.target.value})} />
+                        <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Empresa" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
                         <label className="block text-xs font-bold text-slate-500 mt-4 uppercase">Stage</label>
                         <select className="w-full border p-2 rounded text-sm" value={contactForm.pipelineStageId} onChange={e=>setContactForm({...contactForm, pipelineStageId: e.target.value})}>
                             {MOCK_PIPELINES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2298,7 +2307,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                             </div>
                         )}
                      </div>
-                     <div className="flex gap-2 mt-4"><button onClick={handleSaveContact} className="flex-1 bg-emerald-600 text-white py-2 rounded">Save</button><button onClick={()=>setShowContactModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded">Cancel</button></div>
+                     <div className="flex gap-2 mt-4"><button onClick={handleSaveContact} className="flex-1 bg-emerald-600 text-white py-2 rounded">Guardar</button><button onClick={()=>setShowContactModal(false)} className="flex-1 bg-slate-200 text-slate-700 py-2 rounded">Cancelar</button></div>
                 </div>
             </div>
         )}
@@ -2325,7 +2334,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
             <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                  <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
                      <h3 className="text-lg font-bold text-slate-800 mb-4">Add Custom Property</h3>
-                     <input type="text" className="w-full border p-2 rounded mb-3" placeholder="Property Name" value={newPropName} onChange={e => setNewPropName(e.target.value)} />
+                     <input type="text" className="w-full border p-2 rounded mb-3" placeholder="Nombre de la propiedad" value={newPropName} onChange={e => setNewPropName(e.target.value)} />
                      <select className="w-full border p-2 rounded mb-3" value={newPropType} onChange={e => setNewPropType(e.target.value as any)}>
                          <option value="text">Text</option>
                          <option value="number">Number</option>
@@ -2341,14 +2350,14 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                              <input 
                                  type="text" 
                                  className="w-full border p-2 rounded text-sm" 
-                                 placeholder="Option 1, Option 2, Option 3" 
+                                 placeholder="Opción 1, Opción 2, Opción 3" 
                                  value={newPropOptions} 
                                  onChange={e => setNewPropOptions(e.target.value)} 
                              />
                              <p className="text-xs text-slate-400 mt-1">Example: Lead, Qualified, Customer</p>
                          </div>
                      )}
-                     <button onClick={handleCreateProperty} className="w-full bg-emerald-600 text-white py-2 rounded">Save</button>
+                     <button onClick={handleCreateProperty} className="w-full bg-emerald-600 text-white py-2 rounded">Guardar</button>
                      <button onClick={()=>setShowPropModal(false)} className="w-full bg-slate-200 text-slate-700 py-2 rounded mt-2">Cancel</button>
                  </div>
             </div>

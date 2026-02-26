@@ -94,7 +94,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
   } : { whatsapp: '0', instagram: '0', messenger: '0', web: '0' };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto p-8 relative">
+    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto p-3 sm:p-6 lg:p-8 relative">
       
       {/* WhatsApp Configuration Warning */}
       {!whatsapp.configured && (
@@ -135,7 +135,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
                 ? 'text-yellow-800'
                 : 'text-red-800'
             }`}>
-              WhatsApp Business Status: {whatsapp.phoneNumberQuality.quality_rating}
+              Estado WhatsApp Business: {whatsapp.phoneNumberQuality.quality_rating}
             </h3>
             <p className="text-sm text-slate-600">
               {whatsapp.phoneNumberInfo?.display_phone_number && (
@@ -151,11 +151,10 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Header with Refresh */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Analytics Dashboard</h1>
-          <p className="text-slate-500">Datos en tiempo real de tu plataforma y WhatsApp Business</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Panel de Analíticas</h1>
+          <p className="text-slate-500 text-sm">Datos en tiempo real de tu plataforma y WhatsApp Business</p>
           <p className="text-xs text-slate-400 mt-1">
             Última actualización: {new Date(analyticsData.lastUpdated).toLocaleString()}
           </p>
@@ -163,7 +162,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all self-start sm:self-auto"
         >
           <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           Actualizar
@@ -171,10 +170,10 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
         {[
           { 
-            title: 'Total Messages', 
+            title: 'Total Mensajes', 
             value: database.totalMessages.toLocaleString(), 
             change: database.changes.totalMessages, 
             icon: MessageSquare, 
@@ -182,7 +181,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
             subtitle: `${database.totalSent} enviados • ${database.totalReceived} recibidos`
           },
           { 
-            title: 'Active Conversations', 
+            title: 'Conversaciones Activas', 
             value: database.activeConversations.toString(), 
             change: database.changes.activeConversations, 
             icon: Users, 
@@ -190,15 +189,15 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
             subtitle: `${database.conversationsByStatus.closed} cerradas • ${database.conversationsByStatus.snoozed} pospuestas`
           },
           { 
-            title: 'Avg Response Time', 
+            title: 'T. Respuesta Prom.', 
             value: database.avgResponseTime, 
             change: database.changes.avgResponseTime, 
             icon: Clock, 
             color: 'bg-orange-500',
-            subtitle: 'Promedio de respuesta del equipo'
+            subtitle: 'Tiempo promedio del equipo'
           },
           { 
-            title: 'Conversion Rate', 
+            title: 'Tasa de Conversión', 
             value: database.conversionRate, 
             change: database.changes.conversionRate, 
             icon: TrendingUp, 
@@ -206,23 +205,23 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
             subtitle: 'Conversaciones cerradas vs total'
           },
         ].map((stat, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-500 mb-1">{stat.title}</p>
-                <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
+          <div key={index} className="bg-white p-3 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-slate-500 mb-1 truncate">{stat.title}</p>
+                <h3 className="text-lg sm:text-2xl font-bold text-slate-800">{stat.value}</h3>
               </div>
-              <div className={`${stat.color} p-3 rounded-lg text-white shadow-md`}>
-                <stat.icon size={20} />
+              <div className={`${stat.color} p-2 sm:p-3 rounded-lg text-white shadow-md flex-shrink-0 ml-2`}>
+                <stat.icon size={16} />
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : 'text-slate-600'}`}>
-                {stat.change} <span className="text-slate-400">vs mes anterior</span>
+                {stat.change} <span className="text-slate-400">vs mes ant.</span>
               </span>
             </div>
             {stat.subtitle && (
-              <p className="text-xs text-slate-400 mt-2">{stat.subtitle}</p>
+              <p className="text-xs text-slate-400 mt-2 hidden sm:block">{stat.subtitle}</p>
             )}
           </div>
         ))}

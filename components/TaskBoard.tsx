@@ -14,9 +14,9 @@ interface TaskBoardProps {
 
 const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTask, onChatSelect, teamMembers }) => {
   const columns: { id: TaskStatus; label: string; color: string }[] = [
-      { id: 'todo', label: 'To Do', color: 'bg-slate-500' },
-      { id: 'in_progress', label: 'In Progress', color: 'bg-blue-500' },
-      { id: 'done', label: 'Done', color: 'bg-green-500' }
+      { id: 'todo', label: 'Pendiente', color: 'bg-slate-500' },
+      { id: 'in_progress', label: 'En Proceso', color: 'bg-blue-500' },
+      { id: 'done', label: 'Completado', color: 'bg-green-500' }
   ];
 
     const getAssignee = (id: string) => {
@@ -36,20 +36,20 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 p-6 overflow-hidden">
-      <div className="mb-6 flex justify-between items-center">
+    <div className="flex flex-col h-full bg-slate-50 p-3 sm:p-6 overflow-hidden">
+      <div className="mb-4 sm:mb-6 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Team Tasks</h1>
-            <p className="text-sm text-slate-500">Manage follow-ups and internal assignments.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Tareas del Equipo</h1>
+            <p className="text-sm text-slate-500">Gestiona seguimientos y asignaciones internas.</p>
           </div>
-          <button onClick={() => alert("Coming Soon: Create Task directly from board. Currently please create tasks inside the Chat window.")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center gap-2 shadow-sm font-medium opacity-80">
-              <Plus size={18} /> New Task
+          <button onClick={() => alert("Próximamente: Crear tarea. Por ahora, créalas desde la ventana de chat.")} className="bg-emerald-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center gap-2 shadow-sm font-medium opacity-80 text-sm">
+              <Plus size={18} /> <span className="hidden sm:inline">Nueva Tarea</span>
           </button>
       </div>
 
-      <div className="flex gap-6 h-full overflow-x-auto pb-4">
+      <div className="flex gap-3 sm:gap-6 h-full overflow-x-auto pb-4">
           {columns.map((col, colIndex) => (
-              <div key={col.id} className="min-w-[300px] w-1/3 flex flex-col h-full">
+              <div key={col.id} className="min-w-[260px] sm:min-w-[300px] w-80 flex-shrink-0 flex flex-col h-full">
                   <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <div className={`w-3 h-3 rounded-full ${col.color}`}></div>
@@ -68,7 +68,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
                                       <div className="relative group/menu">
                                         <button className="text-slate-400 hover:text-slate-600"><MoreHorizontal size={16} /></button>
                                         <div className="hidden group-hover/menu:block absolute right-0 bg-white border shadow-md rounded p-1 z-10">
-                                            <button onClick={() => onDeleteTask?.(task.id)} className="text-red-500 text-xs flex gap-1 items-center px-2 py-1 hover:bg-red-50 w-full whitespace-nowrap"><Trash2 size={12}/> Delete</button>
+                                    <button onClick={() => onDeleteTask?.(task.id)} className="text-red-500 text-xs flex gap-1 items-center px-2 py-1 hover:bg-red-50 w-full whitespace-nowrap"><Trash2 size={12}/> Eliminar</button>
                                         </div>
                                       </div>
                                   </div>
@@ -107,7 +107,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
                                           ) : (
                                               <div className="flex items-center gap-2">
                                                   <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center"><UserIcon size={12} /></div>
-                                                  <span className="text-xs text-slate-500">Unassigned</span>
+                                                  <span className="text-xs text-slate-500">Sin asignar</span>
                                               </div>
                                           )}
                                           <div className={`flex items-center text-xs gap-1 ${task.dueDate < new Date() ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
@@ -118,10 +118,10 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
                                       
                                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                           {colIndex > 0 && (
-                                              <button onClick={() => moveTask(task.id, col.id, 'prev')} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Move Back"><ArrowLeft size={16} /></button>
+                                              <button onClick={() => moveTask(task.id, col.id, 'prev')} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Mover atrás"><ArrowLeft size={16} /></button>
                                           )}
                                           {colIndex < columns.length - 1 && (
-                                              <button onClick={() => moveTask(task.id, col.id, 'next')} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Move Next"><ArrowRight size={16} /></button>
+                                              <button onClick={() => moveTask(task.id, col.id, 'next')} className="p-1.5 rounded hover:bg-slate-100 text-slate-500" title="Mover adelante"><ArrowRight size={16} /></button>
                                           )}
                                       </div>
                                   </div>
@@ -129,7 +129,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
                           );
                       })}
                       {tasks.filter(t => t.status === col.id).length === 0 && (
-                          <div className="text-center py-10 text-slate-400 text-sm italic">No tasks here</div>
+                          <div className="text-center py-10 text-slate-400 text-sm italic">Sin tareas aquí</div>
                       )}
                   </div>
               </div>
