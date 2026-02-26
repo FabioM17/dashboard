@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import nodemailer from "npm:nodemailer";  // or use esm.sh version if you prefer
+import { sendGmailEmail } from "../_shared/emailMessaging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,13 +40,6 @@ serve(async (req) => {
       });
     }
 
-    // Intentar cargar credenciales SMTP desde integration_settings (preferido)
-    let smtpUser: string | undefined;
-    let smtpPass: string | undefined;
-    let smtpHost = 'smtp.gmail.com';
-    let smtpPort = 465;
-    let fromEmail: string | undefined;
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -82,61 +75,56 @@ serve(async (req) => {
       });
     }
 
-    const { data: cfg } = await supabaseAdmin
+    // Verificar que Gmail esté configurado para esta organización
+    const { data: gmailCfg, error: gmailError } = await supabaseAdmin
       .from('integration_settings')
       .select('credentials')
       .eq('organization_id', organization_id)
-      .eq('service_name', 'email')
+      .eq('service_name', 'gmail')
       .single();
 
-    if (cfg?.credentials) {
-      smtpUser = cfg.credentials.user;
-      smtpPass = cfg.credentials.password;
-      smtpHost = cfg.credentials.host || smtpHost;
-      smtpPort = cfg.credentials.port || smtpPort;
-      fromEmail = cfg.credentials.from || smtpUser;
+    if (gmailError || !gmailCfg?.credentials?.access_token) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Gmail no está configurado. Conecta tu cuenta de Google en Configuración > Channels > Gmail.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fallback a variables de entorno
-    smtpUser = smtpUser || Deno.env.get('EMAIL_SMTP_USER');
-    smtpPass = smtpPass || Deno.env.get('EMAIL_SMTP_PASS');
-    fromEmail = fromEmail || Deno.env.get('EMAIL_FROM') || smtpUser;
+    // Enviar con Gmail API via shared helper
+    const recipients = Array.isArray(to) ? to : [to];
+    const emailBody = html || text;
+    const isHtml = !!html;
 
-    if (!smtpUser || !smtpPass) {
-      throw new Error('SMTP credentials not configured. Provide organization_id with integration_settings or set EMAIL_SMTP_USER and EMAIL_SMTP_PASS env vars.');
+    // Enviar a cada destinatario
+    const results: any[] = [];
+    for (const recipient of recipients) {
+      const result = await sendGmailEmail(supabaseAdmin, {
+        organizationId: organization_id,
+        to: recipient,
+        subject,
+        body: emailBody,
+        isHtml,
+      });
+      results.push({ to: recipient, ...result });
     }
 
-    // Configurar Nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,  // true para puerto 465 (SSL), false para 587 (STARTTLS)
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      // Opcional: si tienes problemas con certificados self-signed (solo testing)
-      // tls: { rejectUnauthorized: false },
-    });
+    const allSuccess = results.every(r => r.success);
+    const firstMessageId = results.find(r => r.messageId)?.messageId;
 
-    // Verificar conexión (opcional, pero útil para debug)
-    // await transporter.verify();  // descomenta si quieres probar la conexión primero
-
-    // Enviar el email
-    const sendResult = await transporter.sendMail({
-      from: fromEmail,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      text: text || undefined,
-      html: html || undefined,
-    });
-
-    return new Response(
-      JSON.stringify({ success: true, messageId: sendResult.messageId, result: sendResult }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    if (allSuccess) {
+      return new Response(
+        JSON.stringify({ success: true, messageId: firstMessageId, results }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
+      return new Response(
+        JSON.stringify({ success: false, error: errors, results }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

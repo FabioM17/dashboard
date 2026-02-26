@@ -42,6 +42,7 @@ export const taskService = {
      
      if(error) throw error;
      // After creating the task, optionally send a notification to the assignee (if email available)
+     let emailSkipped = false;
      try {
        // Fetch assignee profile
       if (data?.assignee_id) {
@@ -52,18 +53,31 @@ export const taskService = {
            .single();
 
         if (profile?.email && notifyAssignee) {
-          // Invoke Edge Function to send notification email
-          try {
-            await supabase.functions.invoke('app-notifications', {
-              body: {
-                to: profile.email,
-                subject: `Nueva tarea asignada: ${data.title}`,
-                html: `<p>Hola ${profile.full_name || ''},</p><p>Se te ha asignado la tarea: <strong>${data.title}</strong>.</p><p>Descripción: ${data.description || 'Sin descripción'}</p><p>Fecha de vencimiento: ${new Date(data.due_date).toLocaleString()}</p>`,
-                organization_id: organizationId
-              }
-            });
-          } catch (fnErr) {
-            console.error('Failed to invoke notification function:', fnErr);
+          // Verificar que Gmail esté configurado antes de enviar notificación
+          const { data: gmailCfg } = await supabase
+            .from('integration_settings')
+            .select('credentials')
+            .eq('organization_id', organizationId)
+            .eq('service_name', 'gmail')
+            .single();
+
+          if (gmailCfg?.credentials?.access_token) {
+            // Invoke Edge Function to send notification email
+            try {
+              await supabase.functions.invoke('app-notifications', {
+                body: {
+                  to: profile.email,
+                  subject: `Nueva tarea asignada: ${data.title}`,
+                  html: `<p>Hola ${profile.full_name || ''},</p><p>Se te ha asignado la tarea: <strong>${data.title}</strong>.</p><p>Descripción: ${data.description || 'Sin descripción'}</p><p>Fecha de vencimiento: ${new Date(data.due_date).toLocaleString()}</p>`,
+                  organization_id: organizationId
+                }
+              });
+            } catch (fnErr) {
+              console.error('Failed to invoke notification function:', fnErr);
+            }
+          } else {
+            console.warn('[taskService] Gmail no configurado, omitiendo notificación por email.');
+            emailSkipped = true;
           }
         }
        }
@@ -88,7 +102,7 @@ export const taskService = {
        console.error('Post-create notifications error:', notifyErr);
      }
 
-     return data; // returns created task with real DB ID
+     return { ...data, _emailSkipped: emailSkipped }; // returns created task with real DB ID + email status
   },
 
     async updateTaskStatus(taskId: string, status: TaskStatus, organizationId: string) {

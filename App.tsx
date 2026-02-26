@@ -13,6 +13,8 @@ import CRMScreen from './components/CRMScreen';
 import TaskBoard from './components/TaskBoard';
 import WorkflowsScreen from './components/WorkflowsScreen';
 import PrivacyPolicyScreen from './components/PrivacyPolicyScreen';
+import DataDeletionPolicyScreen from './components/DataDeletionPolicyScreen';
+import DataDeletionScreen from './components/DataDeletionScreen';
 import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { chatService } from './services/chatService';
 import { authService } from './services/authService';
@@ -61,12 +63,12 @@ const App: React.FC = () => {
     setTimeout(() => { try { window.close(); } catch(_) {} }, 1500);
   }, []);
 
-  // ── Route Handler for Privacy Policy ───────────────────────────────────────────
-  // Detect if the current pathname is /politicas-de-privacidad
+  // ── Route Handler for Privacy Policy & Data Deletion Policy ─────────────────
   React.useEffect(() => {
     const handlePathChange = () => {
       const pathname = window.location.pathname;
       setIsPrivacyPolicyPage(pathname === '/politicas-de-privacidad');
+      setIsDataDeletionPolicyPage(pathname === '/eliminacion-de-datos');
     };
 
     handlePathChange();
@@ -82,6 +84,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isPrivacyPolicyPage, setIsPrivacyPolicyPage] = useState(false);
+  const [isDataDeletionPolicyPage, setIsDataDeletionPolicyPage] = useState(false);
   
   // Password Reset State
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
@@ -625,6 +628,9 @@ const App: React.FC = () => {
      }
 
      const createdTask = await taskService.createTask(task, currentUser.organizationId, true);
+     if (createdTask._emailSkipped) {
+       pushToast('warning', 'Email no enviado', 'Gmail no está configurado. Configura tu cuenta en Configuración > Channels.', 5000);
+     }
      const newTaskUI: Task = {
          id: createdTask.id, title: createdTask.title, description: createdTask.description,
          assigneeId: createdTask.assignee_id, conversationId: createdTask.conversation_id,
@@ -773,6 +779,15 @@ const App: React.FC = () => {
       }}
     />
   );
+
+  // Show Data Deletion Policy page if the route is /eliminacion-de-datos
+  if (isDataDeletionPolicyPage) return (
+    <DataDeletionPolicyScreen
+      onBack={() => {
+        window.history.back();
+      }}
+    />
+  );
   
   if (appState === AppState.LOGIN) return <LoginScreen onLogin={async () => { 
       // Force a manual check if LoginScreen succeeds
@@ -898,16 +913,14 @@ const App: React.FC = () => {
         )}
 
         <div className="mt-auto flex flex-col gap-4">
-          {/* SETTINGS - Admin and Manager */}
-          {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
-            <button 
-              onClick={() => setDashboardView('settings')} 
-              className={`p-3 rounded-xl transition-all ${dashboardView === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
-              title="Settings"
-            >
-              <Settings size={20} />
-            </button>
-          )}
+          {/* SETTINGS - All roles can access (community sees limited tabs: profile + data management) */}
+          <button 
+            onClick={() => setDashboardView('settings')} 
+            className={`p-3 rounded-xl transition-all ${dashboardView === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+            title="Settings"
+          >
+            <Settings size={20} />
+          </button>
 
           <button 
             onClick={handleLogout} 

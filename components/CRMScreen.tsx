@@ -11,6 +11,7 @@ import { teamService } from '../services/teamService';
 import LoadingOverlay from './LoadingOverlay';
 import ResultOverlay from './ResultOverlay';
 import EmailEditor from './EmailEditor';
+import { supabase } from '../services/supabaseClient';
 
 interface CRMScreenProps {
     contacts: CRMContact[];
@@ -254,6 +255,36 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<Template[]>([]);
   const [campaignError, setCampaignError] = useState<string>('');
+  const [isGmailConfigured, setIsGmailConfigured] = useState<boolean>(true);
+  const [isWhatsAppConfigured, setIsWhatsAppConfigured] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function checkChannelConfigs() {
+      try {
+        const { data: gmailData } = await supabase
+          .from('integration_settings')
+          .select('credentials')
+          .eq('organization_id', organizationId)
+          .eq('service_name', 'gmail')
+          .single();
+        setIsGmailConfigured(!!gmailData?.credentials?.access_token);
+      } catch {
+        setIsGmailConfigured(false);
+      }
+      try {
+        const { data: waData } = await supabase
+          .from('integration_settings')
+          .select('credentials')
+          .eq('organization_id', organizationId)
+          .eq('service_name', 'whatsapp')
+          .single();
+        setIsWhatsAppConfigured(!!waData?.credentials?.phone_id && !!waData?.credentials?.access_token);
+      } catch {
+        setIsWhatsAppConfigured(false);
+      }
+    }
+    checkChannelConfigs();
+  }, [organizationId]);
 
   const filterContactsByCriteria = (contactList: CRMContact[], searchTermStr: string, filterList: CRMFilter[]) => {
     return contactList.filter(contact => {
@@ -743,6 +774,14 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
       setCampaignError('Debes seleccionar al menos un contacto.');
       return;
     }
+    if (campaignForm.type === 'whatsapp' && !isWhatsAppConfigured) {
+      setCampaignError('WhatsApp no está configurado. Ve a Configuración → Channels → WhatsApp para conectar tu cuenta.');
+      return;
+    }
+    if (campaignForm.type === 'email' && !isGmailConfigured) {
+      setCampaignError('Gmail no está configurado. Ve a Configuración → Channels → Gmail para conectar tu cuenta.');
+      return;
+    }
     if (campaignForm.type === 'whatsapp' && !campaignForm.templateId) {
       setCampaignError('Debes seleccionar un template para WhatsApp.');
       return;
@@ -806,11 +845,17 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
       } else {
         setResultNotice({ show: true, status: 'success', title: 'Campaña enviada', message: 'La campaña se procesó correctamente.' });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error sending campaign:', err);
-            setCampaignError('Error al enviar la campaña.');
-            setResultNotice({ show: true, status: 'error', title: 'Error al enviar', message: 'Ocurrió un error procesando la campaña.' });
-        } finally {
+      const isGmailError = err?.message?.toLowerCase().includes('gmail');
+      if (isGmailError) {
+        setCampaignError('Gmail no está configurado. Conecta tu cuenta de Google en Configuración > Channels > Gmail.');
+        setResultNotice({ show: true, status: 'error', title: 'Gmail no configurado', message: 'No se pudo enviar la campaña por email. Configura Gmail en Configuración > Channels.' });
+      } else {
+        setCampaignError('Error al enviar la campaña.');
+        setResultNotice({ show: true, status: 'error', title: 'Error al enviar', message: 'Ocurrió un error procesando la campaña.' });
+      }
+    } finally {
             setIsCampaignSubmitting(false);
     }
   };
@@ -2541,6 +2586,30 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                     <span className="font-medium">Email</span>
                                 </button>
                             </div>
+
+                            {/* Warning: channel not configured */}
+                            {campaignForm.type === 'whatsapp' && !isWhatsAppConfigured && (
+                                <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+                                    <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <div>
+                                        <p className="font-semibold text-sm">WhatsApp no configurado</p>
+                                        <p className="text-xs mt-0.5">No podrás enviar esta campaña hasta que conectes tu cuenta de WhatsApp en <strong>Configuración → Channels → WhatsApp</strong>.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {campaignForm.type === 'email' && !isGmailConfigured && (
+                                <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+                                    <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <div>
+                                        <p className="font-semibold text-sm">Gmail no configurado</p>
+                                        <p className="text-xs mt-0.5">No podrás enviar esta campaña hasta que conectes tu cuenta de Gmail en <strong>Configuración → Channels → Gmail</strong>.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {campaignForm.type === 'whatsapp' ? (
@@ -2624,9 +2693,9 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                 <div className="flex gap-3 mt-6 pt-4 border-t">
                         <button 
                             onClick={handleSendCampaign} 
-                            disabled={selectedContacts.size === 0 || isCampaignSubmitting}
+                            disabled={selectedContacts.size === 0 || isCampaignSubmitting || (campaignForm.type === 'email' && !isGmailConfigured) || (campaignForm.type === 'whatsapp' && !isWhatsAppConfigured)}
                             className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                                selectedContacts.size === 0 || isCampaignSubmitting
+                                selectedContacts.size === 0 || isCampaignSubmitting || (campaignForm.type === 'email' && !isGmailConfigured) || (campaignForm.type === 'whatsapp' && !isWhatsAppConfigured)
                                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                                 : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]'
                             }`}

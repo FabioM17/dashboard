@@ -56,6 +56,20 @@ serve(async (req) => {
 
         if (contactsError) throw contactsError;
 
+        // Verificar Gmail configurado antes de enviar campañas de email
+        if (campaign.type === 'email') {
+          const { data: gmailCfg } = await supabase
+            .from('integration_settings')
+            .select('credentials')
+            .eq('organization_id', campaign.organization_id)
+            .eq('service_name', 'gmail')
+            .single();
+
+          if (!gmailCfg?.credentials?.access_token) {
+            throw new Error('Gmail no está configurado para esta organización. Conecta tu cuenta de Google en Configuración > Channels > Gmail.');
+          }
+        }
+
         // Enviar a cada contacto según el tipo de campaña
         let sentCount = 0;
         let failCount = 0;
@@ -80,7 +94,7 @@ serve(async (req) => {
               const subject = replaceMergeTags(campaign.email_subject || '', contact);
               const body = replaceMergeTags(campaign.email_body || '', contact);
               const emailResult = await sendGmailEmail(supabase, {
-                orgId: campaign.organization_id,
+                organizationId: campaign.organization_id,
                 to: contact.email,
                 subject,
                 body,

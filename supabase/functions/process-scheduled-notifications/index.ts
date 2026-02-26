@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import nodemailer from "npm:nodemailer";
+import { sendGmailEmail } from "../_shared/emailMessaging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +24,7 @@ serve(async (req) => {
       .eq('sent', false)
       .eq('failed', false)
       .order('send_at', { ascending: true })
-      .limit(15);  // ← conservador para evitar timeouts (ajusta según pruebas)
+      .limit(15);
 
     if (error) throw error;
     if (!items?.length) {
@@ -62,27 +62,36 @@ serve(async (req) => {
 
         if (profileErr || !profile?.email) throw profileErr || new Error('Profile/email not found');
 
-        // Obtener config SMTP (por org o fallback env)
-        const { smtpUser, smtpPass, smtpHost = 'smtp.gmail.com', smtpPort = 465, fromEmail } =
-          await getSmtpConfig(supabase, task.organization_id || item.organization_id);
+        const orgId = task.organization_id || item.organization_id;
 
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: { user: smtpUser, pass: smtpPass },
-        });
+        // Verificar que Gmail esté configurado para la organización
+        const { data: gmailCfg } = await supabase
+          .from('integration_settings')
+          .select('credentials')
+          .eq('organization_id', orgId)
+          .eq('service_name', 'gmail')
+          .single();
 
-        await transporter.sendMail({
-          from: fromEmail,
+        if (!gmailCfg?.credentials?.access_token) {
+          throw new Error('Gmail no configurado para esta organización. Conecta Gmail en Configuración > Channels.');
+        }
+
+        // Enviar email usando Gmail API
+        const emailResult = await sendGmailEmail(supabase, {
+          organizationId: orgId,
           to: profile.email,
           subject: `Recordatorio: ${task.title} vence pronto`,
-          html: `
+          body: `
             <p>Hola ${profile.full_name || 'usuario'},</p>
             <p>La tarea <strong>${task.title}</strong> vence el ${new Date(task.due_date).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })}.</p>
             <p>¡No la dejes para última hora!</p>
           `,
+          isHtml: true,
         });
+
+        if (!emailResult.success) {
+          throw new Error(emailResult.error || 'Error al enviar email via Gmail');
+        }
 
         // Éxito → marcar enviado
         await supabase
@@ -101,7 +110,7 @@ serve(async (req) => {
         const errorMsg = err.message || String(err);
 
         const attempts = (item.attempts || 0) + 1;
-        const maxAttempts = 4; // ajusta según necesites
+        const maxAttempts = 4;
 
         await supabase
           .from('scheduled_notifications')
@@ -140,38 +149,4 @@ function successResponse(success: number, failed: number) {
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
-}
-
-// Helper (igual que antes)
-async function getSmtpConfig(supabase: any, orgId?: string) {
-  let config: any = {
-    smtpUser: Deno.env.get('EMAIL_SMTP_USER'),
-    smtpPass: Deno.env.get('EMAIL_SMTP_PASS'),
-    fromEmail: Deno.env.get('EMAIL_FROM'),
-  };
-
-  if (orgId) {
-    const { data } = await supabase
-      .from('integration_settings')
-      .select('credentials')
-      .eq('organization_id', orgId)
-      .eq('service_name', 'email')
-      .single();
-
-    if (data?.credentials) {
-      config = {
-        smtpUser: data.credentials.user,
-        smtpPass: data.credentials.password,
-        smtpHost: data.credentials.host || config.smtpHost,
-        smtpPort: data.credentials.port || config.smtpPort,
-        fromEmail: data.credentials.from || data.credentials.user,
-      };
-    }
-  }
-
-  if (!config.smtpUser || !config.smtpPass) {
-    throw new Error('Credenciales SMTP no configuradas');
-  }
-
-  return config;
 }

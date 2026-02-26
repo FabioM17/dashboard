@@ -570,7 +570,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         dueDate: created.due_date ? new Date(created.due_date) : localTask.dueDate
                     };
                     onAddTask(createdTask);
-                    setResultNotice({ show: true, status: 'success', title: 'Tarea creada', message: 'La tarea fue guardada.' });
+
+                    if (created._emailSkipped) {
+                        setResultNotice({ show: true, status: 'warning', title: 'Tarea creada', message: 'La tarea se guardó, pero no se envió notificación por email. Configura Gmail en Configuración > Channels.' });
+                    } else {
+                        setResultNotice({ show: true, status: 'success', title: 'Tarea creada', message: 'La tarea fue guardada.' });
+                    }
 
                     // If user requested, send WhatsApp template after creation
                     try {

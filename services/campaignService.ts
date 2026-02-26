@@ -177,6 +177,18 @@ export const campaignService = {
     body: string,
     organizationId: string
   ): Promise<{ success: number; failed: number }> {
+    // Verificar que Gmail esté configurado antes de intentar enviar
+    const { data: gmailCfg, error: gmailCheckErr } = await supabase
+      .from('integration_settings')
+      .select('credentials')
+      .eq('organization_id', organizationId)
+      .eq('service_name', 'gmail')
+      .single();
+
+    if (gmailCheckErr || !gmailCfg?.credentials?.access_token) {
+      throw new Error('Gmail no está configurado. Conecta tu cuenta de Google en Configuración > Channels > Gmail antes de enviar campañas por email.');
+    }
+
     // Si la campaña está programada, guardar sin enviar
     if (campaign.scheduledAt) {
       campaign.status = 'scheduled';

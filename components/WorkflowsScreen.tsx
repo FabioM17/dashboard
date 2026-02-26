@@ -3,6 +3,7 @@ import { Workflow, CRMList, Template, WorkflowStep, WorkflowStepChannel, CustomP
 import { workflowService } from '../services/workflowService';
 import { listService } from '../services/listService';
 import { templateService } from '../services/templateService';
+import { supabase } from '../services/supabaseClient';
 import EmailEditor from './EmailEditor';
 
 interface Props {
@@ -19,10 +20,42 @@ export default function WorkflowsScreen({ organizationId, userId, customProperti
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [error, setError] = useState<string>('');
+  const [isGmailConfigured, setIsGmailConfigured] = useState<boolean>(true);
+  const [isWhatsAppConfigured, setIsWhatsAppConfigured] = useState<boolean>(true);
 
   useEffect(() => {
     loadData();
+    checkGmailConfig();
+    checkWhatsAppConfig();
   }, [organizationId]);
+
+  async function checkGmailConfig() {
+    try {
+      const { data } = await supabase
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', organizationId)
+        .eq('service_name', 'gmail')
+        .single();
+      setIsGmailConfigured(!!data?.credentials?.access_token);
+    } catch {
+      setIsGmailConfigured(false);
+    }
+  }
+
+  async function checkWhatsAppConfig() {
+    try {
+      const { data } = await supabase
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', organizationId)
+        .eq('service_name', 'whatsapp')
+        .single();
+      setIsWhatsAppConfigured(!!data?.credentials?.phone_id && !!data?.credentials?.access_token);
+    } catch {
+      setIsWhatsAppConfigured(false);
+    }
+  }
 
   async function loadData() {
     setLoading(true);
@@ -110,6 +143,32 @@ export default function WorkflowsScreen({ organizationId, userId, customProperti
         </div>
       )}
 
+      {/* Gmail not configured warning */}
+      {!isGmailConfigured && (
+        <div className="mx-6 mt-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="font-semibold text-sm">Gmail no configurado</p>
+            <p className="text-xs mt-0.5">Los flujos con pasos de email no podrán enviar correos. Conecta tu cuenta de Gmail en <strong>Configuración → Channels → Gmail</strong>.</p>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp not configured warning */}
+      {!isWhatsAppConfigured && (
+        <div className="mx-6 mt-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="font-semibold text-sm">WhatsApp no configurado</p>
+            <p className="text-xs mt-0.5">Los flujos con pasos de WhatsApp no podrán enviar mensajes. Conecta tu cuenta de WhatsApp en <strong>Configuración → Channels → WhatsApp</strong>.</p>
+          </div>
+        </div>
+      )}
+
       {/* Workflows List */}
       <div className="flex-1 overflow-auto p-6">
         {workflows.length === 0 ? (
@@ -149,6 +208,8 @@ export default function WorkflowsScreen({ organizationId, userId, customProperti
           lists={lists}
           templates={templates}
           customProperties={customProperties}
+          isGmailConfigured={isGmailConfigured}
+          isWhatsAppConfigured={isWhatsAppConfigured}
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
@@ -269,6 +330,8 @@ function CreateWorkflowModal({
   lists,
   templates,
   customProperties,
+  isGmailConfigured,
+  isWhatsAppConfigured,
   onClose,
   onSuccess
 }: {
@@ -277,6 +340,8 @@ function CreateWorkflowModal({
   lists: CRMList[];
   templates: Template[];
   customProperties: CustomProperty[];
+  isGmailConfigured: boolean;
+  isWhatsAppConfigured: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -400,6 +465,14 @@ function CreateWorkflowModal({
       return;
     }
     for (const step of steps) {
+      if (step.channel === 'whatsapp' && !isWhatsAppConfigured) {
+        setError(`El paso ${step.stepOrder} usa WhatsApp pero no está configurado. Ve a Configuración → Channels → WhatsApp.`);
+        return;
+      }
+      if (step.channel === 'email' && !isGmailConfigured) {
+        setError(`El paso ${step.stepOrder} usa Email pero Gmail no está configurado. Ve a Configuración → Channels → Gmail.`);
+        return;
+      }
       if (step.channel === 'whatsapp' && !step.templateId) {
         setError(`El paso ${step.stepOrder} (WhatsApp) no tiene plantilla seleccionada`);
         return;
@@ -613,6 +686,24 @@ function CreateWorkflowModal({
                             ✉️ Email
                           </button>
                         </div>
+                        {/* Gmail not configured warning for email steps */}
+                        {step.channel === 'email' && !isGmailConfigured && (
+                          <div className="col-span-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg flex items-center gap-2 mt-2">
+                            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="text-xs">Gmail no está configurado. Este paso no podrá enviar correos hasta que conectes Gmail en <strong>Configuración → Channels</strong>.</p>
+                          </div>
+                        )}
+                        {/* WhatsApp not configured warning for whatsapp steps */}
+                        {step.channel === 'whatsapp' && !isWhatsAppConfigured && (
+                          <div className="col-span-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg flex items-center gap-2 mt-2">
+                            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="text-xs">WhatsApp no está configurado. Este paso no podrá enviar mensajes hasta que conectes WhatsApp en <strong>Configuración → Channels</strong>.</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* WhatsApp: Template selector */}
@@ -801,7 +892,7 @@ function CreateWorkflowModal({
           </button>
           <button
             onClick={handleCreate}
-            disabled={creating}
+            disabled={creating || steps.some(s => (s.channel === 'email' && !isGmailConfigured) || (s.channel === 'whatsapp' && !isWhatsAppConfigured))}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? 'Creando...' : 'Crear Flujo'}

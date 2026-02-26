@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code } from 'lucide-react';
+import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code, ChevronDown, ChevronUp, Database } from 'lucide-react';
 import { WebhookConfig, ChannelConfig, User, UserRole, Snippet, Template } from '../types';
 import { MOCK_CHANNELS } from '../constants';
 import { chatService } from '../services/chatService';
@@ -17,9 +17,10 @@ import { WhatsAppEmbeddedSignup } from './WhatsAppEmbeddedSignup';
 import { fetchAndSavePhoneNumber } from '../services/whatsappIntegrationService';
 import { apiKeyService, ApiKey, ApiEndpointConfig, API_SCOPES, API_ENDPOINTS } from '../services/apiKeyService';
 import ApiDocumentation from './ApiDocumentation';
+import DataDeletionScreen from './DataDeletionScreen';
 
 const SettingsScreen: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'retell' | 'templates' | 'snippets' | 'api'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'retell' | 'templates' | 'snippets' | 'api' | 'data'>('profile');
     const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Profile State
@@ -46,6 +47,10 @@ const SettingsScreen: React.FC = () => {
 
   // Mock State for Channels
   const [channels, setChannels] = useState<ChannelConfig[]>(MOCK_CHANNELS);
+
+  // Collapsed/Expanded state for channel cards (collapsed by default)
+  const [expandedChannels, setExpandedChannels] = useState<Record<string, boolean>>({});
+  const toggleChannelExpand = (id: string) => setExpandedChannels(prev => ({ ...prev, [id]: !prev[id] }));
 
   // WhatsApp Config State
   const [waPhoneId, setWaPhoneId] = useState('');
@@ -560,6 +565,8 @@ const SettingsScreen: React.FC = () => {
     }
     // Show the inline signup component instead of opening popup
     setShowWhatsAppSignup(true);
+    // Auto-expand WhatsApp card so user can see the signup flow
+    setExpandedChannels(prev => ({ ...prev, whatsapp: true }));
   };
 
   const handleWhatsAppSignupSuccess = (data: any) => {
@@ -569,6 +576,8 @@ const SettingsScreen: React.FC = () => {
       (async () => {
         console.log('🔄 [Settings] WhatsApp signup successful, reloading config...');
         setIsLoadingWhatsApp(true);
+        // Auto-expand WhatsApp card to show configuration details
+        setExpandedChannels(prev => ({ ...prev, whatsapp: true }));
         
         // Esperar 5 segundos - El backend guarda el access_token después de devolver la respuesta
         console.log('⏳ [Settings] Waiting 5s for backend to save access_token to database...');
@@ -681,19 +690,25 @@ const SettingsScreen: React.FC = () => {
           >
             <div className="flex items-center gap-2"><UserCog size={16}/> My Profile</div>
           </button>
-          <div className="my-2 border-b border-slate-100"></div>
-          <button 
-            onClick={() => setActiveTab('general')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'general' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            General
-          </button>
-           <button 
-            onClick={() => setActiveTab('team')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'team' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            Team Management
-          </button>
+
+          {/* Admin and Manager tabs */}
+          {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+            <>
+              <div className="my-2 border-b border-slate-100"></div>
+              <button 
+                onClick={() => setActiveTab('general')}
+                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'general' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                General
+              </button>
+              <button 
+                onClick={() => setActiveTab('team')}
+                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'team' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Team Management
+              </button>
+            </>
+          )}
 
           {/* Only Admin can access these tabs */}
           {currentUser?.role === 'admin' && (
@@ -732,17 +747,31 @@ const SettingsScreen: React.FC = () => {
             </>
           )}
 
+          {/* Templates and Snippets - Admin and Manager */}
+          {currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+            <>
+              <button 
+                onClick={() => setActiveTab('templates')}
+                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'templates' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Meta Templates
+              </button>
+              <button 
+                onClick={() => setActiveTab('snippets')}
+                className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'snippets' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                Snippets
+              </button>
+            </>
+          )}
+
+          {/* Data Management - ALL roles can access */}
+          <div className="my-2 border-b border-slate-100"></div>
           <button 
-            onClick={() => setActiveTab('templates')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'templates' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => setActiveTab('data')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'data' ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-50'}`}
           >
-            Meta Templates
-          </button>
-          <button 
-            onClick={() => setActiveTab('snippets')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'snippets' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            Snippets
+            <div className="flex items-center gap-2"><Database size={16}/> Gestión de Datos</div>
           </button>
           
         </div>
@@ -1141,11 +1170,18 @@ const SettingsScreen: React.FC = () => {
                                    Setup WhatsApp
                                </button>
                            )}
+                           <button
+                               onClick={() => toggleChannelExpand('whatsapp')}
+                               className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                               title={expandedChannels['whatsapp'] ? 'Collapse' : 'Expand'}
+                           >
+                               {expandedChannels['whatsapp'] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                           </button>
                        </div>
                     </div>
 
                     {/* WhatsApp Embedded Signup Component - Step 1: Connect via Facebook */}
-                    {showWhatsAppSignup && !isWhatsAppConfigured && currentUser?.organizationId && (
+                    {expandedChannels['whatsapp'] && showWhatsAppSignup && !isWhatsAppConfigured && currentUser?.organizationId && (
                        <WhatsAppEmbeddedSignup 
                            organizationId={currentUser.organizationId}
                            onSuccess={(data) => {
@@ -1158,7 +1194,7 @@ const SettingsScreen: React.FC = () => {
                     )}
 
                     {/* WhatsApp Configuration Details - Step 2: Show when fully configured */}
-                    {isWhatsAppConfigured && whatsappConfig && (
+                    {expandedChannels['whatsapp'] && isWhatsAppConfigured && whatsappConfig && (
                        <div className="bg-green-50 p-6 border-t border-slate-200 space-y-6">
                            {/* Current Configuration - Read Only */}
                            <div>
@@ -1290,18 +1326,25 @@ const SettingsScreen: React.FC = () => {
                                    Conectar Gmail
                                </button>
                            )}
+                           <button
+                               onClick={() => toggleChannelExpand('gmail')}
+                               className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                               title={expandedChannels['gmail'] ? 'Collapse' : 'Expand'}
+                           >
+                               {expandedChannels['gmail'] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                           </button>
                        </div>
                     </div>
 
                     {/* Gmail status messages */}
-                    {gmailStatus === 'success' && (
+                    {expandedChannels['gmail'] && gmailStatus === 'success' && (
                        <div className="px-6 pb-4">
                            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg border border-green-200">
                                <CheckCircle size={16} /> Gmail conectado correctamente
                            </div>
                        </div>
                     )}
-                    {gmailError && (
+                    {expandedChannels['gmail'] && gmailError && (
                        <div className="px-6 pb-4">
                            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200">
                                <AlertTriangle size={16} /> {gmailError}
@@ -1310,7 +1353,7 @@ const SettingsScreen: React.FC = () => {
                     )}
 
                     {/* Gmail configuration details */}
-                    {gmailConfig && (
+                    {expandedChannels['gmail'] && gmailConfig && (
                        <div className="bg-red-50 p-6 border-t border-slate-200 space-y-4">
                            <h5 className="font-semibold text-sm text-slate-800 mb-2">Configuración de correo</h5>
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1364,6 +1407,7 @@ const SettingsScreen: React.FC = () => {
                                         </p>
                                     </div>
                                 </div>
+                                <div className="flex items-center gap-2">
                                 {!(channel.platform === 'facebook' || channel.platform === 'instagram') ? (
                                   <button 
                                       onClick={() => handleToggleChannel(channel.id)}
@@ -1378,7 +1422,26 @@ const SettingsScreen: React.FC = () => {
                                 ) : (
                                   <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Coming Soon</span>
                                 )}
+                                <button
+                                    onClick={() => toggleChannelExpand(channel.id)}
+                                    className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                    title={expandedChannels[channel.id] ? 'Collapse' : 'Expand'}
+                                >
+                                    {expandedChannels[channel.id] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                </button>
+                                </div>
                              </div>
+                             {expandedChannels[channel.id] && (
+                                 <div className="px-6 pb-5 border-t border-slate-100 bg-slate-50">
+                                     <p className="text-sm text-slate-500 pt-4">
+                                         {channel.platform === 'facebook' || channel.platform === 'instagram'
+                                             ? 'This integration is coming soon. Stay tuned for updates.'
+                                             : channel.isConnected
+                                                 ? `${channel.platform} channel is connected and active.`
+                                                 : `Set up ${channel.platform} to start receiving messages.`}
+                                     </p>
+                                 </div>
+                             )}
                          </div>
                      ))}
                  </div>
@@ -1696,6 +1759,17 @@ const SettingsScreen: React.FC = () => {
                     </div>
                   )}
               </div>
+          )}
+
+          {activeTab === 'data' && currentUser && (
+            <DataDeletionScreen
+              currentUser={currentUser}
+              onBack={() => setActiveTab('profile')}
+              onOrganizationDeleted={async () => {
+                await authService.signOut();
+                window.location.href = '/';
+              }}
+            />
           )}
 
           

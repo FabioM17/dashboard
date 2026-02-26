@@ -175,6 +175,25 @@ serve(async (req) => {
           continue;
         }
 
+        // Verificar que Gmail esté configurado antes de intentar enviar email
+        if (stepChannel === 'email') {
+          const { data: gmailCfg } = await supabase
+            .from('integration_settings')
+            .select('credentials')
+            .eq('organization_id', enrollment.organization_id)
+            .eq('service_name', 'gmail')
+            .single();
+
+          if (!gmailCfg?.credentials?.access_token) {
+            const reason = 'Gmail no está configurado para esta organización. Conecta tu cuenta de Google en Configuración > Channels > Gmail.';
+            console.error(`${logPrefix} ❌ ${reason}`);
+            await markFailed(supabase, enrollment.id, reason);
+            failed++;
+            results.push({ enrollment_id: enrollment.id, contact_id: enrollment.contact_id, status: 'failed', detail: reason });
+            continue;
+          }
+        }
+
         // ---- SEND MESSAGE (WhatsApp or Email) ----
         let sendResult: { success: boolean; messageId?: string; error?: string };
 

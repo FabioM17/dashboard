@@ -11,6 +11,14 @@ export const navigateToPrivacyPolicy = (): void => {
 };
 
 /**
+ * Navigate to the Data Deletion Policy page
+ */
+export const navigateToDataDeletionPolicy = (): void => {
+  window.history.pushState({}, 'Eliminación de Datos', '/eliminacion-de-datos');
+  window.dispatchEvent(new Event('popstate'));
+};
+
+/**
  * Navigate to a specific path
  * @param path - The path to navigate to (e.g., '/', '/dashboard', '/politicas-de-privacidad')
  */
