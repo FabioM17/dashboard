@@ -560,8 +560,14 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
       {/* CONFIRMATION MODAL */}
       {/* ═══════════════════════════════════════════════════ */}
       {confirmation && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setConfirmation(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
             <div className={`px-6 py-4 ${
               confirmation.level === 'delete_organization' ? 'bg-red-600' : 

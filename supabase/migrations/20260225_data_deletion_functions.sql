@@ -71,7 +71,7 @@ BEGIN
   UPDATE notes SET author_id = '00000000-0000-0000-0000-000000000000' WHERE author_id = target_user_id;
 
   -- Anonymize sent messages (keep content for conversation history)
-  UPDATE messages SET sender_id = '00000000-0000-0000-0000-000000000000' WHERE sender_id = target_user_id;
+  UPDATE messages SET sender_id = '00000000-0000-0000-0000-000000000000' WHERE sender_id = target_user_id::text;
 
   result := json_build_object(
     'success', true,
@@ -169,16 +169,24 @@ BEGIN
   -- 5. Unassign conversations
   UPDATE conversations SET assigned_to = NULL WHERE assigned_to = target_user_id AND organization_id = target_org_id;
 
-  -- 6. Remove tasks assigned to user
-  DELETE FROM tasks WHERE assignee_id = target_user_id AND organization_id = target_org_id;
+  -- 6. Unassign tasks (keep records to avoid breaking operational history)
+  UPDATE tasks SET assignee_id = NULL WHERE assignee_id = target_user_id AND organization_id = target_org_id;
 
-  -- 7. Remove notes authored by user
-  DELETE FROM notes WHERE author_id = target_user_id;
+  -- 7. Anonymize notes authored by user (keep note history)
+  UPDATE notes 
+  SET author_id = '00000000-0000-0000-0000-000000000000'
+  WHERE author_id = target_user_id
+    AND (
+      conversation_id IS NULL
+      OR conversation_id IN (
+        SELECT id FROM conversations WHERE organization_id = target_org_id
+      )
+    );
 
   -- 8. Anonymize messages sent by user (keep conversation thread intact)
   UPDATE messages 
   SET sender_id = '00000000-0000-0000-0000-000000000000' 
-  WHERE sender_id = target_user_id AND organization_id = target_org_id;
+  WHERE sender_id = target_user_id::text AND organization_id = target_org_id;
 
   -- 9. Delete profile (this is the main record)
   DELETE FROM profiles WHERE id = target_user_id;

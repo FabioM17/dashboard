@@ -226,10 +226,251 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ onBack }) => 
           </p>
         </section>
 
-        <div className="mt-12 pt-8 border-t border-slate-200">
-          <p className="text-sm text-slate-500">
-            Última actualización: 18 de febrero de 2026
+        {/* ── Google API Services – Secciones requeridas por la política de datos de usuario de Google ── */}
+        <div className="mt-10 mb-6 border-t-2 border-emerald-200 pt-8">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Uso de Servicios de API de Google</h2>
+          <p className="text-sm text-slate-500 mb-6">
+            Las siguientes secciones (12–16) describen específicamente cómo Docre-A accede, utiliza, almacena y elimina los datos obtenidos a través de los Servicios de API de Google, en cumplimiento de la{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+              Política de Datos de Usuario de Servicios de API de Google
+            </a>{' '}
+            y los{' '}
+            <a href="https://developers.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+              Términos de Servicio de las API de Google
+            </a>.
           </p>
+        </div>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">12. Datos a los que accedemos desde Google</h2>
+          <p className="mb-4">
+            Cuando un usuario o administrador de una organización elige conectar una cuenta de Gmail a Docre-A, la aplicación solicita autorización a través del flujo OAuth 2.0 de Google y accede únicamente a los siguientes datos:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li>
+              <strong>Dirección de correo electrónico de Google</strong> — obtenida mediante el alcance (scope){' '}
+              <code className="bg-slate-100 px-1 rounded text-sm">https://www.googleapis.com/auth/userinfo.email</code>.
+              Se utiliza para identificar qué cuenta de Gmail está vinculada a la organización.
+            </li>
+            <li>
+              <strong>Permiso para enviar correos electrónicos</strong> — obtenido mediante el alcance (scope){' '}
+              <code className="bg-slate-100 px-1 rounded text-sm">https://www.googleapis.com/auth/gmail.send</code>.
+              Permite a la plataforma enviar correos electrónicos en nombre de la organización a través de su propia cuenta de Gmail.
+            </li>
+          </ul>
+          <p className="mb-4">
+            La aplicación <strong>no</strong> accede a la bandeja de entrada, a los correos recibidos, a los contactos de Google, a Google Drive, ni a ningún otro dato o servicio de Google más allá de los permisos explícitamente listados.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">13. Uso de los datos de Google</h2>
+          <p className="mb-4">
+            Los datos de Google obtenidos se utilizan exclusivamente para los siguientes fines:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li>
+              <strong>Envío de correos electrónicos transaccionales y de campaña:</strong> Los tokens de acceso OAuth se utilizan para llamar a la API de Gmail y enviar correos en nombre de la organización vinculada. Esto incluye respuestas a contactos, comunicaciones de campañas de marketing y notificaciones generadas por workflows configurados por el usuario.
+            </li>
+            <li>
+              <strong>Renovación automática de acceso:</strong> Cuando el token de acceso expira, la aplicación utiliza el refresh token para obtener un nuevo token de acceso de Google sin necesidad de que el usuario vuelva a autenticarse, garantizando la continuidad del servicio.
+            </li>
+            <li>
+              <strong>Identificación de la cuenta conectada:</strong> La dirección de correo electrónico se muestra en la pantalla de configuración para que el usuario sepa qué cuenta de Gmail está activa en su organización.
+            </li>
+          </ul>
+          <p className="mb-4">
+            Los datos de Google <strong>no</strong> se utilizan con fines publicitarios, no se comparten con terceros para propósitos comerciales y no se emplean para elaborar perfiles de usuarios individuales.
+          </p>
+          <p className="mb-4">
+            El uso de la información obtenida de las API de Google se ajusta a la{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy#additional_requirements_for_specific_api_scopes" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+              Política de Datos de Usuario de los Servicios de API de Google
+            </a>, incluidos los requisitos de uso limitado.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">14. Compartición de datos de Google con terceros</h2>
+          <p className="mb-4">
+            Los datos obtenidos a través de los Servicios de API de Google <strong>no se venden, alquilan ni comparten</strong> con terceros para fines comerciales o publicitarios. La transferencia de datos a terceros se limita estrictamente a lo siguiente:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li>
+              <strong>Supabase (proveedor de infraestructura):</strong> Los tokens OAuth (access token y refresh token) y la dirección de correo vinculada se almacenan de forma segura en la base de datos PostgreSQL administrada por Supabase ({' '}
+              <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">Política de privacidad de Supabase</a>
+              ). Supabase actúa como procesador de datos y cumple con los estándares SOC 2 Tipo II.
+            </li>
+            <li>
+              <strong>Google LLC:</strong> Al enviar correos electrónicos, la solicitud se realiza directamente contra la API de Gmail de Google. Google recibe el token de acceso y los datos del mensaje (destinatario, asunto, cuerpo) según los términos de uso de su propia API.
+            </li>
+          </ul>
+          <p className="mb-4">
+            No existe ninguna otra transferencia de datos de Google a ningún otro tercero, socio, anunciante o servicio de análisis externo.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">15. Almacenamiento y protección de los datos de Google</h2>
+          <p className="mb-4">
+            Los datos de Google (access token, refresh token y dirección de correo) se almacenan en la tabla <code className="bg-slate-100 px-1 rounded text-sm">integration_settings</code> de la base de datos PostgreSQL alojada en Supabase. Las medidas de seguridad aplicadas son:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li><strong>Cifrado en tránsito:</strong> Todas las comunicaciones entre la aplicación, Supabase y las API de Google se realizan exclusivamente mediante HTTPS/TLS.</li>
+            <li><strong>Cifrado en reposo:</strong> La base de datos de Supabase cifra los datos almacenados en reposo conforme a los estándares AES-256.</li>
+            <li><strong>Control de acceso:</strong> El acceso a los tokens se realiza únicamente a través de funciones de servidor (Supabase Edge Functions) que utilizan la clave de servicio con privilegios mínimos. Los tokens nunca se exponen directamente al navegador del usuario final.</li>
+            <li><strong>Aislamiento por organización:</strong> Los tokens están vinculados a un <code className="bg-slate-100 px-1 rounded text-sm">organization_id</code> y sólo son accesibles por los miembros autorizados de esa organización.</li>
+          </ul>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">16. Retención y eliminación de los datos de Google</h2>
+          <p className="mb-4">
+            <strong>Retención:</strong> Los tokens OAuth y la dirección de correo de Gmail se conservan mientras la integración de Gmail esté activa en la organización. No existe un período de retención fijo adicional; los datos permanecen únicamente mientras el usuario mantenga la conexión activa.
+          </p>
+          <p className="mb-4">
+            <strong>Eliminación de la integración:</strong> En cualquier momento, el administrador de la organización puede desconectar la cuenta de Gmail desde la pantalla de <em>Configuración → Integraciones → Gmail</em>. Esta acción elimina permanentemente el access token, el refresh token y la dirección de correo de la base de datos de Docre-A.
+          </p>
+          <p className="mb-4">
+            <strong>Eliminación completa de la cuenta:</strong> Si un usuario solicita la eliminación total de su cuenta y los datos de su organización, todos los datos —incluidos los tokens de Google— se eliminan de forma permanente. Este proceso puede iniciarse en la pantalla de{' '}
+            <a href="/eliminacion-de-datos" className="text-emerald-600 hover:underline">Eliminación de Datos</a>{' '}
+            o enviando una solicitud a{' '}
+            <a href="mailto:notificaciones@docreativelatam.com" className="text-emerald-600 hover:underline">notificaciones@docreativelatam.com</a>.
+          </p>
+          <p className="mb-4">
+            <strong>Revocación de permisos en Google:</strong> Adicionalmente, el usuario puede revocar en cualquier momento el acceso de Docre-A a su cuenta de Google directamente desde la consola de seguridad de Google en{' '}
+            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
+              myaccount.google.com/permissions
+            </a>. Tras la revocación, los tokens almacenados dejarán de ser válidos y la integración de Gmail quedará inoperativa hasta que se vuelva a autorizar.
+          </p>
+        </section>
+
+        {/* ── Meta / Facebook – Secciones requeridas por la Política de Plataforma de Meta ── */}
+        <div className="mt-10 mb-6 border-t-2 border-blue-200 pt-8">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Uso de Servicios de la Plataforma de Meta (WhatsApp Business API)</h2>
+          <p className="text-sm text-slate-500 mb-6">
+            Las siguientes secciones (17–21) describen cómo Docre-A accede, utiliza, almacena y elimina los datos obtenidos a través de la Plataforma de Meta (Facebook / WhatsApp), en cumplimiento de las{' '}
+            <a href="https://developers.facebook.com/policy/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              Políticas para Desarrolladores de Meta
+            </a>{' '}
+            y las{' '}
+            <a href="https://www.whatsapp.com/legal/business-policy/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              Políticas de WhatsApp Business
+            </a>.
+          </p>
+        </div>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">17. Datos a los que accedemos desde Meta</h2>
+          <p className="mb-4">
+            Cuando un administrador de una organización conecta su cuenta de Facebook/Meta a Docre-A mediante el flujo de Embedded Signup de WhatsApp Business, la aplicación solicita acceso y obtiene los siguientes datos a través de la API de Facebook Graph:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li><strong>ID de usuario de Facebook</strong> — identificador único del perfil de Facebook del usuario que realizó la autorización.</li>
+            <li><strong>Nombre y correo electrónico del usuario de Facebook</strong> — obtenidos desde el endpoint <code className="bg-slate-100 px-1 rounded text-sm">/me?fields=id,name,email</code> para identificar quién vinculó la cuenta.</li>
+            <li><strong>Token de acceso de Facebook (Facebook Access Token)</strong> — token OAuth de corta o larga duración utilizado para autenticar las llamadas a la API de Meta.</li>
+            <li><strong>ID de la cuenta de WhatsApp Business (WABA ID)</strong> — identificador de la cuenta de WhatsApp Business asociada a la organización, obtenido de <code className="bg-slate-100 px-1 rounded text-sm">/me/owned_whatsapp_business_accounts</code>.</li>
+            <li><strong>ID del número de teléfono de WhatsApp</strong> — identificador del número de teléfono de WhatsApp Business activo, obtenido de <code className="bg-slate-100 px-1 rounded text-sm">/{"{waba_id}"}/phone_numbers</code>.</li>
+            <li><strong>ID de negocio de Meta (Business ID), IDs de cuentas publicitarias, IDs de páginas e IDs de datasets</strong> — datos proporcionados directamente por el flujo de Embedded Signup v3 de Meta, necesarios para la correcta configuración de la integración.</li>
+          </ul>
+          <p className="mb-4">
+            La aplicación <strong>no</strong> accede al contenido de mensajes de Facebook Messenger, al historial de publicaciones, a datos de anuncios, ni a ningún otro dato de la plataforma de Meta más allá de los permisos explícitamente listados para la integración con WhatsApp Business API.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">18. Uso de los datos de Meta</h2>
+          <p className="mb-4">
+            Los datos de Meta obtenidos se utilizan exclusivamente para los siguientes fines:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li><strong>Autenticación y autorización de la integración WhatsApp Business:</strong> El token de acceso de Facebook se utiliza para autenticar las llamadas a la WhatsApp Business API, lo que permite enviar y recibir mensajes de WhatsApp a través de la plataforma.</li>
+            <li><strong>Identificación de la cuenta vinculada:</strong> El nombre del usuario de Facebook, el email y el WABA ID se muestran en la pantalla de Configuración para que el administrador identifique qué cuenta está activa.</li>
+            <li><strong>Sincronización de plantillas de WhatsApp:</strong> El WABA ID y el token de acceso se utilizan para sincronizar las plantillas de mensajes aprobadas por Meta desde el panel de WhatsApp Business.</li>
+            <li><strong>Operación continua del canal WhatsApp:</strong> El token de acceso es accedido por las Supabase Edge Functions para enviar mensajes, recibir webhooks y gestionar la configuración del número de teléfono.</li>
+          </ul>
+          <p className="mb-4">
+            Los datos de Meta <strong>no</strong> se utilizan con fines publicitarios, no se emplean para elaborar perfiles de comportamiento de los usuarios finales, y no se comparten con terceros para propósitos ajenos a la integración declarada.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">19. Compartición de datos de Meta con terceros</h2>
+          <p className="mb-4">
+            Los datos obtenidos a través de la Plataforma de Meta <strong>no se venden ni se comparten</strong> con terceros para fines comerciales o publicitarios. La transferencia de datos se limita estrictamente a:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li>
+              <strong>Supabase (proveedor de infraestructura):</strong> El token de acceso, el WABA ID, el phone number ID y demás credenciales de la integración se almacenan en la base de datos PostgreSQL de Supabase (
+              <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Política de privacidad de Supabase</a>
+              ), que actúa como procesador de datos bajo estándares SOC 2 Tipo II.
+            </li>
+            <li>
+              <strong>Meta Platforms / WhatsApp Business API:</strong> El token de acceso se envía a los endpoints de la API de Facebook Graph y de WhatsApp Business API para ejecutar las operaciones de mensajería autorizadas por el usuario administrador.
+            </li>
+          </ul>
+          <p className="mb-4">
+            No existe ninguna otra transferencia de datos de Meta a ningún otro tercero, socio, anunciante o plataforma de análisis externa.
+          </p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">20. Almacenamiento y protección de los datos de Meta</h2>
+          <p className="mb-4">
+            Los datos de Meta (token de acceso, WABA ID, phone number ID, user ID, nombre y email) se almacenan en la tabla <code className="bg-slate-100 px-1 rounded text-sm">integration_settings</code> de la base de datos PostgreSQL alojada en Supabase, junto a los datos de la integración de WhatsApp. Las medidas de protección son:
+          </p>
+          <ul className="list-disc list-inside ml-4 mb-4 space-y-2">
+            <li><strong>Cifrado en tránsito:</strong> Toda la comunicación entre la aplicación, Supabase y las API de Meta se realiza exclusivamente mediante HTTPS/TLS.</li>
+            <li><strong>Cifrado en reposo:</strong> Los datos almacenados en Supabase se cifran en reposo con AES-256.</li>
+            <li><strong>Control de acceso mínimo:</strong> Los tokens sólo son accesibles por las Supabase Edge Functions mediante la clave de servicio. No se exponen al navegador del usuario final.</li>
+            <li><strong>Aislamiento por organización:</strong> Las credenciales están vinculadas a un <code className="bg-slate-100 px-1 rounded text-sm">organization_id</code> y sólo son accesibles por los administradores autorizados de esa organización.</li>
+            <li><strong>Expiración del token:</strong> La aplicación almacena la fecha de expiración del token (<code className="bg-slate-100 px-1 rounded text-sm">facebook_expires_at</code>) para gestionar su ciclo de vida y evitar utilizar tokens vencidos.</li>
+          </ul>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">21. Retención y eliminación de los datos de Meta</h2>
+          <p className="mb-4">
+            <strong>Retención:</strong> El token de acceso de Facebook y los demás datos de la integración de Meta/WhatsApp se conservan mientras la integración esté activa en la organización. Los datos no se retienen más allá de este período activo.
+          </p>
+          <p className="mb-4">
+            <strong>Eliminación de la integración:</strong> El administrador puede desconectar la integración de WhatsApp/Facebook desde <em>Configuración → Integraciones → WhatsApp</em>. Esta acción elimina permanentemente el token de acceso y el resto de credenciales de Meta de la base de datos de Docre-A.
+          </p>
+          <p className="mb-4">
+            <strong>Eliminación completa de la cuenta:</strong> Si se solicita la eliminación total de la cuenta y los datos de la organización, todos los datos —incluidos los tokens y credenciales de Meta— se eliminan de forma permanente. El proceso puede iniciarse en la página de{' '}
+            <a href="/eliminacion-de-datos" className="text-blue-600 hover:underline">Eliminación de Datos</a>{' '}
+            o enviando una solicitud a{' '}
+            <a href="mailto:notificaciones@docreativelatam.com" className="text-blue-600 hover:underline">notificaciones@docreativelatam.com</a>.
+          </p>
+          <p className="mb-4">
+            <strong>URL de eliminación de datos de Facebook:</strong> Conforme a los requisitos de Meta para aplicaciones de Facebook, la URL oficial para solicitar la eliminación de datos asociados al inicio de sesión con Facebook es:{' '}
+            <a href="/eliminacion-de-datos" className="text-blue-600 hover:underline">
+              https://dashboardchat.docreativelatam.com/eliminacion-de-datos
+            </a>.
+          </p>
+        </section>
+
+        <div className="mt-12 pt-8 border-t border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              Última actualización: 4 de marzo de 2026
+            </p>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <a
+                href="/eliminacion-de-datos"
+                className="text-emerald-600 hover:underline font-medium"
+                onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/eliminacion-de-datos'); window.dispatchEvent(new PopStateEvent('popstate')); }}
+              >
+                Eliminación de Datos
+              </a>
+              <a
+                href="mailto:notificaciones@docreativelatam.com"
+                className="text-emerald-600 hover:underline font-medium"
+              >
+                notificaciones@docreativelatam.com
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

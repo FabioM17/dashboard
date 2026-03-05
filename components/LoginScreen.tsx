@@ -174,6 +174,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onCreateAccount }) =
                   </a>
                 </li>
                 <li>
+                  <a 
+                    href="https://dashboardchat.docreativelatam.com/eliminacion-de-datos"
+                    className="text-slate-400 hover:text-emerald-400 transition-colors text-sm font-medium"
+                  >
+                    Eliminación de Datos
+                  </a>
+                </li>
+                <li>
                   <a href="mailto:notificaciones@docreativelatam.com" className="text-slate-400 hover:text-emerald-400 transition-colors text-sm font-medium">
                     Contacto
                   </a>
