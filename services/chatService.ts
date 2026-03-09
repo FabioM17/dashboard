@@ -37,6 +37,7 @@ export const chatService = {
       platform: (c.platform as 'whatsapp' | 'instagram' | 'messenger') || 'whatsapp',
       assignedTo: c.assigned_to || undefined,
       status: c.status || 'open',
+      whatsappPhoneNumberId: c.whatsapp_phone_number_id || undefined,
     })) as Conversation[];
   },
 
@@ -190,10 +191,10 @@ export const chatService = {
 
         const { data: conv, error: convError } = await supabase
             .from('conversations')
-            .select('platform, organization_id')
+            .select('platform, organization_id, whatsapp_phone_number_id')
             .eq('id', message.conversationId)
             .single()
-            .returns<{ platform: string; organization_id: string }>();
+            .returns<{ platform: string; organization_id: string; whatsapp_phone_number_id: string | null }>();
 
         if (convError) {
             throw new Error(`Failed to fetch conversation: ${convError.message}`);
@@ -226,7 +227,9 @@ export const chatService = {
             media_path: message.media_path,
             media_mime_type: message.media_mime_type,
             media_size: message.media_size,
-            fileName: message.fileName
+            fileName: message.fileName,
+            // Multi-number support: specify which org phone number to send from
+            whatsapp_phone_number_id: conv.whatsapp_phone_number_id || undefined,
           };
 
           console.log('[chatService] Invoking whatsapp-send with payload:', { conversationId: message.conversationId, template_variables: tplVars, template_name: message.templateName });
@@ -322,6 +325,16 @@ export const chatService = {
         .eq('id', conversationId);
       
       if (error) console.error("Error marking as read:", error);
+  },
+
+  // 4.5. Actualizar el número de WhatsApp asociado a una conversación
+  async updateConversationPhoneNumber(conversationId: string, whatsappPhoneNumberId: string | null) {
+      const { error } = await supabase
+        .from('conversations')
+        .update({ whatsapp_phone_number_id: whatsappPhoneNumberId })
+        .eq('id', conversationId);
+      
+      if (error) console.error("Error updating conversation phone number:", error);
   },
 
   // === NOTES MANAGEMENT ===

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppState, Conversation, Message, User, DashboardView, Note, MessageType, Task, TaskStatus, CRMContact, CustomProperty } from './types';
+import { AppState, Conversation, Message, User, DashboardView, Note, MessageType, Task, TaskStatus, CRMContact, CustomProperty, WhatsAppPhoneNumber } from './types';
+import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import Onboarding from './components/Onboarding';
 import VerificationScreen from './components/VerificationScreen';
@@ -26,6 +27,7 @@ import { validationService } from './services/validationService';
 import { rolePermissionService } from './services/rolePermissionService';
 import { tokenProcessingService } from './services/tokenProcessingService';
 import { supabase } from './services/supabaseClient';
+import { whatsappPhoneService } from './services/whatsappPhoneService';
 import LoadingOverlay from './components/LoadingOverlay';
 import ResultOverlay from './components/ResultOverlay';
 import ToastNotifications, { Toast } from './components/ToastNotifications';
@@ -80,7 +82,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const [appState, setAppState] = useState<AppState>(AppState.LOGIN);
+  const [appState, setAppState] = useState<AppState>(AppState.LANDING);
   const [dashboardView, setDashboardView] = useState<DashboardView>('chats');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -105,6 +107,8 @@ const App: React.FC = () => {
   
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isMobileListVisible, setIsMobileListVisible] = useState(true);
+  const [orgPhoneNumbers, setOrgPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [selectedPhoneFilter, setSelectedPhoneFilter] = useState<string>('');
 
     // Track latest values to avoid stale closures inside subscriptions
     const activeConversationIdRef = React.useRef<string | null>(null);
@@ -181,15 +185,15 @@ const App: React.FC = () => {
                     setAppState(AppState.DASHBOARD);
                 }
             } else {
-                console.log("🔒 No user, redirecting to login");
+                console.log("🔒 No user, redirecting to landing");
                 setCurrentUser(null);
-                setAppState(AppState.LOGIN);
+                setAppState(AppState.LANDING);
             }
         } catch (error) {
             console.error("Auth Error:", error);
             if (mounted) {
                 setCurrentUser(null);
-                setAppState(AppState.LOGIN);
+                setAppState(AppState.LANDING);
             }
         } finally {
             if (mounted) setIsAuthLoading(false);
@@ -232,7 +236,7 @@ const App: React.FC = () => {
 
         if (event === 'SIGNED_OUT') {
             if (mounted) {
-                setAppState(AppState.LOGIN);
+                setAppState(AppState.LANDING);
                 setCurrentUser(null);
                 setIsAuthLoading(false);
             }
@@ -276,6 +280,13 @@ const App: React.FC = () => {
                                 } catch (err) {
                                     console.error('Failed loading team members in App', err);
                                 }
+                // Load WhatsApp phone numbers for filtering
+                try {
+                    const phones = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                    setOrgPhoneNumbers(phones);
+                } catch (err) {
+                    console.error('Failed loading phone numbers', err);
+                }
             } catch (e) {
                 console.error("Error loading dashboard data", e);
             }
@@ -727,6 +738,7 @@ const App: React.FC = () => {
             onDeleteTask={handleDeleteTask} 
             onChatSelect={handleNavigateToChat}
                         teamMembers={teamMembers}
+            phoneNumbers={orgPhoneNumbers}
         />
       );
       case 'workflows': return (
@@ -741,7 +753,7 @@ const App: React.FC = () => {
         return (
             <div className="h-full flex flex-col md:flex-row bg-white overflow-hidden w-full">
                 <div className={`${isMobileListVisible ? 'flex' : 'hidden'} md:flex w-full md:w-80 lg:w-96 border-r border-slate-200 h-full flex-col flex-shrink-0`}>
-                    <ConversationList conversations={conversations} activeId={activeConversationId} onSelect={handleSelectConversation} />
+                    <ConversationList conversations={conversations} activeId={activeConversationId} onSelect={handleSelectConversation} phoneNumbers={orgPhoneNumbers} selectedPhoneFilter={selectedPhoneFilter} onPhoneFilterChange={setSelectedPhoneFilter} />
                 </div>
                 <div className={`${!isMobileListVisible ? 'flex' : 'hidden'} md:flex flex-1 h-full relative bg-[#efeae2] min-w-0 flex-col`}>
                     {activeConversationId ? (
@@ -791,6 +803,10 @@ const App: React.FC = () => {
     />
   );
   
+  if (appState === AppState.LANDING) return (
+    <LandingPage onGoToLogin={() => setAppState(AppState.LOGIN)} />
+  );
+
   if (appState === AppState.LOGIN) return <LoginScreen onLogin={async () => { 
       // Force a manual check if LoginScreen succeeds
       const user = await authService.getCurrentUser(); 

@@ -129,7 +129,9 @@ serve(async (req) => {
       media_path,
       media_mime_type,
       media_size,
-      fileName
+      fileName,
+      // MULTI-PHONE: ID del número específico desde whatsapp_phone_numbers
+      whatsapp_phone_number_id
     } = await req.json();
 
     // VALIDATIONS
@@ -254,18 +256,77 @@ serve(async (req) => {
     }
 
     // B. Obtener Credenciales de WhatsApp
-    const { data: config, error: configError } = await supabaseAdmin
-      .from('integration_settings')
-      .select('credentials')
-      .eq('organization_id', orgId)
-      .eq('service_name', 'whatsapp')
-      .single();
+    // Priority: 1) whatsapp_phone_number_id → per-phone token
+    //           2) conversation.whatsapp_phone_number_id → per-phone token
+    //           3) integration_settings → org-level fallback (backward compat)
+    let phone_id: string | undefined;
+    let access_token: string | undefined;
 
-    if (configError || !config?.credentials) {
-      throw new Error("No se encontró configuración de WhatsApp para esta organización.");
+    // Try to resolve from whatsapp_phone_numbers table first
+    const resolvePhoneId = whatsapp_phone_number_id || null;
+    let convPhoneNumberId = null;
+    if (!resolvePhoneId && finalConversationId) {
+      // Check if conversation has an assigned phone number
+      const { data: convData } = await supabaseAdmin
+        .from('conversations')
+        .select('whatsapp_phone_number_id')
+        .eq('id', finalConversationId)
+        .single();
+      convPhoneNumberId = convData?.whatsapp_phone_number_id || null;
     }
 
-    const { phone_id, access_token } = config.credentials;
+    const phoneRecordId = resolvePhoneId || convPhoneNumberId;
+    if (phoneRecordId) {
+      const { data: phoneRecord } = await supabaseAdmin
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token, waba_id')
+        .eq('id', phoneRecordId)
+        .eq('organization_id', orgId)
+        .single();
+
+      if (phoneRecord) {
+        phone_id = phoneRecord.phone_number_id;
+        access_token = phoneRecord.access_token;
+      }
+    }
+
+    // Fallback: if no per-phone token, try org-level default phone, then integration_settings
+    if (!phone_id || !access_token) {
+      // Try default phone number
+      const { data: defaultPhone } = await supabaseAdmin
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('organization_id', orgId)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (defaultPhone?.phone_number_id && defaultPhone?.access_token) {
+        phone_id = phone_id || defaultPhone.phone_number_id;
+        access_token = access_token || defaultPhone.access_token;
+      }
+    }
+
+    if (!phone_id || !access_token) {
+      // Final fallback: integration_settings (backward compatibility)
+      const { data: config, error: configError } = await supabaseAdmin
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', orgId)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      if (configError || !config?.credentials) {
+        throw new Error("No se encontró configuración de WhatsApp para esta organización.");
+      }
+
+      phone_id = phone_id || config.credentials.phone_id;
+      access_token = access_token || config.credentials.access_token;
+    }
+
+    if (!phone_id || !access_token) {
+      throw new Error("No se encontraron credenciales válidas de WhatsApp. Verifica la configuración del número.");
+    }
 
     // C. ACTUALIZADO: Construir Payload para Meta según tipo de contenido
     const metaBody: Record<string, unknown> = {

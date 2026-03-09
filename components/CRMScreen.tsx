@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as XLSX from 'xlsx';
 import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw } from 'lucide-react';
 import { MOCK_PIPELINES } from '../constants';
-import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment } from '../types';
+import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment, WhatsAppPhoneNumber } from '../types';
 import { campaignService } from '../services/campaignService';
 import { templateService } from '../services/templateService';
 import { listService } from '../services/listService';
@@ -12,6 +12,7 @@ import LoadingOverlay from './LoadingOverlay';
 import ResultOverlay from './ResultOverlay';
 import EmailEditor from './EmailEditor';
 import { supabase } from '../services/supabaseClient';
+import { whatsappPhoneService } from '../services/whatsappPhoneService';
 
 interface CRMScreenProps {
     contacts: CRMContact[];
@@ -257,6 +258,8 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
   const [campaignError, setCampaignError] = useState<string>('');
   const [isGmailConfigured, setIsGmailConfigured] = useState<boolean>(true);
   const [isWhatsAppConfigured, setIsWhatsAppConfigured] = useState<boolean>(true);
+  const [campaignPhoneNumbers, setCampaignPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [selectedCampaignPhoneId, setSelectedCampaignPhoneId] = useState<string>('');
 
   useEffect(() => {
     async function checkChannelConfigs() {
@@ -279,6 +282,14 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
           .eq('service_name', 'whatsapp')
           .single();
         setIsWhatsAppConfigured(!!waData?.credentials?.phone_id && !!waData?.credentials?.access_token);
+        // Load WhatsApp phone numbers
+        if (waData?.credentials?.phone_id) {
+          whatsappPhoneService.getPhoneNumbers(organizationId).then(phones => {
+            setCampaignPhoneNumbers(phones);
+            const def = phones.find(p => p.isDefault);
+            if (def) setSelectedCampaignPhoneId(def.id);
+          }).catch(() => {});
+        }
       } catch {
         setIsWhatsAppConfigured(false);
       }
@@ -812,6 +823,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
       templateId: campaignForm.templateId,
       templateName: selectedTemplate?.name,
       templateLanguage: selectedTemplate?.language,
+      whatsappPhoneNumberId: campaignForm.type === 'whatsapp' ? selectedCampaignPhoneId || undefined : undefined,
       emailSubject: campaignForm.emailSubject,
       emailBody: campaignForm.emailBody || selectedTemplate?.body,
       scheduledAt: scheduledAtUTC,
@@ -2620,6 +2632,28 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                 </div>
                             )}
                         </div>
+
+                        {/* WhatsApp Phone Number Selector */}
+                        {campaignForm.type === 'whatsapp' && campaignPhoneNumbers.length >= 1 && (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Número de WhatsApp</label>
+                                <select
+                                    className="w-full border p-2 rounded text-sm"
+                                    value={selectedCampaignPhoneId}
+                                    onChange={e => setSelectedCampaignPhoneId(e.target.value)}
+                                >
+                                    {campaignPhoneNumbers.map(phone => (
+                                        <option key={phone.id} value={phone.id}>
+                                            {phone.label ? `${phone.label} (${phone.displayPhoneNumber})` : phone.displayPhoneNumber}
+                                            {phone.isDefault ? ' — Default' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    La campaña se enviará desde este número.
+                                </p>
+                            </div>
+                        )}
 
                         {campaignForm.type === 'whatsapp' ? (
                             <div>

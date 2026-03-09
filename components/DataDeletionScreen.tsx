@@ -445,7 +445,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                       <h4 className="text-sm font-semibold text-red-800 mb-1">Zona de peligro</h4>
                       <p className="text-sm text-red-700">
                         Esta acción eliminará permanentemente <strong>todas</strong> las conversaciones, mensajes, 
-                        contactos CRM, campañas, workflows, tareas, configuraciones de integración, plantillas, 
+                        contactos CRM, campañas, workflows, tareas, números de WhatsApp, configuraciones de integración, plantillas, 
                         snippets, claves API, y las cuentas de todos los miembros del equipo incluyendo la tuya.
                       </p>
                     </div>
@@ -478,6 +478,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                         { label: 'Claves API', key: 'api_keys', icon: '🔑' },
                         { label: 'Listas', key: 'lists', icon: '📝' },
                         { label: 'Integraciones', key: 'integration_settings', icon: '🔗' },
+                        { label: 'Números WhatsApp', key: 'whatsapp_phone_numbers', icon: '📱' },
                         { label: 'Notas', key: 'notes', icon: '📒' },
                         { label: 'Notificaciones', key: 'scheduled_notifications', icon: '🔔' },
                         { label: 'Enrollments', key: 'workflow_enrollments', icon: '📥' },
@@ -502,6 +503,24 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                             <div key={m.id} className="flex items-center gap-2 text-xs text-slate-600">
                               <span className={`w-2 h-2 rounded-full ${m.is_creator ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                               {m.name || m.email} ({m.role}){m.is_creator && ' - Creador'}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Phone numbers detail */}
+                    {preview.phone_numbers && preview.phone_numbers.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-medium text-slate-600 mb-2">Números de WhatsApp que serán eliminados:</p>
+                        <div className="space-y-1">
+                          {preview.phone_numbers.map(p => (
+                            <div key={p.id} className="flex items-center gap-2 text-xs text-slate-600">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="font-mono font-medium">{p.display_phone_number}</span>
+                              {p.label && <span className="text-slate-400">· {p.label}</span>}
+                              {p.is_default && <span className="text-emerald-600 font-medium">· Principal</span>}
+                              {p.waba_id && <span className="text-slate-400">· WABA: {p.waba_id}</span>}
                             </div>
                           ))}
                         </div>

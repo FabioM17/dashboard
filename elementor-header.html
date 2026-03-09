@@ -1,0 +1,258 @@
+<!--
+  ================================================================
+  HEADER DOCRE-A — Para pegar en Elementor Theme Builder → Header
+  ================================================================
+  INSTRUCCIONES:
+  1. Ve a Elementor → Theme Builder → Header → Crear nuevo.
+  2. Agrega un widget "HTML" y pega TODO este código.
+  3. O bien replica cada elemento con los widgets nativos de Elementor
+     siguiendo los comentarios de cada bloque.
+  4. Activa Sticky: selecciona la sección → Avanzado → Motion Effects
+     → Sticky: Top.
+  ================================================================
+-->
+
+<style>
+  /* ── RESET PARA EL HEADER EN ELEMENTOR ── */
+  #docrea-header *,
+  #docrea-header *::before,
+  #docrea-header *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  #docrea-header {
+    width: 100%;
+    background: #160037;
+    box-shadow: 0 2px 30px rgba(107,78,255,0.25);
+    border-bottom: 1px solid rgba(107,78,255,0.15);
+    font-family: 'Montserrat', 'Inter', sans-serif;
+    position: relative;
+    z-index: 999;
+  }
+
+  .dh-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  /* Logo */
+  .dh-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: #FFFFFF;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .dh-logo span { color: #FF3D00; }
+
+  /* Navegación */
+  .dh-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+    flex-wrap: wrap;
+  }
+  .dh-nav a {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #E0D9FF;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: color .2s, background .2s;
+    white-space: nowrap;
+    letter-spacing: .3px;
+  }
+  .dh-nav a:hover { color: #FFFFFF; background: rgba(107,78,255,0.12); }
+
+  /* Enlace "Página principal" — estilo diferenciado */
+  .dh-nav .back-link {
+    color: #9B87FF;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    border: 1px solid rgba(107,78,255,0.3);
+    padding: 5px 12px;
+    border-radius: 6px;
+  }
+  .dh-nav .back-link:hover {
+    color: #E0D9FF;
+    background: rgba(107,78,255,0.15);
+    border-color: rgba(107,78,255,0.6);
+  }
+
+  /* Separador visual entre "Página principal" y los otros ítems */
+  .dh-nav .nav-sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(107,78,255,0.3);
+    margin: 0 4px;
+    display: inline-block;
+  }
+
+  /* Botón ACCEDER */
+  .dh-btn-acceder {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    background: #FF3D00;
+    color: #FFFFFF;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    border-radius: 6px;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background .2s, box-shadow .2s;
+  }
+  .dh-btn-acceder:hover {
+    background: #CC3100;
+    box-shadow: 0 4px 20px rgba(255,61,0,0.45);
+  }
+
+  /* Hamburger (mobile) */
+  .dh-hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px;
+  }
+  .dh-hamburger span {
+    width: 24px;
+    height: 2px;
+    background: #FFFFFF;
+    border-radius: 2px;
+    display: block;
+    transition: transform .25s, opacity .25s;
+  }
+
+  /* Mobile nav desplegable */
+  .dh-mobile-nav {
+    display: none;
+    flex-direction: column;
+    background: #160037;
+    border-top: 1px solid rgba(107,78,255,0.2);
+    padding: 16px 32px 20px;
+    gap: 4px;
+  }
+  .dh-mobile-nav.open { display: flex; }
+  .dh-mobile-nav a {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #E0D9FF;
+    text-decoration: none;
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(107,78,255,0.1);
+    transition: color .2s;
+  }
+  .dh-mobile-nav a:last-child { border-bottom: none; }
+  .dh-mobile-nav a:hover { color: #FFFFFF; }
+  .dh-mobile-nav .dh-btn-acceder {
+    margin-top: 10px;
+    justify-content: center;
+  }
+
+  @media (max-width: 900px) {
+    .dh-nav   { display: none; }
+    .dh-btn-acceder.desktop { display: none; }
+    .dh-hamburger { display: flex; }
+  }
+  @media (min-width: 901px) {
+    .dh-hamburger { display: none; }
+    .dh-mobile-nav { display: none !important; }
+  }
+</style>
+
+<!-- Fuentes Google (si el tema no las carga ya) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- ── HEADER ── -->
+<div id="docrea-header">
+  <div class="dh-inner">
+
+    <!-- LOGO
+         Elementor nativo: widget Heading, texto "Docre-A", Montserrat 900, 22px.
+         El <span> naranja se logra con HTML personalizado en el widget Heading. -->
+    <a href="#inicio" class="dh-logo">
+      Docre<span>-A</span>
+    </a>
+
+    <!-- NAVEGACIÓN DESKTOP
+         Elementor nativo: widget Nav Menu (Elementor Pro).
+         Configura el menú en WP → Apariencia → Menús con los ítems abajo.
+         El ítem "← Página principal" ponlo como "Enlace personalizado" con URL: https://docreativelatam.com/ -->
+    <nav aria-label="Menú principal">
+      <ul class="dh-nav">
+        <li>
+          <a href="https://docreativelatam.com/" target="_blank" class="back-link">
+            ← Página principal
+          </a>
+        </li>
+        <li><span class="nav-sep"></span></li>
+        <li><a href="#inicio">Inicio</a></li>
+        <li><a href="#caracteristicas">Características</a></li>
+        <li><a href="#beneficios">Beneficios</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+      </ul>
+    </nav>
+
+    <!-- BOTÓN ACCEDER (desktop)
+         Elementor nativo: widget Button, fondo #FF3D00, Montserrat 700. -->
+    <a href="https://dashboardchat.docreativelatam.com/" target="_blank" class="dh-btn-acceder desktop">
+      ACCEDER →
+    </a>
+
+    <!-- HAMBURGER (mobile) -->
+    <button class="dh-hamburger" id="dhHamburger" aria-label="Abrir menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+  </div>
+
+  <!-- MENÚ MOBILE (desplegable) -->
+  <div class="dh-mobile-nav" id="dhMobileNav" role="navigation">
+    <a href="https://docreativelatam.com/" target="_blank" style="color:#9B87FF; font-weight:600;">← Página principal</a>
+    <a href="#inicio">Inicio</a>
+    <a href="#caracteristicas">Características</a>
+    <a href="#beneficios">Beneficios</a>
+    <a href="#contacto">Contacto</a>
+    <a href="https://dashboardchat.docreativelatam.com/" target="_blank" class="dh-btn-acceder">ACCEDER →</a>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var btn = document.getElementById('dhHamburger');
+    var nav = document.getElementById('dhMobileNav');
+    if (!btn || !nav) return;
+    btn.addEventListener('click', function() {
+      var isOpen = nav.classList.toggle('open');
+      btn.setAttribute('aria-expanded', isOpen);
+    });
+    // Cierra el menú al hacer clic en cualquier enlace
+    nav.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() {
+        nav.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    });
+  })();
+</script>

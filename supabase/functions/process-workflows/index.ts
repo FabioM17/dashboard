@@ -49,7 +49,7 @@ serve(async (req) => {
         next_send_at,
         retry_count,
         workflows:workflow_id (
-          id, name, is_active, list_id
+          id, name, is_active, list_id, whatsapp_phone_number_id
         )
       `)
       .eq('status', 'active')
@@ -233,7 +233,8 @@ serve(async (req) => {
               workflow_name: workflow.name,
               enrollment_id: enrollment.id,
               step_order: enrollment.current_step
-            }
+            },
+            whatsappPhoneNumberId: workflow.whatsapp_phone_number_id || undefined
           });
         }
 

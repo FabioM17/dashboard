@@ -168,8 +168,36 @@ async function fetchWhatsAppAnalytics(
  * Get WhatsApp analytics with configuration check
  */
 export async function getWhatsAppAnalyticsData(
-  organizationId: string
+  organizationId: string,
+  specificPhoneNumberId?: string
 ): Promise<WhatsAppAnalytics> {
+  // If a specific phone number from whatsapp_phone_numbers is requested
+  if (specificPhoneNumberId) {
+    try {
+      const { data: phone } = await supabase
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('id', specificPhoneNumberId)
+        .eq('organization_id', organizationId)
+        .single();
+      
+      if (phone?.phone_number_id) {
+        // Use per-phone token if available, fallback to org-level
+        let token = phone.access_token;
+        if (!token) {
+          const config = await getWhatsAppConfig(organizationId);
+          token = config.accessToken;
+        }
+        if (token) {
+          const analytics = await fetchWhatsAppAnalytics(phone.phone_number_id, token);
+          return { ...analytics, configured: analytics.configured ?? true };
+        }
+      }
+    } catch {
+      // Fall through to default behavior
+    }
+  }
+
   const config = await getWhatsAppConfig(organizationId);
 
   // Check if WhatsApp is configured
@@ -867,14 +895,15 @@ export async function getDatabaseAnalytics(
  * Combines WhatsApp API data and database analytics
  */
 export async function getAnalyticsDashboardData(
-  organizationId: string
+  organizationId: string,
+  phoneNumberId?: string
 ): Promise<AnalyticsDashboardData> {
   try {
     console.log('📊 Fetching analytics dashboard data for org:', organizationId);
 
     // Fetch WhatsApp and Database analytics in parallel
     const [whatsappData, databaseData] = await Promise.all([
-      getWhatsAppAnalyticsData(organizationId),
+      getWhatsAppAnalyticsData(organizationId, phoneNumberId),
       getDatabaseAnalytics(organizationId),
     ]);
 

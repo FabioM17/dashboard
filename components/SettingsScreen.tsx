@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code, ChevronDown, ChevronUp, Database, Palette, Sun, Moon, Type, Monitor } from 'lucide-react';
-import { WebhookConfig, ChannelConfig, User, UserRole, Snippet, Template } from '../types';
+import { Key, Shield, Plus, Trash2, Save, Users, Share2, Facebook, Instagram, MessageCircle, FileJson, Zap, Loader2, CheckCircle, Copy, ExternalLink, Bot, Sparkles, Workflow, Activity, XCircle, Mail, User as UserIcon, Lock, AlertTriangle, RefreshCw, CheckCircle2, UserCog, CheckSquare, PhoneCall, Eye, EyeOff, ToggleLeft, ToggleRight, BookOpen, Code, ChevronDown, ChevronUp, Database, Palette, Sun, Moon, Type, Monitor, Edit2 } from 'lucide-react';
+import { WebhookConfig, ChannelConfig, User, UserRole, Snippet, Template, WhatsAppPhoneNumber } from '../types';
 import { useAppearance, AccentColor, ThemeMode, FontSize, ChatBg, UserAppearance } from '../contexts/AppearanceContext';
 import { MOCK_CHANNELS } from '../constants';
 import { chatService } from '../services/chatService';
@@ -16,6 +16,7 @@ import { gmailService } from '../services/gmailService';
 import { supabase } from '../services/supabaseClient';
 import { WhatsAppEmbeddedSignup } from './WhatsAppEmbeddedSignup';
 import { fetchAndSavePhoneNumber } from '../services/whatsappIntegrationService';
+import { whatsappPhoneService } from '../services/whatsappPhoneService';
 import { apiKeyService, ApiKey, ApiEndpointConfig, API_SCOPES, API_ENDPOINTS } from '../services/apiKeyService';
 import ApiDocumentation from './ApiDocumentation';
 import DataDeletionScreen from './DataDeletionScreen';
@@ -64,6 +65,9 @@ const SettingsScreen: React.FC = () => {
   const [whatsappConfig, setWhatsappConfig] = useState<any>(null);
   const [isLoadingWhatsApp, setIsLoadingWhatsApp] = useState(false);
   const [isWhatsAppConfigured, setIsWhatsAppConfigured] = useState(false);
+  const [waPhoneNumbers, setWaPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [editingPhoneLabel, setEditingPhoneLabel] = useState<string | null>(null);
+  const [phoneLabelDraft, setPhoneLabelDraft] = useState('');
 
   // Gemini Config State
   const [geminiKey, setGeminiKey] = useState('');
@@ -86,6 +90,11 @@ const SettingsScreen: React.FC = () => {
 
   // WhatsApp Signup State
   const [showWhatsAppSignup, setShowWhatsAppSignup] = useState(false);
+  const [showAddPhoneForm, setShowAddPhoneForm] = useState(false);
+  const [addPhoneMode, setAddPhoneMode] = useState<'signup' | 'manual'>('signup');
+  const [manualPhone, setManualPhone] = useState({ phoneNumberId: '', displayPhoneNumber: '', label: '', wabaId: '', accessToken: '', businessId: '' });
+  const [isAddingPhone, setIsAddingPhone] = useState(false);
+  const [expandedPhoneIds, setExpandedPhoneIds] = useState<Record<string, boolean>>({});
 
   // Organization Details State
   const [orgDetails, setOrgDetails] = useState<any>(null);
@@ -183,6 +192,12 @@ const SettingsScreen: React.FC = () => {
                     setIsWhatsAppConfigured(false);
                 }
                 setIsLoadingWhatsApp(false);
+                // Load phone numbers for multi-number management
+                if (user.organizationId) {
+                    whatsappPhoneService.getPhoneNumbers(user.organizationId).then(phones => {
+                        setWaPhoneNumbers(phones);
+                    }).catch(() => {});
+                }
             }
             // Load Gmail Config
             if (activeTab === 'channels') {
@@ -637,6 +652,18 @@ const SettingsScreen: React.FC = () => {
         
         setIsLoadingWhatsApp(false);
         console.log('✅ [Settings] WhatsApp signup process complete');
+
+        // Auto-add to whatsapp_phone_numbers table
+        try {
+          const addedPhone = await whatsappPhoneService.addFromIntegrationSettings(currentUser.organizationId);
+          if (addedPhone) {
+            console.log('✅ [Settings] Phone added to whatsapp_phone_numbers:', addedPhone.displayPhoneNumber);
+            const phones = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+            setWaPhoneNumbers(phones);
+          }
+        } catch (migErr) {
+          console.warn('⚠️ [Settings] Could not auto-add phone number:', migErr);
+        }
       })();
     }
   };
@@ -659,6 +686,7 @@ const SettingsScreen: React.FC = () => {
       setWaPhoneId('');
       setWaWabaId('');
       setWaToken('');
+      setWaPhoneNumbers([]);
       alert('WhatsApp Business Account disconnected successfully');
     } catch (error: any) {
       alert('Error disconnecting WhatsApp: ' + error.message);
@@ -1364,63 +1392,273 @@ const SettingsScreen: React.FC = () => {
                     {/* WhatsApp Configuration Details - Step 2: Show when fully configured */}
                     {expandedChannels['whatsapp'] && isWhatsAppConfigured && whatsappConfig && (
                        <div className="bg-green-50 p-6 border-t border-slate-200 space-y-6">
-                           {/* Current Configuration - Read Only */}
+                           {/* Phone Numbers List */}
                            <div>
-                               <h5 className="font-semibold text-sm text-slate-800 mb-3">Configuración Actual</h5>
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                   <div className="md:col-span-2">
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">📞 Número de Teléfono</label>
-                                       <input 
-                                           type="text" 
-                                           readOnly 
-                                           value={whatsappConfig.phone_number || 'Fetching from API...'}
-                                           className={`w-full px-3 py-2 border-2 rounded text-sm font-mono font-bold ${
-                                               whatsappConfig.phone_number 
-                                                   ? 'border-green-300 bg-green-50 text-green-700' 
-                                                   : 'border-yellow-300 bg-yellow-50 text-yellow-700'
-                                           }`}
-                                       />
-                                       {!whatsappConfig.phone_number && (
-                                           <p className="text-xs text-yellow-600 mt-1">⏳ Obteniendo número desde WhatsApp API...</p>
+                               <h5 className="font-semibold text-sm text-slate-800 mb-3 flex items-center gap-2">
+                                   📱 Números de WhatsApp ({waPhoneNumbers.length})
+                               </h5>
+                               {waPhoneNumbers.length === 0 ? (
+                                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+                                       <p className="text-sm text-slate-500">No hay números registrados en la tabla de números.</p>
+                                       <p className="text-xs text-slate-400 mt-1">Agrega un número usando el botón de abajo.</p>
+                                   </div>
+                               ) : (
+                                   <div className="space-y-2">
+                                       {waPhoneNumbers.map(phone => (
+                                           <div key={phone.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                                               {/* Header row */}
+                                               <div className="flex items-center gap-3 p-3">
+                                                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                                       phone.qualityRating === 'GREEN' ? 'bg-green-500' :
+                                                       phone.qualityRating === 'YELLOW' ? 'bg-yellow-500' :
+                                                       phone.qualityRating === 'RED' ? 'bg-red-500' : 'bg-slate-300'
+                                                   }`} title={`Calidad: ${phone.qualityRating}`} />
+                                                   <div className="flex-1 min-w-0">
+                                                       {editingPhoneLabel === phone.id ? (
+                                                           <div className="flex items-center gap-2">
+                                                               <input
+                                                                   type="text"
+                                                                   value={phoneLabelDraft}
+                                                                   onChange={e => setPhoneLabelDraft(e.target.value)}
+                                                                   className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm"
+                                                                   placeholder="Etiqueta (ej: Ventas, Soporte)"
+                                                                   autoFocus
+                                                               />
+                                                               <button 
+                                                                   onClick={async () => {
+                                                                       if (currentUser?.organizationId) {
+                                                                           await whatsappPhoneService.updatePhoneNumber(phone.id, currentUser.organizationId, { label: phoneLabelDraft });
+                                                                           const updated = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                                                                           setWaPhoneNumbers(updated);
+                                                                       }
+                                                                       setEditingPhoneLabel(null);
+                                                                   }}
+                                                                   className="text-green-600 hover:text-green-700"
+                                                               >
+                                                                   <CheckCircle size={16} />
+                                                               </button>
+                                                               <button onClick={() => setEditingPhoneLabel(null)} className="text-slate-400 hover:text-slate-600">
+                                                                   <XCircle size={16} />
+                                                               </button>
+                                                           </div>
+                                                       ) : (
+                                                           <div>
+                                                               <div className="flex items-center gap-2">
+                                                                   <span className="font-medium text-sm text-slate-800">{phone.displayPhoneNumber}</span>
+                                                                   {phone.isDefault && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">Default</span>}
+                                                               </div>
+                                                               <div className="text-xs text-slate-500">
+                                                                   {phone.label && <span className="font-medium">{phone.label} • </span>}
+                                                                   {phone.verifiedName && <span>{phone.verifiedName} • </span>}
+                                                                   Tier: {phone.messagingLimitTier || 'N/A'}
+                                                               </div>
+                                                           </div>
+                                                       )}
+                                                   </div>
+                                                   <div className="flex items-center gap-1.5">
+                                                       <button
+                                                           onClick={() => { setEditingPhoneLabel(phone.id); setPhoneLabelDraft(phone.label || ''); }}
+                                                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded"
+                                                           title="Editar etiqueta"
+                                                       >
+                                                           <Edit2 size={14} />
+                                                       </button>
+                                                       {!phone.isDefault && (
+                                                           <button
+                                                               onClick={async () => {
+                                                                   if (currentUser?.organizationId) {
+                                                                       await whatsappPhoneService.setDefault(phone.id, currentUser.organizationId);
+                                                                       const updated = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                                                                       setWaPhoneNumbers(updated);
+                                                                   }
+                                                               }}
+                                                               className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
+                                                               title="Establecer como predeterminado"
+                                                           >
+                                                               <CheckSquare size={14} />
+                                                           </button>
+                                                       )}
+                                                       {waPhoneNumbers.length > 1 && (
+                                                           <button
+                                                               onClick={async () => {
+                                                                   if (currentUser?.organizationId && confirm('¿Estás seguro de eliminar este número?')) {
+                                                                       await whatsappPhoneService.removePhoneNumber(phone.id, currentUser.organizationId);
+                                                                       const updated = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                                                                       setWaPhoneNumbers(updated);
+                                                                   }
+                                                               }}
+                                                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                               title="Eliminar número"
+                                                           >
+                                                               <Trash2 size={14} />
+                                                           </button>
+                                                       )}
+                                                       <button
+                                                           onClick={() => setExpandedPhoneIds(prev => ({ ...prev, [phone.id]: !prev[phone.id] }))}
+                                                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded"
+                                                           title={expandedPhoneIds[phone.id] ? 'Ocultar detalles' : 'Ver detalles'}
+                                                       >
+                                                           {expandedPhoneIds[phone.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                       </button>
+                                                   </div>
+                                               </div>
+                                               {/* Expandable details */}
+                                               {expandedPhoneIds[phone.id] && (
+                                                   <div className="border-t border-slate-100 px-3 py-3 bg-slate-50">
+                                                       <div className="grid grid-cols-2 gap-3">
+                                                           <div>
+                                                               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Phone Number ID</label>
+                                                               <p className="text-xs font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 truncate" title={phone.phoneNumberId}>{phone.phoneNumberId}</p>
+                                                           </div>
+                                                           <div>
+                                                               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">WABA ID</label>
+                                                               <p className="text-xs font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 truncate" title={phone.wabaId || 'N/A'}>{phone.wabaId || 'N/A'}</p>
+                                                           </div>
+                                                           <div>
+                                                               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Business ID</label>
+                                                               <p className="text-xs font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200 truncate" title={phone.businessId || 'N/A'}>{phone.businessId || 'N/A'}</p>
+                                                           </div>
+                                                           <div>
+                                                               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Fuente</label>
+                                                               <p className="text-xs text-slate-700 bg-white px-2 py-1 rounded border border-slate-200">{phone.verifiedName || 'Manual'}</p>
+                                                           </div>
+                                                       </div>
+                                                   </div>
+                                               )}
+                                           </div>
+                                       ))}
+                                   </div>
+                               )}
+                               <p className="text-xs text-slate-500 mt-2">
+                                   Gestiona los números asociados a tu cuenta de WhatsApp Business. El número predeterminado se usará para nuevas conversaciones.
+                               </p>
+                           </div>
+
+                           {/* Add Another Phone Number */}
+                           <div>
+                               {!showAddPhoneForm ? (
+                                   <button
+                                       onClick={() => setShowAddPhoneForm(true)}
+                                       className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm"
+                                   >
+                                       <Plus size={16} /> Agregar otro número
+                                   </button>
+                               ) : (
+                                   <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-4">
+                                       <div className="flex items-center justify-between">
+                                           <h5 className="font-semibold text-sm text-slate-800">Agregar Número de WhatsApp</h5>
+                                           <button onClick={() => { setShowAddPhoneForm(false); setAddPhoneMode('signup'); }} className="text-slate-400 hover:text-slate-600"><XCircle size={18} /></button>
+                                       </div>
+
+                                       {/* Mode Tabs */}
+                                       <div className="flex gap-2">
+                                           <button
+                                               onClick={() => setAddPhoneMode('signup')}
+                                               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${addPhoneMode === 'signup' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                           >
+                                               Embedded Signup (Facebook)
+                                           </button>
+                                           <button
+                                               onClick={() => setAddPhoneMode('manual')}
+                                               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${addPhoneMode === 'manual' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                           >
+                                               Agregar Manualmente
+                                           </button>
+                                       </div>
+
+                                       {addPhoneMode === 'signup' && currentUser?.organizationId && (
+                                           <WhatsAppEmbeddedSignup
+                                               organizationId={currentUser.organizationId}
+                                               onSuccess={async (data) => {
+                                                   try {
+                                                       // Wait for backend to save access_token
+                                                       await new Promise(resolve => setTimeout(resolve, 5000));
+                                                       // Fetch phone number from API first
+                                                       const config = await chatService.getWhatsAppConfig(currentUser.organizationId);
+                                                       if (config?.access_token && config?.phone_number_id) {
+                                                           await fetchAndSavePhoneNumber(currentUser.organizationId, config.phone_number_id, config.access_token);
+                                                       }
+                                                       // Add the new phone from integration_settings (works even if phones already exist)
+                                                       await whatsappPhoneService.addFromIntegrationSettings(currentUser.organizationId);
+                                                       const phones = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                                                       setWaPhoneNumbers(phones);
+                                                       setShowAddPhoneForm(false);
+                                                   } catch (err) {
+                                                       console.error('Error adding phone via signup:', err);
+                                                   }
+                                               }}
+                                               onClose={() => setShowAddPhoneForm(false)}
+                                           />
+                                       )}
+
+                                       {addPhoneMode === 'manual' && (
+                                           <div className="space-y-3">
+                                               <div className="grid grid-cols-2 gap-3">
+                                                   <div>
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">Phone Number ID *</label>
+                                                       <input type="text" placeholder="Ej: 123456789012345" value={manualPhone.phoneNumberId} onChange={e => setManualPhone({...manualPhone, phoneNumberId: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                                   </div>
+                                                   <div>
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">Número Visible *</label>
+                                                       <input type="text" placeholder="Ej: +521234567890" value={manualPhone.displayPhoneNumber} onChange={e => setManualPhone({...manualPhone, displayPhoneNumber: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                                   </div>
+                                                   <div>
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">Etiqueta</label>
+                                                       <input type="text" placeholder="Ej: Ventas, Soporte" value={manualPhone.label} onChange={e => setManualPhone({...manualPhone, label: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                                   </div>
+                                                   <div>
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">WABA ID *</label>
+                                                       <input type="text" placeholder="Ej: 987654321098765" value={manualPhone.wabaId} onChange={e => setManualPhone({...manualPhone, wabaId: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                                   </div>
+                                                   <div className="col-span-2">
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">Access Token (System User Token) *</label>
+                                                       <input type="password" placeholder="EAAG..." value={manualPhone.accessToken} onChange={e => setManualPhone({...manualPhone, accessToken: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono" />
+                                                   </div>
+                                                   <div>
+                                                       <label className="block text-xs font-bold text-slate-600 mb-1">Business ID (opcional)</label>
+                                                       <input type="text" placeholder="Ej: 111222333444" value={manualPhone.businessId} onChange={e => setManualPhone({...manualPhone, businessId: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                                   </div>
+                                               </div>
+                                               <div className="flex justify-end gap-2 pt-2">
+                                                   <button onClick={() => setShowAddPhoneForm(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                                                   <button
+                                                       disabled={isAddingPhone || !manualPhone.phoneNumberId || !manualPhone.displayPhoneNumber || !manualPhone.wabaId || !manualPhone.accessToken}
+                                                       onClick={async () => {
+                                                           if (!currentUser?.organizationId) return;
+                                                           setIsAddingPhone(true);
+                                                           try {
+                                                               await whatsappPhoneService.addPhoneNumber(
+                                                                   currentUser.organizationId,
+                                                                   manualPhone.phoneNumberId,
+                                                                   manualPhone.displayPhoneNumber,
+                                                                   manualPhone.label || '',
+                                                                   waPhoneNumbers.length === 0,
+                                                                   undefined, // verifiedName
+                                                                   manualPhone.wabaId || undefined,
+                                                                   manualPhone.accessToken || undefined,
+                                                                   manualPhone.businessId || undefined
+                                                               );
+                                                               const phones = await whatsappPhoneService.getPhoneNumbers(currentUser.organizationId);
+                                                               setWaPhoneNumbers(phones);
+                                                               setShowAddPhoneForm(false);
+                                                               setManualPhone({ phoneNumberId: '', displayPhoneNumber: '', label: '', wabaId: '', accessToken: '', businessId: '' });
+                                                           } catch (err: any) {
+                                                               alert('Error: ' + (err.message || 'No se pudo agregar el número'));
+                                                           } finally {
+                                                               setIsAddingPhone(false);
+                                                           }
+                                                       }}
+                                                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                                                   >
+                                                       {isAddingPhone && <Loader2 size={14} className="animate-spin" />}
+                                                       Agregar Número
+                                                   </button>
+                                               </div>
+                                               <p className="text-xs text-slate-400">Estos datos los encuentras en Meta for Developers → Tu App → WhatsApp → API Setup.</p>
+                                           </div>
                                        )}
                                    </div>
-                                   <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">ID del Número</label>
-                                       <input 
-                                           type="text" 
-                                           readOnly 
-                                           value={whatsappConfig.phone_id || whatsappConfig.phone_number_id || ''}
-                                           className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-slate-600 text-sm font-mono"
-                                       />
-                                   </div>
-                                   <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">WABA ID</label>
-                                       <input 
-                                           type="text" 
-                                           readOnly 
-                                           value={whatsappConfig.waba_id || 'No disponible'}
-                                           className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-slate-600 text-sm font-mono"
-                                       />
-                                   </div>
-                                   <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Business ID</label>
-                                       <input 
-                                           type="text" 
-                                           readOnly 
-                                           value={whatsappConfig.business_id || 'N/A'}
-                                           className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-slate-600 text-sm font-mono"
-                                       />
-                                   </div>
-                                   <div>
-                                       <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Fuente</label>
-                                       <input 
-                                           type="text" 
-                                           readOnly 
-                                           value={whatsappConfig.source || 'N/A'}
-                                           className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-slate-600 text-sm font-mono"
-                                       />
-                                   </div>
-                               </div>
+                               )}
                            </div>
                        </div>
                     )}

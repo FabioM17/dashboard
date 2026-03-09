@@ -28,7 +28,8 @@ export const campaignService = {
         created_at: campaign.createdAt.toISOString(),
         sent_at: campaign.sentAt?.toISOString(),
         scheduled_at: campaign.scheduledAt?.toISOString(),
-        created_by: (await supabase.auth.getUser()).data.user?.id
+        created_by: (await supabase.auth.getUser()).data.user?.id,
+        whatsapp_phone_number_id: campaign.whatsappPhoneNumberId || null
       };
 
       const { data, error } = await supabase
@@ -61,6 +62,7 @@ export const campaignService = {
       templateLanguage: data.template_language,
       emailSubject: data.email_subject,
       emailBody: data.email_body,
+      whatsappPhoneNumberId: data.whatsapp_phone_number_id || undefined,
       createdAt: new Date(data.created_at),
       sentAt: data.sent_at ? new Date(data.sent_at) : undefined,
       scheduledAt: data.scheduled_at ? new Date(data.scheduled_at) : undefined,
@@ -138,7 +140,8 @@ export const campaignService = {
             template_name: campaign.templateName,
             template_language: campaign.templateLanguage || 'en_US',
             text: campaign.emailBody, // En WA guardamos el cuerpo del template para referencia
-            author_name: 'Campaign System'
+            author_name: 'Campaign System',
+            whatsapp_phone_number_id: campaign.whatsappPhoneNumberId || undefined
           }
         });
 

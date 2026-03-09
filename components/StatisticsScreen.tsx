@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Users, MessageSquare, Clock, AlertTriangle, Shield, RefreshCw, Activity, CheckCircle, XCircle, Settings } from 'lucide-react';
 import { getAnalyticsDashboardData, AnalyticsDashboardData } from '../services/analyticsService';
+import { whatsappPhoneService } from '../services/whatsappPhoneService';
+import { WhatsAppPhoneNumber } from '../types';
 
 interface StatisticsScreenProps {
   currentUser: { organizationId: string; id: string; role: string } | null;
@@ -13,8 +15,10 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
   const [refreshing, setRefreshing] = useState(false);
+  const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (phoneId?: string) => {
     if (!currentUser?.organizationId) {
       setError('No organization ID found');
       setLoading(false);
@@ -24,7 +28,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAnalyticsDashboardData(currentUser.organizationId);
+      const data = await getAnalyticsDashboardData(currentUser.organizationId, phoneId || undefined);
       setAnalyticsData(data);
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -37,11 +41,22 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
 
   useEffect(() => {
     fetchAnalytics();
+    // Load phone numbers for filter
+    if (currentUser?.organizationId) {
+      whatsappPhoneService.getPhoneNumbers(currentUser.organizationId).then(phones => {
+        setPhoneNumbers(phones);
+      }).catch(() => {});
+    }
   }, [currentUser?.organizationId]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchAnalytics();
+    fetchAnalytics(selectedPhoneId);
+  };
+
+  const handlePhoneFilterChange = (phoneId: string) => {
+    setSelectedPhoneId(phoneId);
+    fetchAnalytics(phoneId);
   };
 
   // Loading state
@@ -159,14 +174,31 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ currentUser }) => {
             Última actualización: {new Date(analyticsData.lastUpdated).toLocaleString()}
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all self-start sm:self-auto"
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {/* Phone Number Filter */}
+          {phoneNumbers.length > 1 && (
+            <select
+              value={selectedPhoneId}
+              onChange={(e) => handlePhoneFilterChange(e.target.value)}
+              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="">Todos los números</option>
+              {phoneNumbers.map(phone => (
+                <option key={phone.id} value={phone.id}>
+                  {phone.label ? `${phone.label} (${phone.displayPhoneNumber})` : phone.displayPhoneNumber}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}

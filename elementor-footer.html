@@ -1,0 +1,251 @@
+<!--
+  ================================================================
+  FOOTER DOCRE-A — Para pegar en Elementor Theme Builder → Footer
+  ================================================================
+  INSTRUCCIONES:
+  1. Ve a Elementor → Theme Builder → Footer → Crear nuevo.
+  2. Agrega un widget "HTML" y pega TODO este código.
+  3. O bien replica cada columna con los widgets nativos de Elementor
+     siguiendo los comentarios de cada bloque.
+  ================================================================
+-->
+
+<style>
+  /* ── RESET PARA EL FOOTER EN ELEMENTOR ── */
+  #docrea-footer *,
+  #docrea-footer *::before,
+  #docrea-footer *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  #docrea-footer {
+    background: #160037;
+    border-top: 1px solid rgba(107,78,255,0.2);
+    font-family: 'Inter', 'Montserrat', sans-serif;
+    color: #E0D9FF;
+  }
+
+  /* Área principal: 3 columnas */
+  .df-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 32px 48px;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 48px;
+  }
+
+  /* Columna 1 — Logo y descripción */
+  .df-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 24px;
+    color: #FFFFFF;
+    margin-bottom: 14px;
+    display: block;
+    text-decoration: none;
+  }
+  .df-logo span { color: #FF3D00; }
+
+  .df-desc {
+    font-size: 14px;
+    color: #E0D9FF;
+    line-height: 1.7;
+    opacity: .72;
+    margin-bottom: 10px;
+  }
+
+  .df-by {
+    font-size: 12px;
+    color: #E0D9FF;
+    opacity: .4;
+    letter-spacing: .5px;
+  }
+
+  /* Columnas 2 y 3 — Título + links */
+  .df-col-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #6B4EFF;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  .df-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .df-links a {
+    font-size: 14px;
+    color: #E0D9FF;
+    opacity: .68;
+    text-decoration: none;
+    transition: color .2s, opacity .2s;
+  }
+  .df-links a:hover { color: #FFFFFF; opacity: 1; }
+
+  .df-email {
+    font-size: 14px;
+    color: #E0D9FF;
+    opacity: .68;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  /* Botón ACCEDER en footer */
+  .df-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    background: #FF3D00;
+    color: #FFFFFF;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background .2s, box-shadow .2s;
+    margin-bottom: 20px;
+  }
+  .df-btn:hover {
+    background: #CC3100;
+    box-shadow: 0 4px 20px rgba(255,61,0,0.4);
+  }
+
+  /* Botón "Página principal" en footer */
+  .df-btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: transparent;
+    color: #9B87FF;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    border-radius: 6px;
+    border: 1px solid rgba(107,78,255,0.35);
+    text-decoration: none;
+    transition: color .2s, border-color .2s, background .2s;
+  }
+  .df-btn-back:hover {
+    color: #E0D9FF;
+    border-color: rgba(107,78,255,0.7);
+    background: rgba(107,78,255,0.1);
+  }
+
+  /* Barra de copyright */
+  .df-bar {
+    border-top: 1px solid rgba(107,78,255,0.18);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .df-copy {
+    font-size: 13px;
+    color: #E0D9FF;
+    opacity: .4;
+  }
+  .df-privacy a {
+    font-size: 13px;
+    color: #6B4EFF;
+    opacity: .8;
+    text-decoration: none;
+    transition: opacity .2s;
+  }
+  .df-privacy a:hover { opacity: 1; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .df-inner { grid-template-columns: 1fr; gap: 32px; }
+    .df-bar   { flex-direction: column; text-align: center; }
+  }
+</style>
+
+<!-- Fuentes Google (si el tema no las carga ya) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+
+<!-- ── FOOTER ── -->
+<footer id="docrea-footer">
+
+  <!-- ÁREA PRINCIPAL: 3 columnas -->
+  <div class="df-inner">
+
+    <!-- COLUMNA 1 — Logo + descripción
+         Elementor nativo: Heading (logo) + Text Editor (descripción) + Text (by) -->
+    <div>
+      <a href="#inicio" class="df-logo">Docre<span>-A</span></a>
+      <p class="df-desc">
+        Plataforma de mensajería empresarial. WhatsApp Business y envío de correos
+        desde Gmail en un solo panel, con CRM, automatizaciones y campañas masivas.
+        Facebook Messenger e Instagram próximamente.
+      </p>
+      <p class="df-by">by Domen Capital S.A. De C.V. · El Salvador</p>
+    </div>
+
+    <!-- COLUMNA 2 — Navegación
+         Elementor nativo: Heading (título) + Icon List (links) -->
+    <div>
+      <span class="df-col-title">Navegación</span>
+      <ul class="df-links">
+        <li><a href="https://docreativelatam.com/" target="_blank">← Página principal</a></li>
+        <li><a href="#inicio">Inicio</a></li>
+        <li><a href="#caracteristicas">Características</a></li>
+        <li><a href="#beneficios">Beneficios</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+        <li>
+          <a href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" target="_blank">
+            Política de Privacidad
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- COLUMNA 3 — Contacto y acceso
+         Elementor nativo: Heading (título) + Text (email) + Button (acceder) + Button (página principal) -->
+    <div>
+      <span class="df-col-title">Contacto</span>
+      <span class="df-email">📧 notificaciones@docreativelatam.com</span>
+      <div style="display:flex; flex-direction:column; gap:10px; align-items:flex-start;">
+        <a href="https://dashboardchat.docreativelatam.com/" target="_blank" class="df-btn">
+          ACCEDER A DOCRE-A →
+        </a>
+        <a href="https://docreativelatam.com/" target="_blank" class="df-btn-back">
+          ← PÁGINA PRINCIPAL
+        </a>
+      </div>
+      <p style="font-size:12px; color:#E0D9FF; opacity:.4; line-height:1.6; margin-top:16px;">
+        Para soporte o consultas sobre la plataforma,
+        escríbenos al correo o usa el formulario de contacto.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- BARRA DE COPYRIGHT -->
+  <div class="df-bar">
+    <p class="df-copy">
+      © 2026 Docre-A — Domen Capital S.A. De C.V. · Todos los derechos reservados.
+    </p>
+    <div class="df-privacy">
+      <a href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" target="_blank">
+        Política de Privacidad
+      </a>
+    </div>
+  </div>
+
+</footer>

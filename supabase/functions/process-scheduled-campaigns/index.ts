@@ -168,36 +168,70 @@ serve(async (req) => {
 
 async function sendWhatsAppDirect(supabase: any, campaign: any, contact: any): Promise<boolean> {
   try {
-    // Obtener credenciales de WhatsApp (EXACTO como whatsapp-send)
-    const { data: config, error: configError } = await supabase
-      .from('integration_settings')
-      .select('credentials')
-      .eq('organization_id', campaign.organization_id)
-      .eq('service_name', 'whatsapp')
-      .single();
+    // Obtener credenciales de WhatsApp
+    // Priority: 1) campaign.whatsapp_phone_number_id → per-phone token
+    //           2) org default phone → per-phone token  
+    //           3) integration_settings → fallback (backward compat)
+    let phone_id = '';
+    let access_token = '';
 
-    if (configError || !config?.credentials) {
-      console.error('[process-campaigns] WhatsApp config not found:', configError);
-      return false;
+    // Try per-phone credentials first
+    if (campaign.whatsapp_phone_number_id) {
+      const { data: phoneRecord } = await supabase
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('id', campaign.whatsapp_phone_number_id)
+        .eq('organization_id', campaign.organization_id)
+        .single();
+
+      if (phoneRecord?.phone_number_id && phoneRecord?.access_token) {
+        phone_id = phoneRecord.phone_number_id;
+        access_token = phoneRecord.access_token;
+      }
     }
 
-    // Validar que credentials sea un objeto válido
-    const credentials = config.credentials;
-    if (typeof credentials !== 'object' || credentials === null) {
-      console.error('[process-campaigns] Invalid credentials format:', typeof credentials);
-      return false;
+    // Try default phone number
+    if (!phone_id || !access_token) {
+      const { data: defaultPhone } = await supabase
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('organization_id', campaign.organization_id)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (defaultPhone?.phone_number_id && defaultPhone?.access_token) {
+        phone_id = phone_id || defaultPhone.phone_number_id;
+        access_token = access_token || defaultPhone.access_token;
+      }
     }
 
-    // Extraer valores y limpiar espacios (puede venir con espacios de JSONB)
-    const phone_id = String(credentials.phone_id || credentials.phone_number_id || '').trim();
-    const access_token = String(credentials.access_token || '').trim();
+    // Final fallback: integration_settings (backward compatibility)
+    if (!phone_id || !access_token) {
+      const { data: config, error: configError } = await supabase
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', campaign.organization_id)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      if (configError || !config?.credentials) {
+        console.error('[process-campaigns] WhatsApp config not found:', configError);
+        return false;
+      }
+
+      const credentials = config.credentials;
+      if (typeof credentials !== 'object' || credentials === null) {
+        console.error('[process-campaigns] Invalid credentials format:', typeof credentials);
+        return false;
+      }
+
+      phone_id = phone_id || String(credentials.phone_id || credentials.phone_number_id || '').trim();
+      access_token = access_token || String(credentials.access_token || '').trim();
+    }
 
     if (!phone_id || !access_token) {
-      console.error('[process-campaigns] Missing WhatsApp credentials', {
-        phone_id: !!phone_id,
-        access_token: !!access_token,
-        credentialsKeys: Object.keys(credentials)
-      });
+      console.error('[process-campaigns] Missing WhatsApp credentials after all resolution attempts');
       return false;
     }
 

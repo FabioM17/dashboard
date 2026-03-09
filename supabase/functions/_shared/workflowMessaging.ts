@@ -101,29 +101,70 @@ export async function sendWhatsAppTemplate(
     template: TemplateData;
     variableMappings?: VariableMappingDef[];
     metadata?: Record<string, any>;
+    whatsappPhoneNumberId?: string;
   }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Get WhatsApp credentials
-    const { data: config, error: configError } = await supabase
-      .from('integration_settings')
-      .select('credentials')
-      .eq('organization_id', params.organizationId)
-      .eq('service_name', 'whatsapp')
-      .single();
+    // Resolve WhatsApp credentials
+    // Priority: 1) whatsappPhoneNumberId → per-phone token
+    //           2) org default phone → per-phone token
+    //           3) integration_settings → fallback (backward compat)
+    let phone_id = '';
+    let access_token = '';
 
-    if (configError || !config?.credentials) {
-      console.error('[workflow-messaging] WhatsApp config not found:', configError);
-      return { success: false, error: 'WhatsApp configuration not found' };
+    // Try per-phone credentials first
+    if (params.whatsappPhoneNumberId) {
+      const { data: phoneRecord } = await supabase
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('id', params.whatsappPhoneNumberId)
+        .eq('organization_id', params.organizationId)
+        .single();
+
+      if (phoneRecord?.phone_number_id && phoneRecord?.access_token) {
+        phone_id = phoneRecord.phone_number_id;
+        access_token = phoneRecord.access_token;
+      }
     }
 
-    const credentials = config.credentials;
-    if (typeof credentials !== 'object' || credentials === null) {
-      return { success: false, error: 'Invalid WhatsApp credentials format' };
+    // Try default phone number
+    if (!phone_id || !access_token) {
+      const { data: defaultPhone } = await supabase
+        .from('whatsapp_phone_numbers')
+        .select('phone_number_id, access_token')
+        .eq('organization_id', params.organizationId)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (defaultPhone?.phone_number_id && defaultPhone?.access_token) {
+        phone_id = phone_id || defaultPhone.phone_number_id;
+        access_token = access_token || defaultPhone.access_token;
+      }
     }
 
-    const phone_id = String(credentials.phone_id || credentials.phone_number_id || '').trim();
-    const access_token = String(credentials.access_token || '').trim();
+    // Final fallback: integration_settings (backward compatibility)
+    if (!phone_id || !access_token) {
+      const { data: config, error: configError } = await supabase
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', params.organizationId)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      if (configError || !config?.credentials) {
+        console.error('[workflow-messaging] WhatsApp config not found:', configError);
+        return { success: false, error: 'WhatsApp configuration not found' };
+      }
+
+      const credentials = config.credentials;
+      if (typeof credentials !== 'object' || credentials === null) {
+        return { success: false, error: 'Invalid WhatsApp credentials format' };
+      }
+
+      phone_id = phone_id || String(credentials.phone_id || credentials.phone_number_id || '').trim();
+      access_token = access_token || String(credentials.access_token || '').trim();
+    }
 
     if (!phone_id || !access_token) {
       return { success: false, error: 'Missing WhatsApp credentials' };

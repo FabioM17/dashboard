@@ -23,6 +23,13 @@ export interface DeletionPreview {
     role: string;
     is_creator: boolean;
   }>;
+  phone_numbers?: Array<{
+    id: string;
+    display_phone_number: string;
+    label: string;
+    is_default: boolean;
+    waba_id: string | null;
+  }>;
   error?: string;
   message?: string;
 }

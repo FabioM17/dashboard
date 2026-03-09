@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Task, TaskStatus, User } from '../types';
-import { CheckCircle2, Clock, MoreHorizontal, User as UserIcon, ArrowRight, ArrowLeft, Trash2, Plus, MessageCircle } from 'lucide-react';
+import { Task, TaskStatus, User, WhatsAppPhoneNumber } from '../types';
+import { CheckCircle2, Clock, MoreHorizontal, User as UserIcon, ArrowRight, ArrowLeft, Trash2, Plus, MessageCircle, Phone } from 'lucide-react';
 import { USERS } from '../constants';
 
 interface TaskBoardProps {
@@ -10,9 +10,10 @@ interface TaskBoardProps {
     onDeleteTask?: (taskId: string) => void;
     onChatSelect?: (conversationId: string) => void; // Prop for navigation
     teamMembers?: User[];
+    phoneNumbers?: WhatsAppPhoneNumber[];
 }
 
-const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTask, onChatSelect, teamMembers }) => {
+const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTask, onChatSelect, teamMembers, phoneNumbers = [] }) => {
   const columns: { id: TaskStatus; label: string; color: string }[] = [
       { id: 'todo', label: 'Pendiente', color: 'bg-slate-500' },
       { id: 'in_progress', label: 'En Proceso', color: 'bg-blue-500' },
@@ -75,12 +76,23 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onUpdateStatus, onDeleteTa
 
                                   {/* Explicit rendering for Client Name and Chat Button */}
                                   <div className="flex items-center justify-between mb-2 mt-2">
-                                      {task.clientName ? (
-                                        <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded w-fit">
-                                            <MessageCircle size={12} />
-                                            <span className="font-medium truncate max-w-[140px]">{task.clientName}</span>
-                                        </div>
-                                      ) : <div></div>}
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                          {task.clientName && (
+                                            <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded w-fit">
+                                                <MessageCircle size={12} />
+                                                <span className="font-medium truncate max-w-[140px]">{task.clientName}</span>
+                                            </div>
+                                          )}
+                                          {task.whatsappPhoneNumberId && phoneNumbers.length > 0 && (() => {
+                                            const taskPhone = phoneNumbers.find(p => p.id === task.whatsappPhoneNumberId);
+                                            return taskPhone ? (
+                                              <div className="flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
+                                                  <Phone size={10} />
+                                                  <span className="font-medium truncate max-w-[100px]">{taskPhone.label || taskPhone.displayPhoneNumber}</span>
+                                              </div>
+                                            ) : null;
+                                          })()}
+                                      </div>
                                       
                                       {task.conversationId && onChatSelect && (
                                             <button 

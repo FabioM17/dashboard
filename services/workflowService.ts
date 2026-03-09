@@ -23,6 +23,7 @@ export const workflowService = {
         createdAt: new Date(w.created_at),
         updatedAt: new Date(w.updated_at),
         createdBy: w.created_by,
+        whatsappPhoneNumberId: w.whatsapp_phone_number_id || undefined,
         list: w.lists ? {
           id: w.lists.id,
           name: w.lists.name,
@@ -143,7 +144,8 @@ export const workflowService = {
       stepOrder: number;
     }>,
     isActive: boolean = false,
-    createdBy?: string
+    createdBy?: string,
+    whatsappPhoneNumberId?: string
   ): Promise<Workflow> {
     try {
       // Transform steps to snake_case for Edge Function
@@ -166,7 +168,8 @@ export const workflowService = {
           list_id: listId,
           steps: stepsSnakeCase,
           is_active: isActive,
-          created_by: createdBy
+          created_by: createdBy,
+          whatsapp_phone_number_id: whatsappPhoneNumberId || null
         }
       });
 

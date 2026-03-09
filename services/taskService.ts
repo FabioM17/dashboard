@@ -25,7 +25,8 @@ export const taskService = {
       conversationId: t.conversation_id,
       clientName: t.conversations?.contact_name || 'General Task', // Populate client name
       status: t.status as TaskStatus,
-      dueDate: new Date(t.due_date)
+      dueDate: new Date(t.due_date),
+      whatsappPhoneNumberId: t.whatsapp_phone_number_id || undefined
     }));
   },
 
@@ -37,7 +38,8 @@ export const taskService = {
          status: task.status,
          assignee_id: task.assigneeId,
          conversation_id: task.conversationId,
-         due_date: task.dueDate.toISOString()
+         due_date: task.dueDate.toISOString(),
+         whatsapp_phone_number_id: task.whatsappPhoneNumberId || null
      }).select().single();
      
      if(error) throw error;

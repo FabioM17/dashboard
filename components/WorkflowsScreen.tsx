@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Workflow, CRMList, Template, WorkflowStep, WorkflowStepChannel, CustomProperty, VariableMapping } from '../types';
+import { Workflow, CRMList, Template, WorkflowStep, WorkflowStepChannel, CustomProperty, VariableMapping, WhatsAppPhoneNumber } from '../types';
 import { workflowService } from '../services/workflowService';
 import { listService } from '../services/listService';
 import { templateService } from '../services/templateService';
 import { supabase } from '../services/supabaseClient';
+import { whatsappPhoneService } from '../services/whatsappPhoneService';
 import EmailEditor from './EmailEditor';
 
 interface Props {
@@ -364,6 +365,19 @@ function CreateWorkflowModal({
   const [showListContactsPreview, setShowListContactsPreview] = useState(false);
   const [listContacts, setListContacts] = useState<any[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
+
+  // Load available WhatsApp phone numbers
+  useEffect(() => {
+    if (isWhatsAppConfigured) {
+      whatsappPhoneService.getPhoneNumbers(organizationId).then(phones => {
+        setPhoneNumbers(phones);
+        const def = phones.find(p => p.isDefault);
+        if (def) setSelectedPhoneId(def.id);
+      }).catch(err => console.error('Error loading phone numbers:', err));
+    }
+  }, [organizationId, isWhatsAppConfigured]);
 
   async function loadListContacts(listId: string) {
     if (!listId) return;
@@ -496,7 +510,8 @@ function CreateWorkflowModal({
           sendTime: s.sendTime || null
         })),
         isActive,
-        userId
+        userId,
+        selectedPhoneId || undefined
       );
       onSuccess();
     } catch (err: any) {
@@ -617,6 +632,30 @@ function CreateWorkflowModal({
               </div>
             )}
           </div>
+
+          {/* WhatsApp Phone Number Selector */}
+          {isWhatsAppConfigured && phoneNumbers.length >= 1 && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Número de WhatsApp para envío
+              </label>
+              <select
+                value={selectedPhoneId}
+                onChange={(e) => setSelectedPhoneId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              >
+                {phoneNumbers.map(phone => (
+                  <option key={phone.id} value={phone.id}>
+                    {phone.label ? `${phone.label} (${phone.displayPhoneNumber})` : phone.displayPhoneNumber}
+                    {phone.isDefault ? ' — Default' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Todos los pasos de WhatsApp usarán este número.
+              </p>
+            </div>
+          )}
 
           {/* Steps */}
           <div className="mb-6">

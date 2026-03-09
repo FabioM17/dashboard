@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Conversation, Message, User, Note, MessageType, Task, CRMContact, CustomProperty, Snippet, Template } from '../types';
+import { Conversation, Message, User, Note, MessageType, Task, CRMContact, CustomProperty, Snippet, Template, WhatsAppPhoneNumber } from '../types';
 import { 
     Send, MoreVertical, Sparkles, Check, CheckCheck, Smile, 
-    StickyNote, MessageSquare, Plus, UserPlus, ArrowLeft, Database, Trash2, Archive, CheckSquare, X, UserCheck, Zap, FileJson, Image as ImageIcon, Paperclip, Loader2, AlertTriangle, Clock, Phone, Calendar, Play, PhoneOutgoing, PhoneMissed, PhoneOff, Mic
+    StickyNote, MessageSquare, Plus, UserPlus, ArrowLeft, Database, Trash2, Archive, CheckSquare, X, UserCheck, Zap, FileJson, Image as ImageIcon, Paperclip, Loader2, AlertTriangle, Clock, Phone, Calendar, Play, PhoneOutgoing, PhoneMissed, PhoneOff, Mic, ChevronDown, Shield
 } from 'lucide-react';
 import { aiService } from '../services/aiService';
 import { snippetService } from '../services/snippetService';
@@ -14,6 +14,7 @@ import { storageService } from '../services/storageService';
 import { teamService } from '../services/teamService';
 import { validationService } from '../services/validationService';
 import { taskService } from '../services/taskService';
+import { whatsappPhoneService } from '../services/whatsappPhoneService';
 import LoadingOverlay from './LoadingOverlay';
 import ResultOverlay from './ResultOverlay';
 import { ImageViewer, AudioPlayer, VideoPlayer, DocumentViewer } from './MediaViewer';
@@ -87,6 +88,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [templatesList, setTemplatesList] = useState<Template[]>([]);
+
+  // WhatsApp Phone Number State (Multi-number support)
+  const [orgPhoneNumbers, setOrgPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
+  const [selectedPhoneNumberId, setSelectedPhoneNumberId] = useState<string | null>(null);
+  const [showPhoneSelector, setShowPhoneSelector] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -272,6 +278,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       }
   }, [currentUser]);
 
+  // Load WhatsApp phone numbers for multi-number support
+  useEffect(() => {
+      if (currentUser?.organizationId && conversation.platform === 'whatsapp') {
+          whatsappPhoneService.getPhoneNumbers(currentUser.organizationId).then(phones => {
+              setOrgPhoneNumbers(phones);
+              // Set selected phone: use conversation's assigned phone, or default
+              if (conversation.whatsappPhoneNumberId) {
+                  setSelectedPhoneNumberId(conversation.whatsappPhoneNumberId);
+              } else {
+                  const defaultPhone = phones.find(p => p.isDefault);
+                  if (defaultPhone) setSelectedPhoneNumberId(defaultPhone.id);
+                  else if (phones.length > 0) setSelectedPhoneNumberId(phones[0].id);
+              }
+          }).catch(err => console.error('Failed loading org phone numbers', err));
+      }
+  }, [currentUser?.organizationId, conversation.id, conversation.platform]);
+
     // Validate due date when changed
     useEffect(() => {
         if (!newTaskDueDate) {
@@ -349,6 +372,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       setResultNotice({ show: true, status: 'success', title: 'Template enviado', message: 'El mensaje de template fue enviado.' });
       setTimeout(() => setIsSendSubmitting(false), 500);
   };
+
+  // Handle phone number change for conversation
+  const handlePhoneNumberChange = async (phoneId: string) => {
+      setSelectedPhoneNumberId(phoneId);
+      setShowPhoneSelector(false);
+      try {
+          await chatService.updateConversationPhoneNumber(conversation.id, phoneId);
+      } catch (err) {
+          console.error('Error updating conversation phone number:', err);
+      }
+  };
+
+  // Get active phone info for status display
+  const activePhone = orgPhoneNumbers.find(p => p.id === selectedPhoneNumberId);
+
+  // Close phone selector on click outside
+  useEffect(() => {
+      if (!showPhoneSelector) return;
+      const handler = (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('[data-phone-selector]')) setShowPhoneSelector(false);
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+  }, [showPhoneSelector]);
 
   // Auto-scroll
   useEffect(() => {
@@ -549,7 +597,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     assigneeId: newTaskAssignee,
                     conversationId: conversation.id,
                     clientName: conversation.contactName,
-                    dueDate: newTaskDueDate ? new Date(newTaskDueDate) : new Date(Date.now() + 86400000)
+                    dueDate: newTaskDueDate ? new Date(newTaskDueDate) : new Date(Date.now() + 86400000),
+                    whatsappPhoneNumberId: selectedPhoneNumberId || conversation.whatsappPhoneNumberId || undefined
             };
 
             // Optimistically add to UI
@@ -845,14 +894,70 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     <h2 className="font-semibold text-slate-800 flex items-center gap-2 cursor-pointer hover:underline" onClick={() => setShowPropertySidebar(!showPropertySidebar)}>
                         {conversation.contactName}
                     </h2>
-                    <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
-                        {conversation.platform}
-                        {conversation.platform === 'whatsapp' && isWindowClosed && (
-                            <span className="text-amber-600 bg-amber-100 px-1 rounded flex items-center gap-0.5" title="24h Session Closed">
-                                <Clock size={10} /> 24h Closed
+                    <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-slate-500 capitalize flex items-center gap-1">
+                            {conversation.platform}
+                            {conversation.platform === 'whatsapp' && isWindowClosed && (
+                                <span className="text-amber-600 bg-amber-100 px-1 rounded flex items-center gap-0.5" title="24h Session Closed">
+                                    <Clock size={10} /> 24h Closed
+                                </span>
+                            )}
+                        </p>
+                        {/* WhatsApp Phone Number Selector */}
+                        {conversation.platform === 'whatsapp' && orgPhoneNumbers.length > 0 && (
+                            <div className="relative" data-phone-selector>
+                                <button 
+                                    onClick={() => setShowPhoneSelector(!showPhoneSelector)}
+                                    className="flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                    title="Seleccionar número de envío"
+                                >
+                                    <Phone size={10} />
+                                    <span className="max-w-[120px] truncate">
+                                        {activePhone ? (activePhone.label || activePhone.displayPhoneNumber) : 'Sin número'}
+                                    </span>
+                                    <ChevronDown size={10} />
+                                </button>
+                                {showPhoneSelector && (
+                                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 min-w-[220px] py-1">
+                                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100">Enviar desde</div>
+                                        {orgPhoneNumbers.map(phone => (
+                                            <button
+                                                key={phone.id}
+                                                onClick={() => handlePhoneNumberChange(phone.id)}
+                                                className={`w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 text-sm ${
+                                                    selectedPhoneNumberId === phone.id ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700'
+                                                }`}
+                                            >
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    phone.qualityRating === 'GREEN' ? 'bg-green-500' : 
+                                                    phone.qualityRating === 'YELLOW' ? 'bg-yellow-500' : 
+                                                    phone.qualityRating === 'RED' ? 'bg-red-500' : 'bg-slate-300'
+                                                }`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium truncate">{phone.label || phone.displayPhoneNumber}</div>
+                                                    <div className="text-[10px] text-slate-400">{phone.displayPhoneNumber}</div>
+                                                </div>
+                                                {phone.isDefault && <span className="text-[9px] bg-slate-100 text-slate-500 px-1 rounded">Default</span>}
+                                                {selectedPhoneNumberId === phone.id && <Check size={14} className="text-emerald-600" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {/* WhatsApp Business Status Indicator */}
+                        {conversation.platform === 'whatsapp' && activePhone && (
+                            <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
+                                activePhone.qualityRating === 'GREEN' ? 'bg-green-50 text-green-700' :
+                                activePhone.qualityRating === 'YELLOW' ? 'bg-yellow-50 text-yellow-700' :
+                                activePhone.qualityRating === 'RED' ? 'bg-red-50 text-red-700' :
+                                'bg-slate-50 text-slate-500'
+                            }`} title={`Estado WhatsApp Business: ${activePhone.qualityRating} | Tier: ${activePhone.messagingLimitTier}`}>
+                                <Shield size={10} />
+                                Estado: {activePhone.qualityRating}
                             </span>
                         )}
-                    </p>
+                    </div>
                 </div>
             </div>
             

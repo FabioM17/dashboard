@@ -21,23 +21,68 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { organization_id } = await req.json();
+    const { organization_id, whatsapp_phone_number_id } = await req.json();
 
     if (!organization_id) throw new Error("Organization ID required");
 
-    // 1. Obtener Credenciales
-    const { data: config, error: configError } = await supabaseAdmin
-      .from('integration_settings')
-      .select('credentials')
-      .eq('organization_id', organization_id)
-      .eq('service_name', 'whatsapp')
-      .single();
+    // Resolve WABA credentials
+    // Priority: 1) whatsapp_phone_number_id → per-phone waba_id/access_token
+    //           2) org default phone → per-phone waba_id/access_token
+    //           3) integration_settings → fallback (backward compat)
+    let waba_id = '';
+    let access_token = '';
 
-    if (configError || !config?.credentials?.waba_id || !config?.credentials?.access_token) {
-        throw new Error("Missing WhatsApp Configuration (WABA ID or Token) in Settings.");
+    // Try per-phone credentials first
+    if (whatsapp_phone_number_id) {
+      const { data: phoneRecord } = await supabaseAdmin
+        .from('whatsapp_phone_numbers')
+        .select('waba_id, access_token')
+        .eq('id', whatsapp_phone_number_id)
+        .eq('organization_id', organization_id)
+        .single();
+
+      if (phoneRecord?.waba_id && phoneRecord?.access_token) {
+        waba_id = phoneRecord.waba_id;
+        access_token = phoneRecord.access_token;
+      }
     }
 
-    const { waba_id, access_token } = config.credentials;
+    // Try default phone number
+    if (!waba_id || !access_token) {
+      const { data: defaultPhone } = await supabaseAdmin
+        .from('whatsapp_phone_numbers')
+        .select('waba_id, access_token')
+        .eq('organization_id', organization_id)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (defaultPhone?.waba_id && defaultPhone?.access_token) {
+        waba_id = waba_id || defaultPhone.waba_id;
+        access_token = access_token || defaultPhone.access_token;
+      }
+    }
+
+    // Final fallback: integration_settings
+    if (!waba_id || !access_token) {
+      const { data: config, error: configError } = await supabaseAdmin
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', organization_id)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      if (configError || !config?.credentials?.waba_id || !config?.credentials?.access_token) {
+        throw new Error("Missing WhatsApp Configuration (WABA ID or Token) in Settings.");
+      }
+
+      waba_id = waba_id || config.credentials.waba_id;
+      access_token = access_token || config.credentials.access_token;
+    }
+
+    if (!waba_id || !access_token) {
+      throw new Error("Missing WhatsApp credentials after all resolution attempts.");
+    }
 
     // 2. Fetch Templates from Meta
     const url = `https://graph.facebook.com/v18.0/${waba_id}/message_templates?limit=100`;

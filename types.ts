@@ -98,6 +98,7 @@ export interface Conversation {
   platform: 'whatsapp' | 'instagram' | 'messenger';
   assignedTo?: string; // ID del agente asignado
   status?: 'open' | 'closed' | 'snoozed';
+  whatsappPhoneNumberId?: string; // ID del número de WhatsApp de la org usado en esta conversación
 }
 
 // Asignación de leads/conversaciones a community users
@@ -111,6 +112,7 @@ export interface LeadAssignment {
 }
 
 export enum AppState {
+  LANDING,
   LOGIN,
   ONBOARDING,
   VERIFICATION,
@@ -203,6 +205,7 @@ export interface Campaign {
   templateId?: string;
   templateName?: string;
   templateLanguage?: string;
+  whatsappPhoneNumberId?: string; // Número de WhatsApp desde el que se envía
   
   // Para Email
   emailSubject?: string;
@@ -231,6 +234,7 @@ export interface Task {
   clientName?: string; // Added for context
   status: TaskStatus;
   dueDate: Date;
+  whatsappPhoneNumberId?: string; // Which phone number this task relates to
 }
 
 // AI Provider Types
@@ -281,6 +285,7 @@ export interface Workflow {
   name: string;
   listId: string;
   isActive: boolean;
+  whatsappPhoneNumberId?: string; // Número de WhatsApp desde el que se envían mensajes
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
@@ -331,6 +336,24 @@ export interface ApiEndpointConfig {
   method: string;
   isEnabled: boolean;
   rateLimitPerMinute: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// WhatsApp Phone Number Types (Multi-number support)
+export interface WhatsAppPhoneNumber {
+  id: string;
+  organizationId: string;
+  phoneNumberId: string; // Meta's Phone Number ID
+  displayPhoneNumber: string; // E.164 format
+  verifiedName?: string;
+  label: string; // User-friendly name like "Ventas", "Soporte"
+  isDefault: boolean;
+  qualityRating: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+  messagingLimitTier: string;
+  wabaId?: string; // WhatsApp Business Account ID this phone belongs to
+  accessToken?: string; // System User Token for the WABA (never exposed to UI)
+  businessId?: string; // Meta Business ID
   createdAt: Date;
   updatedAt: Date;
 }

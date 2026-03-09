@@ -358,6 +358,75 @@ async function resolveOrgByMetaIds(
     );
   }
 
+  // Priority 1: Check whatsapp_phone_numbers table (multi-WABA support)
+  if (payloadPhoneNumberId) {
+    const { data: phoneMatch } = await supabaseAdmin
+      .from('whatsapp_phone_numbers')
+      .select('organization_id, access_token, waba_id')
+      .eq('phone_number_id', payloadPhoneNumberId)
+      .limit(1)
+      .single();
+
+    if (phoneMatch?.organization_id) {
+      // Found in whatsapp_phone_numbers — load full credentials from integration_settings
+      const { data: orgConfig } = await supabaseAdmin
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', phoneMatch.organization_id)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      const creds = orgConfig?.credentials || {};
+      // Merge per-phone access_token if available (for multi-WABA scenarios)
+      if (phoneMatch.access_token) {
+        creds.access_token = phoneMatch.access_token;
+      }
+      if (phoneMatch.waba_id) {
+        creds.waba_id = phoneMatch.waba_id;
+      }
+
+      log("info", phoneMatch.organization_id, "resolve_org_via_phone_numbers_table", {
+        payloadPhoneNumberId,
+        payloadWabaId,
+      });
+      return { orgId: phoneMatch.organization_id, credentials: creds };
+    }
+  }
+
+  // Priority 2: Check whatsapp_phone_numbers by waba_id
+  if (payloadWabaId) {
+    const { data: wabaMatch } = await supabaseAdmin
+      .from('whatsapp_phone_numbers')
+      .select('organization_id, access_token, waba_id')
+      .eq('waba_id', payloadWabaId)
+      .limit(1)
+      .single();
+
+    if (wabaMatch?.organization_id) {
+      const { data: orgConfig } = await supabaseAdmin
+        .from('integration_settings')
+        .select('credentials')
+        .eq('organization_id', wabaMatch.organization_id)
+        .eq('service_name', 'whatsapp')
+        .single();
+
+      const creds = orgConfig?.credentials || {};
+      if (wabaMatch.access_token) {
+        creds.access_token = wabaMatch.access_token;
+      }
+      if (wabaMatch.waba_id) {
+        creds.waba_id = wabaMatch.waba_id;
+      }
+
+      log("info", wabaMatch.organization_id, "resolve_org_via_waba_id_phone_numbers", {
+        payloadWabaId,
+        payloadPhoneNumberId,
+      });
+      return { orgId: wabaMatch.organization_id, credentials: creds };
+    }
+  }
+
+  // Priority 3: Fallback to integration_settings (backward compatibility)
   // Fetch ALL whatsapp integration rows (typically few — one per org)
   const { data: allConfigs, error: fetchErr } = await supabaseAdmin
     .from("integration_settings")
@@ -696,6 +765,26 @@ serve(async (req) => {
           // A. GESTIONAR CONVERSACIÓN
           const organizationId = orgId;
 
+          // Resolve which whatsapp_phone_numbers record received this message
+          const receivingPhoneNumberId = value.metadata?.phone_number_id;
+          let whatsappPhoneNumberUuid: string | null = null;
+          let perPhoneAccessToken: string | null = null;
+
+          if (receivingPhoneNumberId) {
+            const { data: phoneRec } = await supabaseAdmin
+              .from('whatsapp_phone_numbers')
+              .select('id, access_token')
+              .eq('phone_number_id', receivingPhoneNumberId)
+              .eq('organization_id', organizationId)
+              .limit(1)
+              .single();
+
+            if (phoneRec) {
+              whatsappPhoneNumberUuid = phoneRec.id;
+              perPhoneAccessToken = phoneRec.access_token || null;
+            }
+          }
+
           // Buscar conversación existente FILTRADA POR ORGANIZACIÓN
           const { data: conv } = await supabaseAdmin
             .from("conversations")
@@ -708,9 +797,7 @@ serve(async (req) => {
 
           if (!conversationId) {
             // Crear nueva conversación
-            const { data: newConv, error } = await supabaseAdmin
-              .from("conversations")
-              .insert({
+            const newConvData: Record<string, unknown> = {
                 contact_name: senderName,
                 contact_phone: senderPhone,
                 platform: "whatsapp",
@@ -718,7 +805,14 @@ serve(async (req) => {
                 last_message: textBody,
                 status: "open",
                 organization_id: organizationId,
-              })
+            };
+            if (whatsappPhoneNumberUuid) {
+              newConvData.whatsapp_phone_number_id = whatsappPhoneNumberUuid;
+            }
+
+            const { data: newConv, error } = await supabaseAdmin
+              .from("conversations")
+              .insert(newConvData)
               .select("id")
               .single();
 
@@ -748,7 +842,7 @@ serve(async (req) => {
           let mediaSkippedMeta: Record<string, unknown> | null = null;
 
           if (message.type !== "text") {
-            const accessToken = credentials.access_token as string;
+            const accessToken = perPhoneAccessToken || (credentials.access_token as string);
 
             if (!accessToken) {
               log("error", orgId, "media_missing_access_token", { messageType: message.type });

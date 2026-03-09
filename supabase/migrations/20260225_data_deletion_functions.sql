@@ -301,6 +301,9 @@ BEGIN
   -- 10. Integration settings
   DELETE FROM integration_settings WHERE organization_id = target_org_id;
 
+  -- 10b. WhatsApp phone numbers
+  DELETE FROM whatsapp_phone_numbers WHERE organization_id = target_org_id;
+
   -- 11. All member profiles
   DELETE FROM profiles WHERE organization_id = target_org_id;
 

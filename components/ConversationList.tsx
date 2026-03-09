@@ -1,30 +1,88 @@
 import React, { useState } from 'react';
-import { Conversation } from '../types';
-import { Search, Filter, MessageCircle } from 'lucide-react';
+import { Conversation, WhatsAppPhoneNumber } from '../types';
+import { Search, Filter, MessageCircle, Phone, ChevronDown, X } from 'lucide-react';
 
 interface ConversationListProps {
   conversations: Conversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
+  phoneNumbers?: WhatsAppPhoneNumber[];
+  selectedPhoneFilter?: string;
+  onPhoneFilterChange?: (phoneId: string) => void;
 }
 
-const ConversationList: React.FC<ConversationListProps> = ({ conversations, activeId, onSelect }) => {
+const ConversationList: React.FC<ConversationListProps> = ({ conversations, activeId, onSelect, phoneNumbers = [], selectedPhoneFilter = '', onPhoneFilterChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showPhoneFilter, setShowPhoneFilter] = useState(false);
 
-  const filteredConversations = conversations.filter(c => 
-    c.contactName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(c => {
+    const matchesSearch = c.contactName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPhone = !selectedPhoneFilter || c.whatsappPhoneNumberId === selectedPhoneFilter;
+    return matchesSearch && matchesPhone;
+  });
+
+  const activePhoneFilter = phoneNumbers.find(p => p.id === selectedPhoneFilter);
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-slate-200 w-full md:w-80 lg:w-96 flex-shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold text-slate-800">Chats</h2>
-          <button className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-600">
-             <Filter size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            {phoneNumbers.length > 0 && (
+              <button 
+                onClick={() => setShowPhoneFilter(!showPhoneFilter)}
+                className={`p-2 rounded-full transition-colors ${selectedPhoneFilter ? 'bg-emerald-100 text-emerald-700' : 'hover:bg-slate-200 text-slate-600'}`}
+                title="Filtrar por número"
+              >
+                <Phone size={18} />
+              </button>
+            )}
+            <button className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-600">
+               <Filter size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Phone Number Filter */}
+        {showPhoneFilter && phoneNumbers.length > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button 
+                onClick={() => onPhoneFilterChange?.('')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  !selectedPhoneFilter ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                Todos
+              </button>
+              {phoneNumbers.map(phone => (
+                <button 
+                  key={phone.id}
+                  onClick={() => onPhoneFilterChange?.(phone.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    selectedPhoneFilter === phone.id ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    phone.qualityRating === 'GREEN' ? 'bg-green-400' : 
+                    phone.qualityRating === 'YELLOW' ? 'bg-yellow-400' : 
+                    phone.qualityRating === 'RED' ? 'bg-red-400' : 'bg-slate-300'
+                  }`} />
+                  {phone.label || phone.displayPhoneNumber}
+                </button>
+              ))}
+            </div>
+            {selectedPhoneFilter && activePhoneFilter && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg">
+                <Phone size={12} />
+                <span>Filtrando: <strong>{activePhoneFilter.label || activePhoneFilter.displayPhoneNumber}</strong></span>
+                <button onClick={() => onPhoneFilterChange?.('')} className="ml-auto text-emerald-600 hover:text-emerald-800"><X size={14} /></button>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="relative">
           <input 
@@ -85,7 +143,16 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, acti
                   </p>
 
                   <div className="flex justify-between items-center">
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 items-center">
+                      {conv.whatsappPhoneNumberId && phoneNumbers.length > 1 && (() => {
+                        const convPhone = phoneNumbers.find(p => p.id === conv.whatsappPhoneNumberId);
+                        return convPhone ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium flex items-center gap-0.5 border border-emerald-100">
+                            <Phone size={8} />
+                            {convPhone.label || convPhone.displayPhoneNumber}
+                          </span>
+                        ) : null;
+                      })()}
                       {conv.tags.map(tag => (
                         <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
                           {tag}
