@@ -51,51 +51,115 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 text-slate-900">
-    <!-- 
+    <!--
       STATIC CONTENT FOR GOOGLE OAUTH VERIFICATION
-      Google's verification bot checks raw HTML for:
-      1. App name/brand identification
-      2. App functionality description
-      3. Privacy policy link (absolute URL matching consent screen)
-      4. Visible without login
+      This section is rendered directly in the HTML and is fully visible to web crawlers,
+      Google's verification bot, and users before JavaScript loads.
+      Once React mounts, the #root div (position:fixed, z-index:1) visually covers this content.
+      DO NOT hide this section with display:none, visibility:hidden, or clip tricks — Google
+      detects those as cloaking and will reject the verification.
     -->
+    <div id="static-app-info" style="position:fixed;top:0;left:0;right:0;bottom:0;overflow-y:auto;z-index:0;background-color:#0f172a;color:#e2e8f0;font-family:'Inter',sans-serif;">
 
-    <!-- Static App Info - Always visible in HTML source for Google crawler -->
-    <!-- Hidden visually via CSS from the start - no flash, no JS needed -->
-    <div id="static-app-info" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;background-color:#0f172a;color:#e2e8f0;font-family:'Inter',sans-serif;">
-      <!-- Header with brand -->
-      <header style="max-width:1200px;margin:0 auto;padding:40px 24px 20px;">
-        <h1 style="font-size:28px;font-weight:bold;color:#ffffff;margin:0;">Docre-A</h1>
-        <p style="font-size:14px;color:#94a3b8;margin:4px 0 0;">by Domen Capital S.A. De C.V.</p>
+      <!-- Navigation Header -->
+      <header style="background:#0f172a;border-bottom:1px solid #1e293b;padding:0 24px;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="background:#10b981;padding:8px;border-radius:8px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span style="font-size:22px;font-weight:700;color:#ffffff;">Docre<span style="color:#34d399;">-A</span></span>
+          </div>
+          <nav>
+            <a href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" style="color:#94a3b8;font-size:14px;text-decoration:none;margin-right:20px;">Privacidad</a>
+            <a href="https://dashboardchat.docreativelatam.com/login" style="background:#10b981;color:#fff;padding:8px 18px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Iniciar sesión</a>
+          </nav>
+        </div>
       </header>
 
-      <!-- App description -->
-      <section style="max-width:1200px;margin:0 auto;padding:0 24px 20px;">
-        <h2 style="font-size:20px;color:#ffffff;margin:0 0 8px;">Business Messaging Platform</h2>
-        <p style="color:#cbd5e1;font-size:15px;line-height:1.6;margin:0;">
-          Docre-A is an integrated business messaging platform that allows companies to manage 
-          WhatsApp, Gmail, Facebook Messenger, and Instagram conversations from a single unified inbox. 
-          Features include AI-powered smart replies using Gemini, team collaboration tools, CRM integration, 
-          task management, workflow automation, and campaign scheduling.
+      <!-- Hero Section -->
+      <main style="max-width:1200px;margin:0 auto;padding:60px 24px 40px;">
+        <h1 style="font-size:40px;font-weight:800;color:#ffffff;line-height:1.2;margin:0 0 16px;">
+          Docre-A — Plataforma de Mensajería Empresarial
+        </h1>
+        <p style="font-size:18px;color:#94a3b8;line-height:1.7;max-width:760px;margin:0 0 20px;">
+          Docre-A es una plataforma empresarial que centraliza WhatsApp, Gmail, Facebook Messenger e Instagram en una única bandeja de entrada. Diseñada para equipos de ventas y soporte que gestionan múltiples canales de comunicación con sus clientes.
         </p>
-      </section>
+        <p style="font-size:15px;color:#64748b;line-height:1.7;max-width:760px;margin:0 0 40px;">
+          Docre-A is an integrated business messaging platform allowing companies to manage WhatsApp, Gmail, Facebook Messenger, and Instagram conversations from a single unified inbox. Features include AI-powered smart replies (Gemini), team collaboration, CRM, task management, workflow automation, and campaign scheduling.
+        </p>
 
-      <!-- Privacy Policy Link - MUST be absolute URL matching Google Cloud Console consent screen -->
-      <nav style="max-width:1200px;margin:0 auto;padding:16px 24px 24px;border-top:1px solid #334155;">
-        <a 
-          href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" 
-          style="color:#34d399;font-size:15px;font-weight:600;text-decoration:underline;"
-        >Política de Privacidad</a>
-        <span style="color:#475569;margin:0 12px;">|</span>
-        <a href="mailto:notificaciones@docreativelatam.com" style="color:#94a3b8;font-size:14px;">Contacto</a>
-        <p style="color:#64748b;font-size:12px;margin:8px 0 0;">
-          &copy; 2026 Docre-A - Domen Capital S.A. De C.V. &bull; NIT: 0614-271120-105-0 &bull; El Salvador
-        </p>
-      </nav>
+        <!-- Gmail scope explanation — required for Google OAuth verification -->
+        <div style="background:#1e293b;border:1px solid #334155;border-left:4px solid #34d399;border-radius:12px;padding:28px;margin:0 0 40px;max-width:820px;">
+          <h2 style="font-size:20px;font-weight:700;color:#34d399;margin:0 0 14px;">Uso del permiso Gmail (gmail.send)</h2>
+          <p style="color:#cbd5e1;font-size:15px;line-height:1.7;margin:0 0 12px;">
+            Docre-A solicita el permiso <strong style="color:#ffffff;">gmail.send</strong> exclusivamente para que los agentes del equipo puedan enviar correos electrónicos desde la plataforma, utilizando la cuenta Gmail del usuario autorizado. La aplicación <strong style="color:#ffffff;">nunca lee, almacena ni comparte</strong> el contenido de correos electrónicos. No se guardan credenciales ni tokens de acceso en servidores externos.
+          </p>
+          <p style="color:#94a3b8;font-size:14px;line-height:1.7;margin:0;">
+            <strong style="color:#e2e8f0;">English:</strong> Docre-A requests the <em>gmail.send</em> scope solely to allow authorized agents to send emails on behalf of the user's connected Gmail account within the platform. The app never reads, stores, or shares email content. No credentials are retained after the session ends.
+          </p>
+        </div>
+
+        <!-- Features Grid -->
+        <h2 style="font-size:24px;font-weight:700;color:#ffffff;margin:0 0 20px;">Funcionalidades principales</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:0 0 48px;">
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">📱 WhatsApp Business</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Gestión de conversaciones de WhatsApp con respuestas automatizadas, plantillas aprobadas y campañas masivas.</p>
+          </div>
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">📧 Gmail Integrado</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Envío de correos desde la plataforma con la cuenta Gmail del agente (solo gmail.send). No se leen ni almacenan mensajes.</p>
+          </div>
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">🤖 IA con Gemini</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Respuestas inteligentes generadas por Google Gemini para acelerar la atención al cliente.</p>
+          </div>
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">👥 CRM y Equipos</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Gestión de contactos, notas, tareas y colaboración entre agentes desde un panel unificado.</p>
+          </div>
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">⚡ Automatizaciones</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Flujos de trabajo automáticos, campañas programadas y webhooks para integraciones externas.</p>
+          </div>
+          <div style="background:#1e293b;border-radius:10px;padding:20px;">
+            <h3 style="color:#34d399;font-size:16px;font-weight:600;margin:0 0 8px;">📊 Estadísticas</h3>
+            <p style="color:#94a3b8;font-size:14px;margin:0;line-height:1.6;">Métricas en tiempo real: conversaciones activas, tiempos de respuesta y rendimiento del equipo.</p>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer style="background:#0f172a;border-top:1px solid #1e293b;padding:24px;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+          <span style="color:#475569;font-size:13px;">&copy; 2026 Docre-A &mdash; Domen Capital S.A. De C.V. &bull; NIT: 0614-271120-105-0 &bull; El Salvador</span>
+          <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+            <a href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" style="color:#34d399;font-size:14px;font-weight:600;text-decoration:underline;">Política de Privacidad</a>
+            <a href="https://dashboardchat.docreativelatam.com/eliminacion-de-datos" style="color:#64748b;font-size:14px;text-decoration:underline;">Eliminación de Datos</a>
+            <a href="mailto:notificaciones@docreativelatam.com" style="color:#64748b;font-size:14px;text-decoration:none;">notificaciones@docreativelatam.com</a>
+          </div>
+        </div>
+      </footer>
     </div>
 
-    <!-- React App mounts here and visually covers the static content via z-index -->
-    <div id="root" style="position:relative;z-index:1;"></div>
+    <!-- React App mounts here — position:fixed + z-index:1 covers the static content once loaded -->
+    <!-- The inline spinner is immediately visible and hides the static content below while the JS bundle loads -->
+    <div id="root" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;overflow:hidden;background:#0f172a;display:flex;align-items:center;justify-content:center;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="background:#10b981;padding:8px;border-radius:8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <span style="font-size:22px;font-weight:700;color:#ffffff;font-family:'Inter',sans-serif;">Docre<span style="color:#34d399;">-A</span></span>
+        </div>
+        <svg style="animation:spin 1s linear infinite;" width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="#1e293b" stroke-width="3"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
+      </div>
+    </div>
 
   <script type="module" src="/index.tsx"></script>
 </body>
