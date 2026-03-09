@@ -66,17 +66,12 @@ const App: React.FC = () => {
     setTimeout(() => { try { window.close(); } catch(_) {} }, 1500);
   }, []);
 
-  // ── Route Handler for Privacy Policy, Data Deletion, and main app routes ──────
+  // ── Route Handler for Privacy Policy & Data Deletion Policy ─────────────────
   React.useEffect(() => {
     const handlePathChange = () => {
       const pathname = window.location.pathname;
       setIsPrivacyPolicyPage(pathname === '/politicas-de-privacidad');
       setIsDataDeletionPolicyPage(pathname === '/eliminacion-de-datos');
-      // Sync app state with browser history (back / forward navigation)
-      if (pathname === '/') setAppState(AppState.LANDING);
-      else if (pathname === '/login') setAppState(AppState.LOGIN);
-      else if (pathname.startsWith('/app')) setAppState(AppState.DASHBOARD);
-      else if (pathname === '/onboarding') setAppState(AppState.ONBOARDING);
     };
 
     handlePathChange();
@@ -87,26 +82,12 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Initial state is driven by the URL so deep links and browser refresh work
-  const [appState, setAppState] = useState<AppState>(() => {
-    const p = window.location.pathname;
-    if (p === '/login') return AppState.LOGIN;
-    if (p.startsWith('/app') || p === '/onboarding') return AppState.DASHBOARD;
-    return AppState.LANDING;
-  });
+  const [appState, setAppState] = useState<AppState>(AppState.LANDING);
   const [dashboardView, setDashboardView] = useState<DashboardView>('chats');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  // Public pages (/, /login, /politicas-de-privacidad, /eliminacion-de-datos) load instantly
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(() => {
-    const p = window.location.pathname;
-    return p !== '/' && p !== '/login' && p !== '/politicas-de-privacidad' && p !== '/eliminacion-de-datos';
-  });
-  const [isPrivacyPolicyPage, setIsPrivacyPolicyPage] = useState<boolean>(
-    () => window.location.pathname === '/politicas-de-privacidad'
-  );
-  const [isDataDeletionPolicyPage, setIsDataDeletionPolicyPage] = useState<boolean>(
-    () => window.location.pathname === '/eliminacion-de-datos'
-  );
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isPrivacyPolicyPage, setIsPrivacyPolicyPage] = useState(false);
+  const [isDataDeletionPolicyPage, setIsDataDeletionPolicyPage] = useState(false);
   
   // Password Reset State
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
@@ -174,10 +155,7 @@ const App: React.FC = () => {
     const checkSession = async (sessionData?: any) => {
         try {
             console.log("🔄 checkSession started");
-
-            // Public landing page — never auto-redirect regardless of auth status
-            if (window.location.pathname === '/') return;
-
+            
             // If session is passed (from event), use it. Otherwise fetch it.
             const user = await authService.getCurrentUser(sessionData);
             
@@ -198,26 +176,24 @@ const App: React.FC = () => {
                     console.log("📬 Routing to VERIFICATION screen");
                     setAppState(AppState.VERIFICATION);
                 } else if (!user.organizationId) {
+                    // User without organization and not from verification link
+                    // This means they need to complete onboarding
                     console.log("📝 No organizationId, routing to ONBOARDING");
-                    window.history.pushState({}, '', '/onboarding');
                     setAppState(AppState.ONBOARDING);
                 } else {
                     console.log("✨ Valid user with org, routing to DASHBOARD");
-                    window.history.pushState({}, '', '/app');
                     setAppState(AppState.DASHBOARD);
                 }
             } else {
-                console.log("🔒 No user, redirecting to login");
+                console.log("🔒 No user, redirecting to landing");
                 setCurrentUser(null);
-                window.history.pushState({}, '', '/login');
-                setAppState(AppState.LOGIN);
+                setAppState(AppState.LANDING);
             }
         } catch (error) {
             console.error("Auth Error:", error);
             if (mounted) {
                 setCurrentUser(null);
-                window.history.pushState({}, '', '/login');
-                setAppState(AppState.LOGIN);
+                setAppState(AppState.LANDING);
             }
         } finally {
             if (mounted) setIsAuthLoading(false);
@@ -260,7 +236,6 @@ const App: React.FC = () => {
 
         if (event === 'SIGNED_OUT') {
             if (mounted) {
-                window.history.pushState({}, '', '/');
                 setAppState(AppState.LANDING);
                 setCurrentUser(null);
                 setIsAuthLoading(false);
@@ -584,7 +559,6 @@ const App: React.FC = () => {
         console.error("Logout error:", error);
       }
       setCurrentUser(null);
-      window.history.pushState({}, '', '/');
       setAppState(AppState.LANDING);
     }
   };
@@ -819,9 +793,8 @@ const App: React.FC = () => {
     }
   };
 
-  if (isAuthLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 text-emerald-600 animate-spin" /></div>;
-  
-  // Show Privacy Policy page if the route is /politicas-de-privacidad
+  // Public pages: Privacy Policy, Data Deletion, and Landing — render WITHOUT waiting for auth
+  // This ensures Google's verification bot sees content immediately without a login/loading wall
   if (isPrivacyPolicyPage) return (
     <PrivacyPolicyScreen
       onBack={() => {
@@ -830,7 +803,6 @@ const App: React.FC = () => {
     />
   );
 
-  // Show Data Deletion Policy page if the route is /eliminacion-de-datos
   if (isDataDeletionPolicyPage) return (
     <DataDeletionPolicyScreen
       onBack={() => {
@@ -838,30 +810,18 @@ const App: React.FC = () => {
       }}
     />
   );
+
+  if (isAuthLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 text-emerald-600 animate-spin" /></div>;
   
   if (appState === AppState.LANDING) return (
-    <LandingPage onGoToLogin={() => {
-      window.history.pushState({}, '', '/login');
-      setAppState(AppState.LOGIN);
-    }} />
+    <LandingPage onGoToLogin={() => setAppState(AppState.LOGIN)} />
   );
 
-  if (appState === AppState.LOGIN) return <LoginScreen onLogin={async () => {
-      const user = await authService.getCurrentUser();
-      if (user) {
-        setCurrentUser(user);
-        if (user.organizationId) {
-          window.history.pushState({}, '', '/app');
-          setAppState(AppState.DASHBOARD);
-        } else {
-          window.history.pushState({}, '', '/onboarding');
-          setAppState(AppState.ONBOARDING);
-        }
-      }
-  }} onCreateAccount={() => {
-    window.history.pushState({}, '', '/onboarding');
-    setAppState(AppState.ONBOARDING);
-  }} />;
+  if (appState === AppState.LOGIN) return <LoginScreen onLogin={async () => { 
+      // Force a manual check if LoginScreen succeeds
+      const user = await authService.getCurrentUser(); 
+      if(user) { setCurrentUser(user); setAppState(user.organizationId ? AppState.DASHBOARD : AppState.ONBOARDING); } 
+  }} onCreateAccount={() => setAppState(AppState.ONBOARDING)} />;
 
   if (appState === AppState.ONBOARDING) return (
     <Onboarding
@@ -869,18 +829,10 @@ const App: React.FC = () => {
         const user = await authService.getCurrentUser();
         if (user) {
           setCurrentUser(user);
-          if (user.organizationId) {
-            window.history.pushState({}, '', '/app');
-            setAppState(AppState.DASHBOARD);
-          } else {
-            setAppState(AppState.ONBOARDING);
-          }
+          setAppState(user.organizationId ? AppState.DASHBOARD : AppState.ONBOARDING);
         }
       }}
-      onBackToLogin={() => {
-        window.history.pushState({}, '', '/login');
-        setAppState(AppState.LOGIN);
-      }}
+      onBackToLogin={() => setAppState(AppState.LOGIN)}
     />
   );
 
@@ -894,10 +846,13 @@ const App: React.FC = () => {
       return (
         <AccountSetupScreen
           onSetupComplete={async () => {
+            // After showing verification confirmation, redirect to dashboard
             console.log("✅ User confirmed email verification, going to dashboard");
             tokenProcessingService.clearInvitationFlow();
-            window.history.replaceState({}, document.title, '/app');
             setAppState(AppState.DASHBOARD);
+            // Clean up URL
+            const cleanUrl = window.location.origin;
+            window.history.replaceState({}, document.title, cleanUrl);
           }}
         />
       );
@@ -907,14 +862,17 @@ const App: React.FC = () => {
     return (
       <VerificationScreen
         onVerificationComplete={async () => {
+          // After password is set, redirect to dashboard
           tokenProcessingService.clearInvitationFlow();
-          window.history.replaceState({}, document.title, '/app');
           setAppState(AppState.DASHBOARD);
+          // Clean up URL completely - remove /auth/confirm and any params
+          const cleanUrl = window.location.origin;
+          window.history.replaceState({}, document.title, cleanUrl);
         }}
         onCancel={async () => {
+          // User wants to use different email, logout
           tokenProcessingService.clearInvitationFlow();
           await authService.signOut();
-          window.history.pushState({}, '', '/login');
           setAppState(AppState.LOGIN);
           setCurrentUser(null);
         }}

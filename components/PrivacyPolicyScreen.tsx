@@ -117,7 +117,7 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ onBack }) => 
       <div className="max-w-4xl mx-auto px-6 py-8 text-slate-700 leading-relaxed">
         <section className="mb-8">
           <p className="mb-4">
-            <strong>Domen Capital S.A. De C.V.</strong> es una compañía registrada en (El Salvador) con número de identificación tributaria 0614-271120-105-0 con domicilio social en Avenida Bernal, Residencia San Luis, Senda Yanet, casa #7, San Salvador, San Salvador Centro, San Salvador. Domen Capital opera el sitio web: <a href="https://dashboardchat.docreativelatam.com/" className="text-emerald-600 hover:underline">https://dashboardchat.docreativelatam.com</a>
+            <strong>Domen Capital S.A. De C.V.</strong> es una compañía registrada en (El Salvador) con número de identificación tributaria 0614-271120-105-0 con domicilio social en Avenida Bernal, Residencia San Luis, Senda Yanet, casa #7, San Salvador, San Salvador Centro, San Salvador. Domen Capital opera el sitio web: <a href="https://latinalliance.docreativelatam.com/" className="text-emerald-600 hover:underline">https://dashboardchat.docreativelatam.com</a>
           </p>
           <p className="mb-4">
             Al usar el sitio web o cualquier aplicación o complemento de aplicación («Aplicaciones»), usted acepta seguir y estar sujeto a estos términos y condiciones de uso (los «Términos de servicio») y acepta cumplir con todas las leyes y regulaciones aplicables.
@@ -201,7 +201,7 @@ const PrivacyPolicyScreen: React.FC<PrivacyPolicyScreenProps> = ({ onBack }) => 
         <section className="mb-8">
           <h2 className="text-xl font-bold text-slate-800 mb-4">8. Cambio en estos términos y condiciones de uso</h2>
           <p className="mb-4">
-            8.1 Nos reservamos el derecho de modificar estos Términos y condiciones de uso en cualquier momento sin previo aviso o advertencia, y cualquier uso continuado del sitio web implica la aceptación por parte del usuario. Cualquier usuario que no acepte los nuevos Términos y condiciones de uso debe notificarnos por escrito a través de <a href="mailto:marketing@docreativelatam.com" className="text-emerald-600 hover:underline">marketing@docreativelatam.com</a> y debe dejar de acceder de inmediato al sitio web.
+            8.1 Nos reservamos el derecho de modificar estos Términos y condiciones de uso en cualquier momento sin previo aviso o advertencia, y cualquier uso continuado del sitio web implica la aceptación por parte del usuario. Cualquier usuario que no acepte los nuevos Términos y condiciones de uso debe notificarnos por escrito a través de <a href="mailto:Info@araconstructores.com" className="text-emerald-600 hover:underline">marketing@docreativelatam.com</a> y debe dejar de acceder de inmediato al sitio web.
           </p>
         </section>
 
