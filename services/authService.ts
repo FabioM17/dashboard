@@ -100,7 +100,9 @@ export const authService = {
 
   // Logout
   async signOut() {
-    const { error } = await supabase.auth.signOut();
+    // scope:'local' clears the local session only, no server call → avoids 403.
+    // The SIGNED_OUT event still fires so the app navigates away correctly.
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) throw error;
   },
 

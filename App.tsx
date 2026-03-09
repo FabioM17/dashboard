@@ -549,8 +549,18 @@ const App: React.FC = () => {
   }, [activeConversationId]);
 
   const handleLogout = async () => {
-    await authService.signOut();
-    // State updates are handled by the onAuthStateChange listener 'SIGNED_OUT' event
+    try {
+      await authService.signOut();
+      // State updates are handled by the onAuthStateChange listener 'SIGNED_OUT' event
+    } catch (error: any) {
+      // AuthSessionMissingError means the session was already gone — not a real error.
+      // For any other error, force the redirect manually.
+      if (error?.name !== 'AuthSessionMissingError') {
+        console.error("Logout error:", error);
+      }
+      setCurrentUser(null);
+      setAppState(AppState.LANDING);
+    }
   };
 
   const handleSelectConversation = async (id: string) => {

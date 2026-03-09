@@ -41,7 +41,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
   const navLinks = [
     { label: 'Plataforma', id: 'way' },
     { label: 'Funciones', id: 'features' },
-    { label: 'Gmail', id: 'gmail' },
+    { label: 'Canales', id: 'whatsapp' },
     { label: 'Beneficios', id: 'benefits' },
     { label: 'Contacto', id: 'contact' },
   ];
@@ -332,110 +332,202 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
         </div>
       </section>
 
-      {/* GMAIL POLICY */}
-      <section id="gmail" className="w-full bg-white py-20 lg:py-28">
+      {/* CHANNELS SECTION */}
+      <section id="whatsapp" className="w-full bg-slate-50 py-20 lg:py-28">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-          <div className="text-center mb-14">
-            <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">Integración con Google</p>
+          {/* Section header */}
+          <div className="text-center mb-16">
+            <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">Canales integrados</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">
-              Cómo usamos tu cuenta de Gmail
+              Dos canales, una sola plataforma
             </h2>
             <p className="text-slate-600 max-w-2xl mx-auto text-base leading-relaxed">
-              La integración de Gmail es transparente, segura y de alcance estrictamente limitado.
+              Gestiona WhatsApp Business y envía correos con Gmail sin salir de Docre-A.
+              Cada canal con su propio historial, vinculado al mismo contacto del CRM.
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-10 items-start">
-            <div className="space-y-6">
-              {[
-                {
-                  step: 1,
-                  title: 'Conexión via OAuth 2.0',
-                  body: 'El agente hace clic en "Conectar Gmail". Se abre la pantalla oficial de consentimiento de Google. El usuario autoriza de forma explícita. Nunca pedimos contraseñas.',
-                  badge: 'Scope: gmail.send',
-                },
-                {
-                  step: 2,
-                  title: 'Solo envío de correos salientes',
-                  body: 'Los agentes redactan y envían correos a contactos del CRM. El correo sale desde la cuenta Gmail del agente y aparece en su carpeta "Enviados" de Google.',
-                  badge: null,
-                },
-                {
-                  step: 3,
-                  title: 'Sin lectura de bandeja de entrada',
-                  body: 'Docre-A NO lee correos recibidos. No consultamos, descargamos ni almacenamos mensajes entrantes. El alcance OAuth es exclusivamente gmail.send.',
-                  badge: null,
-                },
-                {
-                  step: 4,
-                  title: 'Token almacenado de forma segura',
-                  body: 'El refresh token OAuth se almacena encriptado en Supabase/PostgreSQL con Row Level Security. No se comparte con terceros. El usuario puede revocar el acceso en cualquier momento.',
-                  badge: null,
-                },
-              ].map(({ step, title, body, badge }) => (
-                <div key={step} className="flex gap-4">
-                  <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold text-sm flex items-center justify-center flex-shrink-0">
-                    {step}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm mb-1">{title}</h4>
-                    <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
-                    {badge && (
-                      <span className="inline-block mt-2 text-xs font-mono bg-slate-100 border border-slate-300 text-slate-600 px-2 py-0.5 rounded">
-                        {badge}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* ── WhatsApp ── */}
+          <div id="wa-block" className="grid lg:grid-cols-2 gap-16 items-start mb-20 pb-20 border-b border-slate-200">
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-emerald-100 p-2 rounded-lg">
-                  <Shield className="text-emerald-600" size={22} />
+            {/* Left — visual card */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden order-2 lg:order-1">
+              {/* Header */}
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50">
+                <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 448 512" className="w-4 h-4 fill-green-500" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z" />
+                  </svg>
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Resumen de privacidad</h3>
-                  <p className="text-slate-500 text-xs mt-0.5">Qué hacemos y qué no hacemos con Gmail</p>
+                  <div className="font-bold text-slate-800 text-sm">Carlos Mendoza</div>
+                  <div className="text-slate-500 text-xs flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> WhatsApp Business
+                  </div>
+                </div>
+                <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">Cotización</span>
+              </div>
+
+              {/* Chat */}
+              <div className="px-5 py-4 space-y-2.5 bg-[#efeae2]">
+                <div className="flex justify-end">
+                  <div className="bg-[#dcf8c6] text-slate-800 text-sm rounded-xl rounded-tr-sm px-3 py-2 max-w-[75%] shadow-sm">
+                    Hola, quisiera saber más sobre sus servicios
+                    <div className="text-slate-400 text-xs mt-0.5 text-right">✔✔ 09:41</div>
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="bg-white text-slate-800 text-sm rounded-xl rounded-tl-sm px-3 py-2 max-w-[75%] shadow-sm">
+                    ¡Con gusto! ¿En qué área puedo ayudarte?
+                    <div className="text-slate-400 text-xs mt-0.5">09:42</div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="bg-[#dcf8c6] text-slate-800 text-sm rounded-xl rounded-tr-sm px-3 py-2 max-w-[75%] shadow-sm">
+                    Necesito cotización para 5 usuarios
+                    <div className="text-slate-400 text-xs mt-0.5 text-right">✔✔ 09:43</div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {[
-                  { ok: true,  text: 'Enviar correos salientes en nombre del agente autorizado, a contactos del CRM de la propia organización.' },
-                  { ok: true,  text: 'Guardar el registro de correos enviados dentro de la plataforma para historial de comunicación.' },
-                  { ok: false, text: 'Leer, descargar ni procesar correos recibidos en la bandeja de entrada.' },
-                  { ok: false, text: 'Enviar correos a listas de terceros, spam o destinatarios no autorizados.' },
-                  { ok: false, text: 'Compartir el token de acceso con ningún tercero ni proveedor externo.' },
-                  { ok: false, text: 'Acceder a Google Drive, Google Calendar u otros servicios de Google.' },
-                ].map((row, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <span className={`text-base flex-shrink-0 mt-0.5 ${row.ok ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {row.ok ? '✅' : '❌'}
-                    </span>
-                    <p className="text-slate-700 text-sm leading-relaxed">
-                      <span className="font-semibold">{row.ok ? 'SÍ:' : 'NO:'}</span> {row.text}
-                    </p>
-                  </div>
-                ))}
+              {/* Footer CTA */}
+              <div className="px-5 py-4 border-t border-slate-100">
+                <button
+                  onClick={onGoToLogin}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
+                >
+                  Conectar WhatsApp Business →
+                </button>
               </div>
+            </div>
 
-              <p className="mt-6 text-xs text-slate-500 leading-relaxed border-t border-slate-200 pt-4">
-                El uso de Docre-A de la información obtenida de las APIs de Google cumple con la{' '}
+            {/* Right — copy */}
+            <div className="order-1 lg:order-2">
+              <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">WhatsApp Business API</p>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight mb-5">
+                Atiende a tus clientes donde ya están: WhatsApp
+              </h2>
+              <p className="text-slate-600 text-base leading-relaxed mb-8">
+                Conecta tu número de WhatsApp Business con la API oficial de Meta y
+                gestiona todas las conversaciones desde Docre-A — sin tocar el teléfono.
+              </p>
+
+              <ul className="space-y-4 mb-8">
+                {[
+                  { title: 'Mensajes en tiempo real', desc: 'Texto, imágenes, audio, video y documentos desde el panel.' },
+                  { title: 'Plantillas aprobadas por Meta', desc: 'Sincroniza y usa tus plantillas para notificaciones y campañas.' },
+                  { title: 'Estado de entrega', desc: 'Ve si el mensaje fue enviado, entregado o leído. Doble check incluido.' },
+                  { title: 'Respuestas rápidas', desc: 'Snippets pre-escritos para responder más rápido y con consistencia.' },
+                  { title: 'Asignación de agentes', desc: 'Distribuye conversaciones entre agentes y supervisa la atención.' },
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-3 items-start">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="text-emerald-600" size={14} />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-slate-800 text-sm">{item.title}: </span>
+                      <span className="text-slate-600 text-sm">{item.desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={onGoToLogin}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+              >
+                Empezar ahora <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>{/* end WA grid */}
+
+          {/* ── Gmail ── */}
+          <div id="gmail" className="grid lg:grid-cols-2 gap-16 items-start">
+
+            {/* Left — copy */}
+            <div>
+              <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">Correo electrónico</p>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight mb-5">
+                Envía correos a tus contactos sin salir de Docre-A
+              </h2>
+              <p className="text-slate-600 text-base leading-relaxed mb-8">
+                Conecta tu cuenta de Gmail y redacta correos directamente desde la conversación o el perfil
+                de cualquier contacto del CRM. El correo sale desde tu propia cuenta — sin intermediarios.
+              </p>
+
+              <ul className="space-y-4 mb-8">
+                {[
+                  { title: 'Un solo clic para conectar', desc: 'Vincula tu Gmail en segundos desde la configuración. No hace falta instalar nada.' },
+                  { title: 'Historial unificado', desc: 'Cada correo enviado queda registrado en el perfil del contacto junto a sus conversaciones de WhatsApp.' },
+                  { title: 'Para campañas también', desc: 'Usa Gmail para enviar campañas masivas de correo a segmentos de tu CRM directamente desde Docre-A.' },
+                  { title: 'Tu cuenta, tu identidad', desc: 'Los correos salen desde tu dirección Gmail. Tus contactos ven tu nombre, no el de un servicio externo.' },
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-3 items-start">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="text-emerald-600" size={14} />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-slate-800 text-sm">{item.title}: </span>
+                      <span className="text-slate-600 text-sm">{item.desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                La integración usa OAuth 2.0 de Google con permiso exclusivo de envío. Docre-A nunca lee
+                ni almacena tu bandeja de entrada.{' '}
                 <a
                   href="https://developers.google.com/terms/api-services-user-data-policy"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-emerald-600 underline hover:text-emerald-700"
+                  className="text-emerald-500 hover:underline"
                 >
-                  Política de datos de usuario de los servicios de API de Google
+                  Más info →
                 </a>
-                , incluidos los Requisitos de Uso Limitado.
               </p>
             </div>
-          </div>
+
+            {/* Right — visual card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 space-y-5">
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <Mail className="text-red-500" size={20} />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800 text-sm">Nueva conversación por correo</div>
+                  <div className="text-slate-500 text-xs">Para: cliente@empresa.com</div>
+                </div>
+              </div>
+
+              {[
+                { label: 'Asunto', value: 'Seguimiento de tu solicitud' },
+                { label: 'Desde', value: 'tu-cuenta@gmail.com' },
+                { label: 'Contacto CRM', value: 'María López — Pipeline: Negociación' },
+              ].map((row) => (
+                <div key={row.label} className="flex justify-between items-center text-sm border-b border-slate-100 pb-3">
+                  <span className="text-slate-500 font-medium">{row.label}</span>
+                  <span className="text-slate-800 font-semibold text-right max-w-xs">{row.value}</span>
+                </div>
+              ))}
+
+              <div className="bg-white border border-slate-200 rounded-xl p-4">
+                <p className="text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wide">Mensaje</p>
+                <p className="text-slate-700 text-sm leading-relaxed">
+                  Hola María, quería darte seguimiento a tu consulta de la semana pasada...
+                </p>
+              </div>
+
+              <button
+                onClick={onGoToLogin}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              >
+                Conectar mi Gmail →
+              </button>
+            </div>
+          </div>{/* end Gmail grid */}
+
         </div>
       </section>
 
@@ -693,7 +785,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
               <ul className="space-y-2.5">
                 {[
                   { label: 'Funcionalidades', action: () => scrollTo('features') },
-                  { label: 'Integración Gmail', action: () => scrollTo('gmail') },
+                  { label: 'WhatsApp & Gmail', action: () => scrollTo('whatsapp') },
                   { label: 'Beneficios', action: () => scrollTo('benefits') },
                   { label: 'Iniciar sesión', action: onGoToLogin },
                 ].map(item => (
