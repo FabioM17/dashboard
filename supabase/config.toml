@@ -42,3 +42,8 @@ entrypoint = "./functions/generate-signed-urls/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/external-api/index.ts"
+
+[functions.form-submit]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/form-submit/index.ts"
