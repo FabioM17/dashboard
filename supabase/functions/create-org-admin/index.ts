@@ -66,6 +66,7 @@ serve(async (req) => {
       .insert({
         name: orgName,
         support_email: userEmail,
+        created_by: userId,
         created_at: new Date().toISOString(),
       })
       .select("id")
@@ -96,15 +97,14 @@ serve(async (req) => {
 
     const { error: profileError } = await adminClient
       .from("profiles")
-      .insert({
+      .upsert({
         id: userId,
         email: userEmail,
         full_name: fullName,
         organization_id: orgId,
-        role: "admin",
         phone: metadata.whatsappNumber || null,
-        created_at: new Date().toISOString(),
-      });
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
 
     if (profileError) {
       console.error("❌ Error creating profile:", profileError);
@@ -121,6 +121,24 @@ serve(async (req) => {
     }
 
     console.log("✅ Profile created");
+
+    // PASO 2.5: Create organization_members record for multi-org support
+    console.log("📝 Creating organization membership...");
+    const { error: memberError } = await adminClient
+      .from("organization_members")
+      .insert({
+        user_id: userId,
+        organization_id: orgId,
+        role: "admin",
+        is_default: true,
+      });
+
+    if (memberError) {
+      console.error("⚠️ Error creating membership (non-fatal):", memberError);
+      // Non-fatal: profile and org were created, log but continue
+    } else {
+      console.log("✅ Organization membership created");
+    }
 
     // PASO 3: Guardar metadatos
     console.log("📝 Saving metadata...");

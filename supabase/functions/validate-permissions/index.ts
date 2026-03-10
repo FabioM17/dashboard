@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     // Obtener perfil del usuario que hace la acción
     const { data: userProfile, error: userError } = await supabase
       .from('profiles')
-      .select('role, organization_id')
+      .select('organization_id')
       .eq('id', userId)
       .single();
 
@@ -41,11 +41,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Obtener rol del usuario desde organization_members (NO desde profiles.role que fue eliminado)
+    const { data: userMembership, error: membershipError } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
+      .single();
+
+    if (membershipError || !userMembership) {
+      return new Response(
+        JSON.stringify({ error: 'User membership not found', authorized: false }),
+        { status: 403 }
+      );
+    }
+
+    const userRole = userMembership.role;
+
     // VALIDACIONES ESPECÍFICAS POR ACCIÓN
     switch (action) {
       case 'delete_user':
         // Solo ADMIN puede eliminar usuarios
-        if (userProfile.role !== 'admin') {
+        if (userRole !== 'admin') {
           return new Response(
             JSON.stringify({ 
               error: 'Only admins can delete users', 
@@ -80,7 +97,7 @@ Deno.serve(async (req) => {
 
       case 'change_role':
         // Solo ADMIN puede cambiar roles
-        if (userProfile.role !== 'admin') {
+        if (userRole !== 'admin') {
           return new Response(
             JSON.stringify({ 
               error: 'Only admins can change roles', 
@@ -109,7 +126,7 @@ Deno.serve(async (req) => {
 
       case 'view_conversation':
         // Admin: puede ver todas
-        if (userProfile.role === 'admin') {
+        if (userRole === 'admin') {
           return new Response(
             JSON.stringify({ authorized: true, action: 'view_conversation' }),
             { status: 200 }
@@ -117,7 +134,7 @@ Deno.serve(async (req) => {
         }
 
         // Manager: puede ver conversaciones de su equipo
-        if (userProfile.role === 'manager') {
+        if (userRole === 'manager') {
           // Validar que la conversación está asignada a su equipo
           const { data: conv } = await supabase
             .from('conversations')
@@ -134,7 +151,7 @@ Deno.serve(async (req) => {
         }
 
         // Community: solo puede ver sus leads asignados
-        if (userProfile.role === 'community') {
+        if (userRole === 'community') {
           const { data: assigned } = await supabase
             .from('user_assigned_leads')
             .select('contact_id')
@@ -158,7 +175,7 @@ Deno.serve(async (req) => {
 
       case 'create_campaign':
         // Solo ADMIN puede crear campañas
-        if (userProfile.role !== 'admin') {
+        if (userRole !== 'admin') {
           return new Response(
             JSON.stringify({ 
               error: 'Only admins can create campaigns', 
@@ -175,7 +192,7 @@ Deno.serve(async (req) => {
 
       case 'download_data':
         // Solo ADMIN puede descargar datos
-        if (userProfile.role !== 'admin') {
+        if (userRole !== 'admin') {
           return new Response(
             JSON.stringify({ 
               error: 'Only admins can download data', 

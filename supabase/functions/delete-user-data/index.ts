@@ -13,8 +13,8 @@ const corsHeaders = {
  * Handles 4 levels of data deletion:
  * 
  *  Level 1 - "anonymize"        : Anonymize personal data (any user for themselves)
- *  Level 2 - "delete_member"    : Delete a team member + auth account (org creator only)
- *  Level 3 - "delete_organization" : Delete entire organization + all auth accounts (org creator only)
+ *  Level 2 - "delete_member"    : Remove member from org (delete auth only if user has no other org memberships)
+ *  Level 3 - "delete_organization" : Delete entire organization data (never deletes auth accounts)
  *  Level 4 - "preview"          : Dry-run preview of what would be deleted (org creator only)
  * 
  * Additionally deletes files from Supabase Storage buckets tied to the org.
@@ -74,13 +74,27 @@ serve(async (req) => {
     // ── Verify requesting user belongs to this org ──────────
     const { data: profile, error: profileError } = await adminClient
       .from("profiles")
-      .select("id, organization_id, role")
+      .select("id, organization_id")
       .eq("id", user.id)
       .single();
 
     if (profileError || !profile || profile.organization_id !== organization_id) {
       return jsonError("No tienes acceso a esta organización", 403);
     }
+
+    // ── Get user role from organization_members (role column no longer in profiles) ──
+    const { data: membership, error: membershipError } = await adminClient
+      .from("organization_members")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("organization_id", organization_id)
+      .single();
+
+    if (membershipError || !membership) {
+      return jsonError("No tienes acceso a esta organización", 403);
+    }
+
+    const userRole = membership.role;
 
     // ── Handle each level ───────────────────────────────────
     switch (level) {
@@ -91,7 +105,7 @@ serve(async (req) => {
         const targetId = target_user_id || user.id;
 
         // Non-admins can only anonymize themselves
-        if (targetId !== user.id && profile.role !== "admin") {
+        if (targetId !== user.id && userRole !== "admin") {
           return jsonError("Solo puedes anonimizar tus propios datos", 403);
         }
 
@@ -132,16 +146,20 @@ serve(async (req) => {
           return jsonError(result.message, 403);
         }
 
-        // Delete from Supabase Auth
-        try {
-          const { error: authError } = await adminClient.auth.admin.deleteUser(target_user_id);
-          if (authError) {
-            console.warn("⚠️ Could not delete auth user:", authError.message);
-          } else {
-            console.log(`✅ Auth user ${target_user_id} deleted`);
+        // Delete auth user only when DB confirms there are no memberships left.
+        if (result.delete_auth_user && result.auth_user_id) {
+          try {
+            const { error: authError } = await adminClient.auth.admin.deleteUser(result.auth_user_id);
+            if (authError) {
+              console.warn("⚠️ Could not delete auth user:", authError.message);
+            } else {
+              console.log(`✅ Auth user ${result.auth_user_id} deleted`);
+            }
+          } catch (e) {
+            console.warn("⚠️ Auth deletion failed:", e);
           }
-        } catch (e) {
-          console.warn("⚠️ Auth deletion failed:", e);
+        } else {
+          console.log("ℹ️ Auth user preserved (member still belongs to other organizations)");
         }
 
         // Clean up storage files for this user (best effort)
@@ -169,27 +187,13 @@ serve(async (req) => {
           return jsonError(result.message, 403);
         }
 
-        // Delete all member auth accounts
-        const memberIds: string[] = result.member_ids || [];
-        console.log(`🗑️ Deleting ${memberIds.length} auth accounts...`);
-
-        for (const memberId of memberIds) {
-          try {
-            const { error: authError } = await adminClient.auth.admin.deleteUser(memberId);
-            if (authError) {
-              console.warn(`⚠️ Could not delete auth user ${memberId}:`, authError.message);
-            } else {
-              console.log(`✅ Auth user ${memberId} deleted`);
-            }
-          } catch (e) {
-            console.warn(`⚠️ Auth deletion failed for ${memberId}:`, e);
-          }
-        }
+        // Multi-org safe mode: organization deletion NEVER deletes auth users.
+        console.log("ℹ️ Skipping auth deletion for organization delete (multi-org safe mode)");
 
         // Clean up all storage for this organization (best effort)
         await cleanupOrgStorage(adminClient, organization_id);
 
-        console.log(`✅ Organization ${organization_id} fully deleted`);
+        console.log(`✅ Organization ${organization_id} deleted (users preserved)`);
         return jsonOk(result);
       }
 
