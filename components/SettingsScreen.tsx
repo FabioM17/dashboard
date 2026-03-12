@@ -24,7 +24,7 @@ import ApiDocumentation from './ApiDocumentation';
 import DataDeletionScreen from './DataDeletionScreen';
 
 const SettingsScreen: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'retell' | 'templates' | 'snippets' | 'api' | 'data'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'general' | 'team' | 'channels' | 'ai' | 'automation' | 'voicebot' | 'templates' | 'snippets' | 'api' | 'data'>('profile');
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const { appearance, updateAppearance } = useAppearance();
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -112,21 +112,21 @@ const SettingsScreen: React.FC = () => {
   const [aiFetchingModels, setAiFetchingModels] = useState<Record<string, boolean>>({});
   const [aiSavingProvider, setAiSavingProvider] = useState<Record<string, boolean>>({});
   const [aiProviderStatus, setAiProviderStatus] = useState<Record<string, 'idle' | 'success' | 'error'>>({});
-  // ─── kept for legacy N8N / Retell sections ────────────────────────────────
+  // ─── Automation / Voice Bot sections ────────────────────────────────────────
   const [isSavingAI, setIsSavingAI] = useState(false);
 
-  // N8N Config State
-  const [n8nUrl, setN8nUrl] = useState('');
-  const [isN8nActive, setIsN8nActive] = useState(false);
-  const [isSavingN8n, setIsSavingN8n] = useState(false);
-  const [n8nSaveStatus, setN8nSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [isTestingN8n, setIsTestingN8n] = useState(false);
+  // Automatización Config State
+  const [automationUrl, setAutomationUrl] = useState('');
+  const [isAutomationActive, setIsAutomationActive] = useState(false);
+  const [isSavingAutomation, setIsSavingAutomation] = useState(false);
+  const [automationSaveStatus, setAutomationSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isTestingAutomation, setIsTestingAutomation] = useState(false);
 
-  // Retell Config State (ADDED)
-  const [retellWebhookUrl, setRetellWebhookUrl] = useState('');
-  const [isSavingRetell, setIsSavingRetell] = useState(false);
-  const [retellSaveStatus, setRetellSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [isTestingRetell, setIsTestingRetell] = useState(false);
+  // Bot de Voz Config State
+  const [voiceBotWebhookUrl, setVoiceBotWebhookUrl] = useState('');
+  const [isSavingVoiceBot, setIsSavingVoiceBot] = useState(false);
+  const [voiceBotSaveStatus, setVoiceBotSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isTestingVoiceBot, setIsTestingVoiceBot] = useState(false);
 
   // WhatsApp Signup State
   const [showWhatsAppSignup, setShowWhatsAppSignup] = useState(false);
@@ -280,19 +280,19 @@ const SettingsScreen: React.FC = () => {
                     console.warn('[Settings] Error loading AI config:', err);
                 }
             }
-            // Load N8N Config
+            // Load Automatización Config
             if (activeTab === 'automation') {
                 const config = await chatService.getN8nConfig(user.organizationId);
                 if (config) {
-                    setN8nUrl(config.webhook_url || '');
-                    setIsN8nActive(config.is_active || false);
+                    setAutomationUrl(config.webhook_url || '');
+                    setIsAutomationActive(config.is_active || false);
                 }
             }
-            // Load Retell Config (ADDED)
-            if (activeTab === 'retell') {
+            // Load Bot de Voz Config
+            if (activeTab === 'voicebot') {
                 const config = await chatService.getRetellConfig(user.organizationId);
                 if (config) {
-                    setRetellWebhookUrl(config.webhook_url || '');
+                    setVoiceBotWebhookUrl(config.webhook_url || '');
                 }
             }
             // Load Team Members
@@ -640,35 +640,34 @@ const SettingsScreen: React.FC = () => {
 
   const handleSaveAI = async () => { setIsSavingAI(true); }; // kept for legacy – no-op
 
-  const handleSaveN8n = async () => {
-      if (!currentUser?.organizationId) return; setIsSavingN8n(true); setN8nSaveStatus('idle');
-      try { await chatService.saveN8nConfig(currentUser.organizationId, n8nUrl, isN8nActive); setN8nSaveStatus('success'); } catch (e) { setN8nSaveStatus('error'); } finally { setIsSavingN8n(false); }
+  const handleSaveAutomation = async () => {
+      if (!currentUser?.organizationId) return; setIsSavingAutomation(true); setAutomationSaveStatus('idle');
+      try { await chatService.saveN8nConfig(currentUser.organizationId, automationUrl, isAutomationActive); setAutomationSaveStatus('success'); } catch (e) { setAutomationSaveStatus('error'); } finally { setIsSavingAutomation(false); }
   };
 
-  const handleTestN8n = async () => {
-      if (!n8nUrl) return; setIsTestingN8n(true);
-      try { const response = await fetch(n8nUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: "Test", sender_id: "test", sender_name: "Admin", conversation_id: "test", timestamp: new Date().toISOString() }) });
-          if (response.ok) alert("✅ Success!"); else throw new Error(`Status: ${response.status}`); } catch (e: any) { alert(`❌ Failed: ${e.message}`); } finally { setIsTestingN8n(false); }
+  const handleTestAutomation = async () => {
+      if (!automationUrl) return; setIsTestingAutomation(true);
+      try { const response = await fetch(automationUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: "Test", sender_id: "test", sender_name: "Admin", conversation_id: "test", timestamp: new Date().toISOString() }) });
+          if (response.ok) alert("✅ Success!"); else throw new Error(`Status: ${response.status}`); } catch (e: any) { alert(`❌ Failed: ${e.message}`); } finally { setIsTestingAutomation(false); }
   };
 
-  const handleSaveRetell = async () => {
-      if (!currentUser?.organizationId) return; setIsSavingRetell(true); setRetellSaveStatus('idle');
-      try { await chatService.saveRetellConfig(currentUser.organizationId, retellWebhookUrl); setRetellSaveStatus('success'); } catch (e) { setRetellSaveStatus('error'); } finally { setIsSavingRetell(false); }
+  const handleSaveVoiceBot = async () => {
+      if (!currentUser?.organizationId) return; setIsSavingVoiceBot(true); setVoiceBotSaveStatus('idle');
+      try { await chatService.saveRetellConfig(currentUser.organizationId, voiceBotWebhookUrl); setVoiceBotSaveStatus('success'); } catch (e) { setVoiceBotSaveStatus('error'); } finally { setIsSavingVoiceBot(false); }
   };
 
-  // UPDATED: Use backend proxy to test connection to avoid CORS issues
-  const handleTestRetell = async () => {
-      if (!retellWebhookUrl) return; 
-      setIsTestingRetell(true);
+  // Use backend proxy to test connection to avoid CORS issues
+  const handleTestVoiceBot = async () => {
+      if (!voiceBotWebhookUrl) return; 
+      setIsTestingVoiceBot(true);
       try { 
-          // We use the edge function as a proxy to test the webhook url
-          await chatService.testRetellConnection(retellWebhookUrl);
+          await chatService.testRetellConnection(voiceBotWebhookUrl);
           alert("✅ Success! Webhook reached via server."); 
       } catch (e: any) { 
           console.error(e);
-          alert(`❌ Connection Failed.\n\nError: ${e.message}\n\nCheck if the n8n URL is correct and the workflow is active.`); 
+          alert(`❌ Connection Failed.\n\nError: ${e.message}\n\nCheck if the webhook URL is correct and the workflow is active.`); 
       } finally { 
-          setIsTestingRetell(false); 
+          setIsTestingVoiceBot(false); 
       }
   };
 
@@ -947,8 +946,8 @@ const SettingsScreen: React.FC = () => {
                 <div className="flex items-center gap-2"><Workflow size={15}/> Automatización</div>
               </button>
               <button 
-                onClick={() => { setActiveTab('retell'); setSidebarOpen(false); }}
-                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'retell' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => { setActiveTab('voicebot'); setSidebarOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'voicebot' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><PhoneCall size={15}/> Bot de Voz</div>
               </button>
@@ -2190,21 +2189,21 @@ const SettingsScreen: React.FC = () => {
           {activeTab === 'automation' && (
               <div className="max-w-3xl space-y-6">
                  <div>
-                    <h3 className="text-lg font-semibold flex items-center gap-2"><Workflow size={20} className="text-orange-600"/> Automatización (n8n)</h3>
-                    <p className="text-sm text-slate-500">Conecta tu flujo de WhatsApp a flujos de trabajo n8n para lógica avanzada.</p>
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><Workflow size={20} className="text-orange-600"/> Automatización</h3>
+                    <p className="text-sm text-slate-500">Conecta tu flujo de WhatsApp a flujos de trabajo automatizados para lógica avanzada.</p>
                  </div>
                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                         <div><span className="font-bold text-slate-700 block">Enable n8n Integration</span><span className="text-xs text-slate-500">Route all incoming messages to the webhook below.</span></div>
-                         <div className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors duration-300 flex items-center ${isN8nActive ? 'bg-orange-500' : 'bg-slate-200'}`} onClick={() => setIsN8nActive(!isN8nActive)}>
-                            <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 transform ${isN8nActive ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                         <div><span className="font-bold text-slate-700 block">Activar Automatización</span><span className="text-xs text-slate-500">Enruta todos los mensajes entrantes al webhook de abajo.</span></div>
+                         <div className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors duration-300 flex items-center ${isAutomationActive ? 'bg-orange-500' : 'bg-slate-200'}`} onClick={() => setIsAutomationActive(!isAutomationActive)}>
+                            <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 transform ${isAutomationActive ? 'translate-x-6' : 'translate-x-0'}`}></div>
                          </div>
                      </div>
                      <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">URL del Webhook n8n (POST)</label>
+                         <label className="block text-sm font-medium text-slate-700 mb-1">URL del Webhook (POST)</label>
                          <div className="flex gap-2">
-                             <input type="url" value={n8nUrl} onChange={(e) => setN8nUrl(e.target.value)} placeholder="https://your-n8n-instance.com/webhook/..." className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm" />
-                             <button onClick={handleTestN8n} disabled={!n8nUrl || isTestingN8n} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-md text-sm font-medium hover:bg-slate-200 flex items-center gap-2 border border-slate-200">{isTestingN8n ? <Loader2 size={16} className="animate-spin"/> : <Activity size={16} />} Probar Conexión</button>
+                             <input type="url" value={automationUrl} onChange={(e) => setAutomationUrl(e.target.value)} placeholder="https://your-automation-instance.com/webhook/..." className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm" />
+                             <button onClick={handleTestAutomation} disabled={!automationUrl || isTestingAutomation} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-md text-sm font-medium hover:bg-slate-200 flex items-center gap-2 border border-slate-200">{isTestingAutomation ? <Loader2 size={16} className="animate-spin"/> : <Activity size={16} />} Probar Conexión</button>
                          </div>
                      </div>
                      <div className="bg-orange-50 border border-orange-100 rounded-lg p-4 text-sm text-orange-800">
@@ -2215,15 +2214,15 @@ const SettingsScreen: React.FC = () => {
                          </ul>
                      </div>
                      <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-3">
-                         {n8nSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
-                         {n8nSaveStatus === 'error' && <span className="text-xs text-red-600">Error al guardar la configuración</span>}
-                         <button onClick={handleSaveN8n} disabled={isSavingN8n || !n8nUrl} className="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2">{isSavingN8n ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Guardar Automatización</button>
+                         {automationSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
+                         {automationSaveStatus === 'error' && <span className="text-xs text-red-600">Error al guardar la configuración</span>}
+                         <button onClick={handleSaveAutomation} disabled={isSavingAutomation || !automationUrl} className="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2">{isSavingAutomation ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Guardar Automatización</button>
                      </div>
                  </div>
               </div>
           )}
 
-          {activeTab === 'retell' && (
+          {activeTab === 'voicebot' && (
               <div className="max-w-3xl space-y-6">
                  <div className="flex items-center justify-between">
                     <div>
@@ -2565,7 +2564,7 @@ const SettingsScreen: React.FC = () => {
                                   <input
                                       type="text"
                                       className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
-                                      placeholder="Ej: Clave Producción, Integración n8n"
+                                      placeholder="Ej: Clave Producción, Integración Automatización"
                                       value={newKeyForm.name}
                                       onChange={e => setNewKeyForm({ ...newKeyForm, name: e.target.value })}
                                   />
