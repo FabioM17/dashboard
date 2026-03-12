@@ -944,13 +944,13 @@ const SettingsScreen: React.FC = () => {
                 onClick={() => { setActiveTab('automation'); setSidebarOpen(false); }}
                 className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'automation' ? 'bg-orange-50 text-orange-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><Workflow size={15}/> Automatización (n8n)</div>
+                <div className="flex items-center gap-2"><Workflow size={15}/> Automatización</div>
               </button>
               <button 
                 onClick={() => { setActiveTab('retell'); setSidebarOpen(false); }}
                 className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors text-sm ${activeTab === 'retell' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="flex items-center gap-2"><PhoneCall size={15}/> Bot de Voz (Retell)</div>
+                <div className="flex items-center gap-2"><PhoneCall size={15}/> Bot de Voz</div>
               </button>
               <div className="my-2 border-b border-slate-100"></div>
               <button 
@@ -2227,7 +2227,7 @@ const SettingsScreen: React.FC = () => {
               <div className="max-w-3xl space-y-6">
                  <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-lg font-semibold flex items-center gap-2"><PhoneCall size={20} className="text-indigo-600"/> Bot de Voz (Retell AI vía n8n)</h3>
+                        <h3 className="text-lg font-semibold flex items-center gap-2"><PhoneCall size={20} className="text-indigo-600"/> Bot de Voz</h3>
                         <p className="text-sm text-slate-500">Próximamente: automatización de llamadas salientes.</p>
                     </div>
                     <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">Próximamente</span>

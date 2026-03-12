@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, GripVertical, Loader2, Copy } from 'lucide-react';
-import { MOCK_PIPELINES } from '../constants';
+import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, GripVertical, Loader2, Copy, Settings, Pencil, Check, ChevronUp, ChevronDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { pipelineStageService, PipelineStageConfig } from '../services/pipelineStageService';
 import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment, WhatsAppPhoneNumber } from '../types';
 import { campaignService } from '../services/campaignService';
 import { templateService } from '../services/templateService';
@@ -77,6 +77,74 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
     const isManagerOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
     const communityMembers = useMemo(() => teamMembers.filter(m => m.role === 'community'), [teamMembers]);
+
+    // ── Pipeline stages (dynamic, stored in DB) ─────────────────────────────
+    const [pipelineStages, setPipelineStages] = useState<PipelineStageConfig[]>(pipelineStageService.getDefaultStages());
+    const [pipelineStagesLoaded, setPipelineStagesLoaded] = useState(false);
+    const [showStageManager, setShowStageManager] = useState(false);
+    const [editingStageId, setEditingStageId] = useState<string | null>(null);
+    const [editingStageName, setEditingStageName] = useState('');
+    const [showAddStage, setShowAddStage] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [newStageColor, setNewStageColor] = useState(pipelineStageService.STAGE_COLORS[0]);
+
+    useEffect(() => {
+        if (!organizationId) { setPipelineStagesLoaded(true); return; }
+        pipelineStageService.getStages(organizationId).then(saved => {
+            setPipelineStages(saved);
+            setPipelineStagesLoaded(true);
+        });
+    }, [organizationId]);
+
+    const savePipelineStages = useCallback((newStages: PipelineStageConfig[]) => {
+        setPipelineStages(newStages);
+        if (organizationId) {
+            pipelineStageService.saveStages(organizationId, newStages);
+        }
+    }, [organizationId]);
+
+    const startEditStage = (stage: PipelineStageConfig) => {
+        setEditingStageId(stage.id);
+        setEditingStageName(stage.name);
+    };
+    const confirmEditStage = () => {
+        if (!editingStageName.trim() || !editingStageId) return;
+        savePipelineStages(pipelineStages.map(s => s.id === editingStageId ? { ...s, name: editingStageName.trim() } : s));
+        setEditingStageId(null);
+    };
+    const cancelEditStage = () => setEditingStageId(null);
+
+    const addPipelineStage = () => {
+        if (!newStageName.trim()) return;
+        const id = `stage_${Date.now()}`;
+        savePipelineStages([...pipelineStages, { id, name: newStageName.trim(), color: newStageColor, position: pipelineStages.length }]);
+        setNewStageName('');
+        setNewStageColor(pipelineStageService.STAGE_COLORS[0]);
+        setShowAddStage(false);
+    };
+
+    const deletePipelineStage = (id: string) => {
+        const defaults = pipelineStageService.getDefaultStages();
+        if (defaults.some(d => d.id === id)) return; // protect defaults
+        savePipelineStages(pipelineStages.filter(s => s.id !== id));
+    };
+
+    const moveContactToStage = (contact: CRMContact, direction: 'prev' | 'next') => {
+        const currentIdx = pipelineStages.findIndex(s => s.id === contact.pipelineStageId);
+        const newIdx = direction === 'next' ? currentIdx + 1 : currentIdx - 1;
+        if (newIdx < 0 || newIdx >= pipelineStages.length) return;
+        onSaveContact({ ...contact, pipelineStageId: pipelineStages[newIdx].id });
+    };
+
+    const movePipelineStage = (id: string, direction: 'up' | 'down') => {
+        const idx = pipelineStages.findIndex(s => s.id === id);
+        if (idx === -1) return;
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= pipelineStages.length) return;
+        const reordered = [...pipelineStages];
+        [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+        savePipelineStages(reordered);
+    };
 
     // Column visibility for custom properties in list view
     const [hiddenPropertyColumns, setHiddenPropertyColumns] = useState<Set<string>>(new Set());
@@ -1312,7 +1380,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         <span className="block truncate">{contact.company || '-'}</span>
                                     </td>
                                     <td className="px-4 py-4 hidden sm:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
-                                        <span className="block truncate px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 w-fit max-w-full">{MOCK_PIPELINES.find(p => p.id === contact.pipelineStageId)?.name}</span>
+                                        <span className="block truncate px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 w-fit max-w-full">{pipelineStages.find(p => p.id === contact.pipelineStageId)?.name}</span>
                                     </td>
                                     {visiblePropertyColumns.map(p => (
                                       <td key={p.id} className="px-4 py-4 text-slate-600 hidden xl:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
@@ -1347,52 +1415,176 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
         {/* Pipeline View */}
         {activeTab === 'pipeline' && (
-            <div className="flex gap-6 h-full overflow-x-auto pb-4">
-                {MOCK_PIPELINES.map(stage => (
-                    <div key={stage.id} className="min-w-[280px] w-80 flex flex-col h-full">
-                        <div className={`h-1 w-full ${stage.color} rounded-full mb-3`}></div>
-                        <div className="flex justify-between items-center mb-4 px-1">
-                            <h3 className="font-bold text-slate-700">{stage.name}</h3>
-                            <span className="bg-slate-200 text-slate-600 text-xs px-2 py-0.5 rounded-full font-bold">{contacts.filter(c => c.pipelineStageId === stage.id).length}</span>
-                        </div>
-                        <div className="bg-slate-100/50 rounded-xl p-3 flex-1 overflow-y-auto space-y-3">
-                            {contacts.filter(c => c.pipelineStageId === stage.id).map(contact => (
-                                <div key={contact.id} onClick={() => openContactDetail(contact)} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow relative group">
-                                    <div className="flex items-start justify-between mb-3">
-                                         <div className="flex items-center gap-3">
-                                              <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full border border-slate-100" />
-                                              <div>
-                                                  <h4 className="font-bold text-slate-800 text-sm">{contact.name}</h4>
-                                                  <p className="text-xs text-slate-500">{contact.company || 'Sin empresa'}</p>
-                                              </div>
-                                         </div>
+            <div className="flex flex-col h-full w-full">
+                {/* Pipeline header with stage manager button */}
+                <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800">Pipeline de Ventas</h3>
+                        <p className="text-sm text-slate-500">{contacts.length} contacto{contacts.length !== 1 ? 's' : ''} en total</p>
+                    </div>
+                    <button
+                        onClick={() => setShowStageManager(true)}
+                        className="border border-slate-300 text-slate-600 px-3 py-2 rounded-lg hover:bg-slate-100 flex items-center gap-2 text-sm font-medium"
+                    >
+                        <Settings size={16} /> <span className="hidden sm:inline">Etapas</span>
+                    </button>
+                </div>
+
+                {/* Kanban columns — full width, equal flex columns */}
+                <div className="flex gap-4 flex-1 overflow-x-auto pb-4 w-full">
+                    {pipelineStages.map(stage => (
+                        <div key={stage.id} className="flex-1 min-w-[220px] flex flex-col h-full">
+                            <div className={`h-1 w-full ${stage.color} rounded-full mb-3`}></div>
+                            <div className="flex justify-between items-center mb-3 px-1">
+                                <h4 className="font-bold text-slate-700 text-sm">{stage.name}</h4>
+                                <span className="bg-slate-200 text-slate-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                                    {contacts.filter(c => c.pipelineStageId === stage.id).length}
+                                </span>
+                            </div>
+                            <div className="bg-slate-100/50 rounded-xl p-3 flex-1 overflow-y-auto space-y-3">
+                                {contacts.filter(c => c.pipelineStageId === stage.id).map(contact => (
+                                    <div key={contact.id} onClick={() => openContactDetail(contact)} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow relative group">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full border border-slate-100" />
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 text-sm">{contact.name}</h4>
+                                                    <p className="text-xs text-slate-500">{contact.company || 'Sin empresa'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                                                <Clock size={12} />
+                                                <span>{getTimeAgo(contact.createdAt)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {/* Move to prev stage */}
+                                                {pipelineStages.findIndex(s => s.id === contact.pipelineStageId) > 0 && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); moveContactToStage(contact, 'prev'); }}
+                                                        title={`Mover a ${pipelineStages[pipelineStages.findIndex(s => s.id === contact.pipelineStageId) - 1]?.name}`}
+                                                        className="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded"
+                                                    >
+                                                        <ArrowLeft size={14} />
+                                                    </button>
+                                                )}
+                                                {/* Move to next stage */}
+                                                {pipelineStages.findIndex(s => s.id === contact.pipelineStageId) < pipelineStages.length - 1 && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); moveContactToStage(contact, 'next'); }}
+                                                        title={`Mover a ${pipelineStages[pipelineStages.findIndex(s => s.id === contact.pipelineStageId) + 1]?.name}`}
+                                                        className="text-slate-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded"
+                                                    >
+                                                        <ArrowRight size={14} />
+                                                    </button>
+                                                )}
+                                                {onChatSelect && (
+                                                    <button onClick={(e) => { e.stopPropagation(); onChatSelect(contact); }} className="text-slate-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <MessageCircle size={16} />
+                                                    </button>
+                                                )}
+                                                <button onClick={(e) => { e.stopPropagation(); openContactDetail(contact); }} className="text-xs text-emerald-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">Ver</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    
-                                    <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                                         <div className="flex items-center gap-1 text-xs text-slate-400">
-                                             <Clock size={12} />
-                                             <span>{getTimeAgo(contact.createdAt)}</span>
-                                         </div>
-                                         <div className="flex items-center gap-2">
-                                             {onChatSelect && (
-                                                <button onClick={(e) => { e.stopPropagation(); onChatSelect(contact); }} className="text-slate-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <MessageCircle size={16} />
-                                                </button>
-                                             )}
-                                             <button onClick={(e) => { e.stopPropagation(); openContactDetail(contact); }} className="text-xs text-emerald-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">View</button>
-                                         </div>
+                                ))}
+                                <button
+                                    onClick={() => { setContactForm(prev => ({ ...prev, pipelineStageId: stage.id })); setShowContactModal(true); }}
+                                    className="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                                >
+                                    <Plus size={16} /> Agregar
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Stage Manager Modal */}
+                {showStageManager && (
+                    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold">Gestionar Etapas</h3>
+                                <button onClick={() => { setShowStageManager(false); setEditingStageId(null); setShowAddStage(false); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                            </div>
+
+                            <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+                                {pipelineStages.map((stage, idx) => (
+                                    <div key={stage.id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 hover:bg-slate-50">
+                                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                                            <button onClick={() => movePipelineStage(stage.id, 'up')} disabled={idx === 0} className="text-slate-300 hover:text-slate-500 disabled:opacity-20 disabled:cursor-not-allowed" title="Subir"><ChevronUp size={14} /></button>
+                                            <button onClick={() => movePipelineStage(stage.id, 'down')} disabled={idx === pipelineStages.length - 1} className="text-slate-300 hover:text-slate-500 disabled:opacity-20 disabled:cursor-not-allowed" title="Bajar"><ChevronDown size={14} /></button>
+                                        </div>
+                                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${stage.color}`}></div>
+                                        {editingStageId === stage.id ? (
+                                            <div className="flex items-center gap-1 flex-1">
+                                                <input
+                                                    autoFocus
+                                                    value={editingStageName}
+                                                    onChange={e => setEditingStageName(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') confirmEditStage(); if (e.key === 'Escape') cancelEditStage(); }}
+                                                    className="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                />
+                                                <button onClick={confirmEditStage} className="text-emerald-600"><Check size={14} /></button>
+                                                <button onClick={cancelEditStage} className="text-slate-400"><X size={14} /></button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <span className="flex-1 text-sm text-slate-700">{stage.name}</span>
+                                                <button onClick={() => startEditStage(stage)} className="text-slate-400 hover:text-slate-600 p-1"><Pencil size={13} /></button>
+                                                {!pipelineStageService.getDefaultStages().some(d => d.id === stage.id) && (
+                                                    <button onClick={() => deletePipelineStage(stage.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {showAddStage ? (
+                                <div className="border rounded-lg p-3 bg-slate-50 space-y-2">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder="Nombre de la etapa"
+                                        value={newStageName}
+                                        onChange={e => setNewStageName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') addPipelineStage(); if (e.key === 'Escape') setShowAddStage(false); }}
+                                        className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {pipelineStageService.STAGE_COLORS.map(c => (
+                                            <button
+                                                key={c}
+                                                onClick={() => setNewStageColor(c)}
+                                                className={`w-6 h-6 rounded-full ${c} ${newStageColor === c ? 'ring-2 ring-offset-1 ring-slate-700' : ''}`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2 pt-1">
+                                        <button onClick={addPipelineStage} disabled={!newStageName.trim()} className="flex-1 bg-emerald-600 text-white py-1.5 rounded text-sm disabled:opacity-50">Agregar</button>
+                                        <button onClick={() => setShowAddStage(false)} className="flex-1 bg-slate-200 text-slate-700 py-1.5 rounded text-sm">Cancelar</button>
                                     </div>
                                 </div>
-                            ))}
-                            <button 
-                                onClick={() => { setContactForm(prev => ({ ...prev, pipelineStageId: stage.id })); setShowContactModal(true); }}
-                                className="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                            ) : (
+                                <button
+                                    onClick={() => setShowAddStage(true)}
+                                    className="w-full border-2 border-dashed border-slate-300 text-slate-500 hover:border-emerald-400 hover:text-emerald-600 py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <Plus size={16} /> Añadir etapa
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => { setShowStageManager(false); setEditingStageId(null); setShowAddStage(false); }}
+                                className="w-full mt-3 bg-slate-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-slate-900"
                             >
-                                <Plus size={16} /> Add Deal
+                                Listo
                             </button>
                         </div>
                     </div>
-                ))}
+                )}
             </div>
         )}
 
@@ -2477,7 +2669,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                         <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Empresa" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
                         <label className="block text-xs font-bold text-slate-500 mt-4 uppercase">Stage</label>
                         <select className="w-full border p-2 rounded text-sm" value={contactForm.pipelineStageId} onChange={e=>setContactForm({...contactForm, pipelineStageId: e.target.value})}>
-                            {MOCK_PIPELINES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {pipelineStages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         {customProperties.length > 0 && (
                             <div className="mt-4 pt-2 border-t">
