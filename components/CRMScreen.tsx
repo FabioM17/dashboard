@@ -84,6 +84,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
     const [showStageManager, setShowStageManager] = useState(false);
     const [editingStageId, setEditingStageId] = useState<string | null>(null);
     const [editingStageName, setEditingStageName] = useState('');
+    const [editingStageColor, setEditingStageColor] = useState(pipelineStageService.STAGE_COLORS[0]);
     const [showAddStage, setShowAddStage] = useState(false);
     const [newStageName, setNewStageName] = useState('');
     const [newStageColor, setNewStageColor] = useState(pipelineStageService.STAGE_COLORS[0]);
@@ -106,10 +107,11 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
     const startEditStage = (stage: PipelineStageConfig) => {
         setEditingStageId(stage.id);
         setEditingStageName(stage.name);
+        setEditingStageColor(stage.color);
     };
     const confirmEditStage = () => {
         if (!editingStageName.trim() || !editingStageId) return;
-        savePipelineStages(pipelineStages.map(s => s.id === editingStageId ? { ...s, name: editingStageName.trim() } : s));
+        savePipelineStages(pipelineStages.map(s => s.id === editingStageId ? { ...s, name: editingStageName.trim(), color: editingStageColor } : s));
         setEditingStageId(null);
     };
     const cancelEditStage = () => setEditingStageId(null);
@@ -1518,16 +1520,27 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         </div>
                                         <div className={`w-3 h-3 rounded-full flex-shrink-0 ${stage.color}`}></div>
                                         {editingStageId === stage.id ? (
-                                            <div className="flex items-center gap-1 flex-1">
-                                                <input
-                                                    autoFocus
-                                                    value={editingStageName}
-                                                    onChange={e => setEditingStageName(e.target.value)}
-                                                    onKeyDown={e => { if (e.key === 'Enter') confirmEditStage(); if (e.key === 'Escape') cancelEditStage(); }}
-                                                    className="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                                />
-                                                <button onClick={confirmEditStage} className="text-emerald-600"><Check size={14} /></button>
-                                                <button onClick={cancelEditStage} className="text-slate-400"><X size={14} /></button>
+                                            <div className="flex flex-col gap-1.5 flex-1">
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        autoFocus
+                                                        value={editingStageName}
+                                                        onChange={e => setEditingStageName(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') confirmEditStage(); if (e.key === 'Escape') cancelEditStage(); }}
+                                                        className="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                    />
+                                                    <button onClick={confirmEditStage} className="text-emerald-600 flex-shrink-0"><Check size={14} /></button>
+                                                    <button onClick={cancelEditStage} className="text-slate-400 flex-shrink-0"><X size={14} /></button>
+                                                </div>
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {pipelineStageService.STAGE_COLORS.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            onClick={() => setEditingStageColor(c)}
+                                                            className={`w-5 h-5 rounded-full ${c} ${editingStageColor === c ? 'ring-2 ring-offset-1 ring-slate-700' : ''}`}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
                                         ) : (
                                             <>

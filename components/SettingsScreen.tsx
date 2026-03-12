@@ -2234,7 +2234,7 @@ const SettingsScreen: React.FC = () => {
                  </div>
                  <div className="bg-white rounded-xl border border-dashed border-slate-200 shadow-sm p-6 space-y-4">
                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-700">
-                         Retell ya estará disponible aquí pronto. Mantente atento.
+                         Estará disponible aquí pronto. Mantente atento.
                      </div>
                      <div className="flex items-center gap-2 text-xs text-slate-500">
                          <Lock size={14}/> Configuración temporalmente deshabilitada.

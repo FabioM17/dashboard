@@ -54,6 +54,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({
     // ── Column editing state ─────────────────────────────────────────────
     const [editingColId, setEditingColId] = useState<string | null>(null);
     const [editingLabel, setEditingLabel] = useState('');
+    const [editingColor, setEditingColor] = useState(PHASE_COLORS[0]);
     const [showAddPhase, setShowAddPhase] = useState(false);
     const [newPhaseLabel, setNewPhaseLabel] = useState('');
     const [newPhaseColor, setNewPhaseColor] = useState(PHASE_COLORS[0]);
@@ -100,10 +101,11 @@ const TaskBoard: React.FC<TaskBoardProps> = ({
     const startEditCol = (col: ColumnDef) => {
         setEditingColId(col.id);
         setEditingLabel(col.label);
+        setEditingColor(col.color);
     };
     const confirmEditCol = () => {
         if (!editingLabel.trim() || !editingColId) return;
-        saveColumns(columns.map(c => c.id === editingColId ? { ...c, label: editingLabel.trim() } : c));
+        saveColumns(columns.map(c => c.id === editingColId ? { ...c, label: editingLabel.trim(), color: editingColor } : c));
         setEditingColId(null);
     };
     const cancelEditCol = () => setEditingColId(null);
@@ -349,16 +351,27 @@ const TaskBoard: React.FC<TaskBoardProps> = ({
                                     </div>
                                     <div className={`w-3 h-3 rounded-full flex-shrink-0 ${col.color}`}></div>
                                     {editingColId === col.id ? (
-                                        <div className="flex items-center gap-1 flex-1">
-                                            <input
-                                                autoFocus
-                                                value={editingLabel}
-                                                onChange={e => setEditingLabel(e.target.value)}
-                                                onKeyDown={e => { if (e.key === 'Enter') confirmEditCol(); if (e.key === 'Escape') cancelEditCol(); }}
-                                                className="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                            />
-                                            <button onClick={confirmEditCol} className="text-emerald-600"><Check size={14} /></button>
-                                            <button onClick={cancelEditCol} className="text-slate-400"><X size={14} /></button>
+                                        <div className="flex flex-col gap-1.5 flex-1">
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    autoFocus
+                                                    value={editingLabel}
+                                                    onChange={e => setEditingLabel(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') confirmEditCol(); if (e.key === 'Escape') cancelEditCol(); }}
+                                                    className="border rounded px-2 py-0.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                />
+                                                <button onClick={confirmEditCol} className="text-emerald-600 flex-shrink-0"><Check size={14} /></button>
+                                                <button onClick={cancelEditCol} className="text-slate-400 flex-shrink-0"><X size={14} /></button>
+                                            </div>
+                                            <div className="flex gap-1 flex-wrap">
+                                                {PHASE_COLORS.map(c => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => setEditingColor(c)}
+                                                        className={`w-5 h-5 rounded-full ${c} ${editingColor === c ? 'ring-2 ring-offset-1 ring-slate-700' : ''}`}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
                                     ) : (
                                         <>
