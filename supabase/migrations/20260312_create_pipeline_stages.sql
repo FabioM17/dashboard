@@ -58,11 +58,5 @@ CREATE POLICY "Admins can manage org pipeline stages"
     FOR ALL
     USING (
         organization_id = "public"."get_my_org_id"()
-        AND EXISTS (
-            SELECT 1
-            FROM "public"."org_members" om
-            WHERE om.organization_id = "public"."get_my_org_id"()
-              AND om.user_id = auth.uid()
-              AND om.role = 'admin'
-        )
+        AND "public"."get_current_user_role"() = 'admin'
     );
