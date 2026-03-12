@@ -139,22 +139,23 @@ export const dataAccessService = {
 
   /**
    * USUARIOS DEL EQUIPO - Filtrar según rol
+   * Ahora obtiene datos desde organization_members (role, team_lead_id, assigned_lead_ids)
    */
 
   async getTeamMembersForUser(user: User) {
     if (user.role === 'admin') {
       // Admin ve todos los miembros de su organización
       return supabase
-        .from('profiles')
-        .select('*')
+        .from('organization_members')
+        .select('id, user_id, role, team_lead_id, assigned_lead_ids, is_default')
         .eq('organization_id', user.organizationId);
     }
 
     if (user.role === 'manager') {
-      // Manager ve solo su equipo
+      // Manager ve solo su equipo (team_lead_id = manager's user.id)
       return supabase
-        .from('profiles')
-        .select('*')
+        .from('organization_members')
+        .select('id, user_id, role, team_lead_id, assigned_lead_ids, is_default')
         .eq('organization_id', user.organizationId)
         .eq('team_lead_id', user.id);
     }

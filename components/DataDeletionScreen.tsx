@@ -427,7 +427,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                 </div>
                 <div className="text-left">
                   <h3 className="font-semibold text-red-800">Nivel 3: Eliminar Toda la Organización</h3>
-                  <p className="text-sm text-red-600">Elimina TODOS los datos, cuentas de miembros y la organización completa</p>
+                  <p className="text-sm text-red-600">Elimina TODOS los datos de la organización, pero conserva las cuentas de usuario</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -446,7 +446,7 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                       <p className="text-sm text-red-700">
                         Esta acción eliminará permanentemente <strong>todas</strong> las conversaciones, mensajes, 
                         contactos CRM, campañas, workflows, tareas, números de WhatsApp, configuraciones de integración, plantillas, 
-                        snippets, claves API, y las cuentas de todos los miembros del equipo incluyendo la tuya.
+                        snippets y claves API de esta organización. Las cuentas de usuario no serán eliminadas.
                       </p>
                     </div>
                   </div>
@@ -466,7 +466,8 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
-                        { label: 'Miembros', key: 'profiles', icon: '👥' },
+                        { label: 'Miembros en la org', key: 'organization_memberships', icon: '👥' },
+                        { label: 'Perfiles con org activa', key: 'profiles_with_active_org', icon: '🧭' },
                         { label: 'Conversaciones', key: 'conversations', icon: '💬' },
                         { label: 'Mensajes', key: 'messages', icon: '📨' },
                         { label: 'Contactos CRM', key: 'crm_contacts', icon: '📇' },
@@ -497,12 +498,12 @@ const DataDeletionScreen: React.FC<DataDeletionScreenProps> = ({
                     {/* Members detail */}
                     {preview.members && preview.members.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-medium text-slate-600 mb-2">Cuentas que serán eliminadas:</p>
+                        <p className="text-xs font-medium text-slate-600 mb-2">Miembros afectados (cuentas conservadas):</p>
                         <div className="space-y-1">
                           {preview.members.map(m => (
                             <div key={m.id} className="flex items-center gap-2 text-xs text-slate-600">
                               <span className={`w-2 h-2 rounded-full ${m.is_creator ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                              {m.name || m.email} ({m.role}){m.is_creator && ' - Creador'}
+                              {m.name || m.email} ({m.role}){m.is_creator && ' - Creador'}{m.has_other_organizations ? ' - Tiene otras organizaciones' : ''}
                             </div>
                           ))}
                         </div>

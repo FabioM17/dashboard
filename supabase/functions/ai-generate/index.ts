@@ -40,44 +40,99 @@ serve(async (req) => {
     
     if (!profile?.organization_id) throw new Error("Usuario sin organización");
 
-    const { 
+    const body = await req.json();
+    const {
+      action = 'generate',
       provider = 'gemini',
-      conversation, 
-      customer_name, 
+      conversation,
+      customer_name,
       system_instruction,
-      isTest = false 
-    } = await req.json();
+      task_type = 'chat_reply',  // 'chat_reply' | 'crm_insight' | 'bulk_analysis' | 'test'
+      isTest = false,
+      apiKeyPreview,
+    } = body;
 
-    // Build conversation text
-    const conversationText = conversation.map((msg: any) => 
-        `${msg.role === 'user' ? `Cliente (${customer_name})` : 'Asistente'}: ${msg.text}`
+    // ── LIST MODELS ──────────────────────────────────────────────────────────
+    if (action === 'list_models') {
+      let apiKey = apiKeyPreview;
+      if (!apiKey) {
+        const { data: cfg } = await supabaseAdmin
+          .from('integration_settings')
+          .select('credentials')
+          .eq('organization_id', profile.organization_id)
+          .eq('service_name', `ai_provider_${provider}`)
+          .single();
+        apiKey = cfg?.credentials?.apiKey;
+      }
+      if (!apiKey) {
+        return new Response(JSON.stringify({ models: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      let models: string[] = [];
+      if (provider === 'gemini') models = await listGeminiModels(apiKey);
+      else if (provider === 'openai') models = await listOpenAIModels(apiKey);
+      else if (provider === 'claude') models = await listClaudeModels(apiKey);
+      return new Response(JSON.stringify({ models }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ── GENERATE ─────────────────────────────────────────────────────────────
+
+    // Build conversation text from message array
+    const conversationText = (conversation || []).map((msg: any) =>
+        `${msg.role === 'user' ? `Cliente (${customer_name || 'Cliente'})` : 'Asistente'}: ${msg.text}`
     ).join('\n');
 
+    // Input length guard — prevents abuse and prompt injection via oversized payloads
+    if (conversationText.length > 50000) {
+      return new Response(JSON.stringify({ error: 'Input too large. Maximum 50,000 characters.' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ── Rate limiting: max 60 AI calls per organization per minute ────────────
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCalls } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', profile.organization_id)
+      .gte('created_at', oneMinuteAgo);
+
+    if ((recentCalls ?? 0) >= 60) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment before retrying.' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ── Build prompt based on task type ──────────────────────────────────────
     const systemInst = system_instruction || "Eres un asistente útil, profesional y amable.";
 
-    const prompt = `
-Contexto del Asistente (Instrucciones): ${systemInst}
-
-Historial de Conversación:
-${conversationText}
-
-Instrucción: Genera una respuesta corta, clara y útil para que el agente la envíe al cliente ahora mismo.
-Respuesta sugerida:`;
+    // For chat_reply: append the short-response instruction.
+    // For crm_insight / bulk_analysis / test: pass content clean — the system prompt drives the output.
+    const userContent = task_type === 'chat_reply'
+      ? `Historial de Conversación:\n${conversationText}\n\nInstrucción: Genera una respuesta corta, clara y útil para que el agente la envíe al cliente ahora mismo.\nRespuesta sugerida:`
+      : conversationText;
 
     let replyText = "";
 
     // Route to appropriate provider
     if (provider === 'gemini') {
-      replyText = await callGemini(supabaseAdmin, profile.organization_id, prompt, isTest);
+      replyText = await callGemini(supabaseAdmin, profile.organization_id, systemInst, userContent, isTest);
     } else if (provider === 'openai') {
-      replyText = await callOpenAI(supabaseAdmin, profile.organization_id, prompt, isTest);
+      replyText = await callOpenAI(supabaseAdmin, profile.organization_id, systemInst, userContent, isTest);
     } else if (provider === 'claude') {
-      replyText = await callClaude(supabaseAdmin, profile.organization_id, prompt, isTest);
+      replyText = await callClaude(supabaseAdmin, profile.organization_id, systemInst, userContent, isTest);
     } else if (provider === 'custom') {
-      replyText = await callCustom(supabaseAdmin, profile.organization_id, prompt, isTest);
+      replyText = await callCustom(supabaseAdmin, profile.organization_id, systemInst, userContent, isTest);
     } else {
       throw new Error(`Proveedor no soportado: ${provider}`);
     }
+
+    // ── Log usage (non-blocking — fire and forget) ────────────────────────────
+    supabaseAdmin.from('ai_usage_log').insert({
+      organization_id: profile.organization_id,
+      user_id: user.id,
+      provider,
+      task_type,
+    }).then(() => {/* ignore */}).catch(() => {/* ignore */});
 
     return new Response(
         JSON.stringify({ reply: replyText }),
@@ -95,7 +150,7 @@ Respuesta sugerida:`;
 
 // ============ PROVIDER IMPLEMENTATIONS ============
 
-async function callGemini(supabaseAdmin: any, orgId: string, prompt: string, isTest: boolean): Promise<string> {
+async function callGemini(supabaseAdmin: any, orgId: string, systemInstruction: string, userContent: string, isTest: boolean): Promise<string> {
   const { data: config } = await supabaseAdmin
     .from('integration_settings')
     .select('credentials')
@@ -108,15 +163,17 @@ async function callGemini(supabaseAdmin: any, orgId: string, prompt: string, isT
   }
 
   const modelId = config.credentials.modelId || 'gemini-2.5-flash';
+  // Gemini: prepend system instruction to the single text prompt
+  const fullPrompt = `${systemInstruction}\n\n${userContent}`;
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${config.credentials.apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: fullPrompt }] }],
         generationConfig: {
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
           temperature: 0.7,
         }
       })
@@ -132,7 +189,7 @@ async function callGemini(supabaseAdmin: any, orgId: string, prompt: string, isT
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "No se pudo generar respuesta.";
 }
 
-async function callOpenAI(supabaseAdmin: any, orgId: string, prompt: string, isTest: boolean): Promise<string> {
+async function callOpenAI(supabaseAdmin: any, orgId: string, systemInstruction: string, userContent: string, isTest: boolean): Promise<string> {
   const { data: config } = await supabaseAdmin
     .from('integration_settings')
     .select('credentials')
@@ -144,7 +201,7 @@ async function callOpenAI(supabaseAdmin: any, orgId: string, prompt: string, isT
     throw new Error("API Key de OpenAI no configurada. Ve a Settings > AI.");
   }
 
-  const modelId = config.credentials.modelId || 'gpt-4';
+  const modelId = config.credentials.modelId || 'gpt-4o-mini';
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -154,10 +211,10 @@ async function callOpenAI(supabaseAdmin: any, orgId: string, prompt: string, isT
     body: JSON.stringify({
       model: modelId,
       messages: [
-        { role: 'system', content: config.credentials.systemInstruction || 'Eres un asistente útil.' },
-        { role: 'user', content: prompt }
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: userContent }
       ],
-      max_tokens: 1024,
+      max_tokens: 2048,
       temperature: 0.7,
     })
   });
@@ -171,7 +228,7 @@ async function callOpenAI(supabaseAdmin: any, orgId: string, prompt: string, isT
   return data.choices?.[0]?.message?.content || "No se pudo generar respuesta.";
 }
 
-async function callClaude(supabaseAdmin: any, orgId: string, prompt: string, isTest: boolean): Promise<string> {
+async function callClaude(supabaseAdmin: any, orgId: string, systemInstruction: string, userContent: string, isTest: boolean): Promise<string> {
   const { data: config } = await supabaseAdmin
     .from('integration_settings')
     .select('credentials')
@@ -183,7 +240,7 @@ async function callClaude(supabaseAdmin: any, orgId: string, prompt: string, isT
     throw new Error("API Key de Claude no configurada. Ve a Settings > AI.");
   }
 
-  const modelId = config.credentials.modelId || 'claude-3-opus-20240229';
+  const modelId = config.credentials.modelId || 'claude-3-5-haiku-20241022';
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -193,10 +250,10 @@ async function callClaude(supabaseAdmin: any, orgId: string, prompt: string, isT
     },
     body: JSON.stringify({
       model: modelId,
-      max_tokens: 1024,
-      system: config.credentials.systemInstruction || 'Eres un asistente útil.',
+      max_tokens: 2048,
+      system: systemInstruction,
       messages: [
-        { role: 'user', content: prompt }
+        { role: 'user', content: userContent }
       ]
     })
   });
@@ -210,7 +267,7 @@ async function callClaude(supabaseAdmin: any, orgId: string, prompt: string, isT
   return data.content?.[0]?.text || "No se pudo generar respuesta.";
 }
 
-async function callCustom(supabaseAdmin: any, orgId: string, prompt: string, isTest: boolean): Promise<string> {
+async function callCustom(supabaseAdmin: any, orgId: string, systemInstruction: string, userContent: string, isTest: boolean): Promise<string> {
   const { data: config } = await supabaseAdmin
     .from('integration_settings')
     .select('credentials')
@@ -229,9 +286,9 @@ async function callCustom(supabaseAdmin: any, orgId: string, prompt: string, isT
       'Authorization': `Bearer ${config.credentials.apiKey}`
     },
     body: JSON.stringify({
-      prompt: prompt,
-      system_instruction: config.credentials.systemInstruction || 'Eres un asistente útil.',
-      max_tokens: 1024,
+      prompt: `${systemInstruction}\n\n${userContent}`,
+      system_instruction: systemInstruction,
+      max_tokens: 2048,
       temperature: 0.7,
     })
   });
@@ -243,4 +300,54 @@ async function callCustom(supabaseAdmin: any, orgId: string, prompt: string, isT
 
   const data = await response.json();
   return data.reply || data.response || data.text || "No se pudo generar respuesta.";
+}
+
+// ============ MODEL LISTING ============
+
+async function listGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=50`,
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.models || [])
+      .filter((m: any) =>
+        m.supportedGenerationMethods?.includes('generateContent') &&
+        m.name?.includes('gemini')
+      )
+      .map((m: any) => m.name.replace('models/', ''))
+      .sort();
+  } catch { return []; }
+}
+
+async function listOpenAIModels(apiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const chat = (data.data || [])
+      .map((m: any) => m.id as string)
+      .filter((id: string) =>
+        id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4')
+      )
+      .sort();
+    return chat;
+  } catch { return []; }
+}
+
+async function listClaudeModels(apiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/models', {
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.data || []).map((m: any) => m.id as string).sort();
+  } catch { return []; }
 }

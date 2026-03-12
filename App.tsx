@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppState, Conversation, Message, User, DashboardView, Note, MessageType, Task, TaskStatus, CRMContact, CustomProperty, WhatsAppPhoneNumber } from './types';
+import { AppState, Conversation, Message, User, DashboardView, Note, MessageType, Task, TaskStatus, CRMContact, CustomProperty, WhatsAppPhoneNumber, OrganizationMembership } from './types';
 import LandingPage from './components/LandingPage';
 import LoginScreen from './components/LoginScreen';
 import Onboarding from './components/Onboarding';
@@ -13,10 +13,11 @@ import StatisticsScreen from './components/StatisticsScreen';
 import CRMScreen from './components/CRMScreen';
 import TaskBoard from './components/TaskBoard';
 import WorkflowsScreen from './components/WorkflowsScreen';
+import AIAssistantScreen from './components/AIAssistantScreen';
 import PrivacyPolicyScreen from './components/PrivacyPolicyScreen';
 import DataDeletionPolicyScreen from './components/DataDeletionPolicyScreen';
 import DataDeletionScreen from './components/DataDeletionScreen';
-import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff, Zap } from 'lucide-react';
+import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff, Zap, Building2, Sparkles } from 'lucide-react';
 import { AppearanceProvider } from './contexts/AppearanceContext';
 import { chatService } from './services/chatService';
 import { authService } from './services/authService';
@@ -31,6 +32,8 @@ import { whatsappPhoneService } from './services/whatsappPhoneService';
 import LoadingOverlay from './components/LoadingOverlay';
 import ResultOverlay from './components/ResultOverlay';
 import ToastNotifications, { Toast } from './components/ToastNotifications';
+import OrganizationSwitcher from './components/OrganizationSwitcher';
+import { organizationService } from './services/organizationService';
 
 const generateUUID = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -95,6 +98,11 @@ const App: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   
+  // Create Organization State
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [isCreatingOrg, setIsCreatingOrg] = useState(false);
+
   // Data State
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messagesData, setMessagesData] = useState<Record<string, Message[]>>({});
@@ -109,6 +117,7 @@ const App: React.FC = () => {
   const [isMobileListVisible, setIsMobileListVisible] = useState(true);
   const [orgPhoneNumbers, setOrgPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
   const [selectedPhoneFilter, setSelectedPhoneFilter] = useState<string>('');
+  const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
 
     // Track latest values to avoid stale closures inside subscriptions
     const activeConversationIdRef = React.useRef<string | null>(null);
@@ -563,6 +572,70 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSwitchOrganization = async (targetOrgId: string) => {
+    if (!currentUser || targetOrgId === currentUser.organizationId) return;
+
+    setIsSwitchingOrg(true);
+    try {
+      const result = await organizationService.switchOrganization(targetOrgId);
+      if (result.success) {
+        // Clear all current data
+        setConversations([]);
+        setMessagesData({});
+        setNotesData({});
+        setTasks([]);
+        setContacts([]);
+        setProperties([]);
+        setTeamMembers([]);
+        setOrgPhoneNumbers([]);
+        setActiveConversationId(null);
+        setSelectedPhoneFilter('');
+
+        // Refresh user (will get updated org + role from profile)
+        const updatedUser = await authService.getCurrentUser();
+        if (updatedUser) {
+          setCurrentUser(updatedUser);
+          pushToast('success', 'Organización cambiada', `Ahora estás en: ${updatedUser.organizations?.find(o => o.organizationId === targetOrgId)?.organizationName || 'Organización'}`, 3000);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error switching organization:', error);
+      showNotice('error', 'Error', 'No se pudo cambiar de organización', 4000);
+    } finally {
+      setIsSwitchingOrg(false);
+    }
+  };
+
+  const handleCreateOrganization = async () => {
+    if (!currentUser || !newOrgName.trim()) return;
+
+    setIsCreatingOrg(true);
+    try {
+      const newOrg = await organizationService.createOrganization(newOrgName.trim());
+      if (newOrg) {
+        // Membership is created by the create_organization_for_user RPC; just switch
+        // Switch to the new org
+        await handleSwitchOrganization(newOrg.id);
+        
+        setShowCreateOrgModal(false);
+        setNewOrgName('');
+        pushToast('success', 'Organización creada', `"${newOrg.name}" creada exitosamente`, 3000);
+      }
+    } catch (error: any) {
+      console.error('Error creating organization:', error);
+      const errorMessage =
+        error?.message ||
+        (error?.code === '42501'
+          ? 'No tienes permisos para crear más organizaciones con tu cuenta actual.'
+          : 'No se pudo crear la organización');
+      setShowCreateOrgModal(false);
+      setNewOrgName('');
+      showNotice('error', 'Límite de organizaciones', errorMessage, 6000);
+    } finally {
+      setIsCreatingOrg(false);
+    }
+  };
+
   const handleSelectConversation = async (id: string) => {
     setActiveConversationId(id);
     const updatedConversations = conversations.map(c => c.id === id ? { ...c, unreadCount: 0 } : c);
@@ -758,6 +831,13 @@ const App: React.FC = () => {
           customProperties={properties}
         />
       );
+      case 'ai_assistant': return (
+        <AIAssistantScreen
+          organizationId={currentUser?.organizationId || ''}
+          contacts={contacts}
+          conversations={conversations}
+        />
+      );
       case 'settings': return <SettingsScreen />;
       default:
         return (
@@ -885,6 +965,7 @@ const App: React.FC = () => {
       { view: 'crm' as DashboardView, icon: <Users size={20}/>, label: 'CRM', roles: ['admin','manager'] },
       { view: 'tasks' as DashboardView, icon: <CheckSquare size={20}/>, label: 'Tareas', roles: ['admin','manager'] },
       { view: 'workflows' as DashboardView, icon: <Zap size={20}/>, label: 'Flujos', roles: ['admin','manager'] },
+      { view: 'ai_assistant' as DashboardView, icon: <Sparkles size={20}/>, label: 'Asistente IA', roles: ['admin','manager'] },
       { view: 'stats' as DashboardView, icon: <BarChart3 size={20}/>, label: 'Estadísticas', roles: ['admin','manager'] },
   ];
 
@@ -899,7 +980,18 @@ const App: React.FC = () => {
     <div data-app-root className="flex h-screen w-screen overflow-hidden bg-slate-50 relative">
       {/* ── Desktop Left Sidebar ─────────────────────────────────────── */}
       <nav className="hidden sm:flex w-16 md:w-20 bg-slate-900 flex-col items-center py-6 gap-4 flex-shrink-0 z-50 shadow-xl overflow-y-auto">
-        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-2">D</div>
+        {/* Organization Switcher (replaces logo when user has orgs) */}
+        {currentUser?.organizations && currentUser.organizations.length > 0 ? (
+          <OrganizationSwitcher
+            organizations={currentUser.organizations}
+            activeOrganizationId={currentUser.organizationId}
+            onSwitch={handleSwitchOrganization}
+            onCreateNew={() => setShowCreateOrgModal(true)}
+            compact
+          />
+        ) : (
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-2">D</div>
+        )}
 
         {visibleNav.map(item => (
           <button
@@ -936,14 +1028,38 @@ const App: React.FC = () => {
           <div className="text-[9px] text-center text-slate-500 font-semibold uppercase px-1 py-0.5 bg-slate-800 rounded">
             {roleLabels[currentUser?.role || ''] || currentUser?.role}
           </div>
+          {currentUser?.organizations && currentUser.organizations.length > 1 && (
+            <div className="text-[8px] text-center text-emerald-400/70 font-medium px-1 py-0.5 truncate max-w-[60px]" title={currentUser.organizations.find(o => o.organizationId === currentUser.organizationId)?.organizationName}>
+              {currentUser.organizations.find(o => o.organizationId === currentUser.organizationId)?.organizationName}
+            </div>
+          )}
         </div>
       </nav>
 
       {/* ── Main content ─────────────────── */}
-      <main className="flex-1 overflow-hidden relative w-full pb-14 sm:pb-0">{renderDashboardContent()}</main>
+      <main className="flex-1 overflow-hidden relative w-full pb-14 sm:pb-0">
+        {isSwitchingOrg ? (
+          <div className="h-full flex flex-col items-center justify-center bg-slate-50 gap-4">
+            <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+            <p className="text-slate-500 text-sm">Cambiando de organización...</p>
+          </div>
+        ) : (
+          renderDashboardContent()
+        )}
+      </main>
 
       {/* ── Mobile Bottom Navigation ─────────────────────────────────── */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-50 flex items-center justify-around px-1 py-1">
+        {/* Mobile Org Switcher */}
+        {currentUser?.organizations && currentUser.organizations.length > 0 && (
+          <OrganizationSwitcher
+            organizations={currentUser.organizations}
+            activeOrganizationId={currentUser.organizationId}
+            onSwitch={handleSwitchOrganization}
+            onCreateNew={() => setShowCreateOrgModal(true)}
+            compact
+          />
+        )}
         {visibleNav.map(item => (
           <button
             key={item.view}
@@ -1023,6 +1139,51 @@ const App: React.FC = () => {
                       >
                           {isResetting ? <Loader2 className="animate-spin"/> : 'Guardar contraseña e ingresar'}
                       </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* CREATE NEW ORGANIZATION MODAL */}
+      {showCreateOrgModal && (
+          <div className="absolute inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
+                  <div className="flex justify-center mb-6">
+                      <div className="bg-emerald-100 p-4 rounded-full">
+                          <Building2 size={32} className="text-emerald-600"/>
+                      </div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Crear nueva organización</h2>
+                  <p className="text-center text-slate-500 mb-8">Crea un nuevo entorno de trabajo independiente con datos separados.</p>
+                  
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Nombre de la organización</label>
+                          <input 
+                              type="text" 
+                              className="w-full px-4 py-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" 
+                              placeholder="Ej: Mi Empresa, Proyecto X..."
+                              value={newOrgName}
+                              onChange={e => setNewOrgName(e.target.value)}
+                              maxLength={100}
+                          />
+                      </div>
+                      
+                      <div className="flex gap-3 mt-4">
+                          <button 
+                              onClick={() => { setShowCreateOrgModal(false); setNewOrgName(''); }}
+                              className="flex-1 border border-slate-300 text-slate-700 font-bold py-3 rounded-lg transition-colors hover:bg-slate-50"
+                          >
+                              Cancelar
+                          </button>
+                          <button 
+                              onClick={handleCreateOrganization}
+                              disabled={isCreatingOrg || !newOrgName.trim()}
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                          >
+                              {isCreatingOrg ? <Loader2 className="animate-spin" size={18}/> : 'Crear'}
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>

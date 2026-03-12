@@ -136,18 +136,18 @@ export const rolePermissionService = {
       return target?.organization_id === managerUser.organizationId;
     }
 
-    // Si es Manager, valida que el usuario está en su equipo
+    // Si es Manager, válida que el usuario está en su equipo
     const { data: target } = await supabase
-      .from('profiles')
-      .select('team_lead_id, organization_id')
-      .eq('id', targetUserId)
-      .single();
+      .from('organization_members')
+      .select('team_lead_id')
+      .eq('user_id', targetUserId)
+      .eq('organization_id', managerUser.organizationId)
+      .maybeSingle();
 
     if (!target) return false;
 
     // El Manager solo puede supervisar usuarios cuyo team_lead_id es él mismo
-    return target.team_lead_id === managerUser.id && 
-           target.organization_id === managerUser.organizationId;
+    return target.team_lead_id === managerUser.id;
   },
 
   // Validar que puede ver conversaciones del equipo

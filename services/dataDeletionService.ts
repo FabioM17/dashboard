@@ -5,8 +5,8 @@
  * 
  * Levels:
  *  1. Anonymize personal data (any user)
- *  2. Delete a team member + auth account (org creator only)
- *  3. Delete entire organization (org creator only)
+ *  2. Remove a team member from current org (auth account is deleted only if user has no other org memberships)
+ *  3. Delete entire organization data (org creator only, auth users are preserved)
  *  4. Preview deletion (dry run)
  */
 
@@ -22,6 +22,7 @@ export interface DeletionPreview {
     email: string;
     role: string;
     is_creator: boolean;
+    has_other_organizations?: boolean;
   }>;
   phone_numbers?: Array<{
     id: string;
@@ -112,9 +113,10 @@ export const dataDeletionService = {
   },
 
   /**
-   * LEVEL 2: Delete a team member and all their associated data.
+    * LEVEL 2: Remove a team member and their org-scoped data.
    * Only the org creator can do this.
-   * Cannot delete the creator themselves.
+    * Cannot delete the creator themselves.
+    * If the user belongs to other organizations, their account is preserved.
    */
   async deleteTeamMember(
     organizationId: string,
@@ -133,9 +135,9 @@ export const dataDeletionService = {
   },
 
   /**
-   * LEVEL 3: Delete the entire organization and all associated data.
+    * LEVEL 3: Delete the entire organization and all associated data.
    * Only the org creator can do this.
-   * Deletes all members, data, and the org itself.
+    * Preserves user accounts for multi-organization safety.
    */
   async deleteOrganization(
     organizationId: string

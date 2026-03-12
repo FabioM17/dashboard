@@ -18,6 +18,8 @@ import { WhatsAppEmbeddedSignup } from './WhatsAppEmbeddedSignup';
 import { fetchAndSavePhoneNumber } from '../services/whatsappIntegrationService';
 import { whatsappPhoneService } from '../services/whatsappPhoneService';
 import { apiKeyService, ApiKey, ApiEndpointConfig, API_SCOPES, API_ENDPOINTS } from '../services/apiKeyService';
+import { aiService } from '../services/aiService';
+import { AIProvider } from '../types';
 import ApiDocumentation from './ApiDocumentation';
 import DataDeletionScreen from './DataDeletionScreen';
 
@@ -35,8 +37,15 @@ const SettingsScreen: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-    const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'community' as UserRole, phone: '' });
+  const [inviteTab, setInviteTab] = useState<'new' | 'existing'>('new');
+  const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'community' as UserRole, phone: '' });
   const [isInviting, setIsInviting] = useState(false);
+  // Existing-user search state
+  const [searchEmail, setSearchEmail] = useState('');
+  const [searchResults, setSearchResults] = useState<{ userId: string; email: string; fullName: string | null; avatarUrl: string | null }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedExistingUser, setSelectedExistingUser] = useState<{ userId: string; email: string; fullName: string | null; avatarUrl: string | null } | null>(null);
+  const [existingRole, setExistingRole] = useState<UserRole>('community');
   
   // Snippets State
   const [snippets, setSnippets] = useState<Snippet[]>([]);
@@ -69,11 +78,42 @@ const SettingsScreen: React.FC = () => {
   const [editingPhoneLabel, setEditingPhoneLabel] = useState<string | null>(null);
   const [phoneLabelDraft, setPhoneLabelDraft] = useState('');
 
-  // Gemini Config State
-  const [geminiKey, setGeminiKey] = useState('');
-  const [systemInstruction, setSystemInstruction] = useState('');
+  // AI Multi-Provider Config State
+  type ProviderForm = { apiKey: string; modelId: string; systemInstruction: string };
+
+  const AI_PROVIDERS_ORDER = ['gemini', 'openai', 'claude', 'custom'] as const;
+
+  const AI_PROVIDER_META: Record<string, { name: string; placeholder: string; link: string; defaultModel: string; icon: string }> = {
+    gemini: { name: 'Google Gemini',           placeholder: 'AIzaSy…',  link: 'https://aistudio.google.com/app/apikey',       defaultModel: 'gemini-2.0-flash',             icon: 'G' },
+    openai: { name: 'OpenAI',                  placeholder: 'sk-…',     link: 'https://platform.openai.com/api-keys',         defaultModel: 'gpt-4o-mini',                  icon: '⊙' },
+    claude: { name: 'Anthropic Claude',        placeholder: 'sk-ant-…', link: 'https://console.anthropic.com/settings/keys',  defaultModel: 'claude-3-7-sonnet-20250219',   icon: 'A' },
+    custom: { name: 'Custom (OpenAI-compat.)', placeholder: 'API Key…', link: '',                                            defaultModel: '',                             icon: '⚙' },
+  };
+
+  // Default models are a curated baseline. Users can fetch the live list via "↻ Sincronizar".
+  const DEFAULT_MODELS: Record<string, string[]> = {
+    gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.5-preview', 'o3', 'o3-mini', 'o1', 'o1-mini', 'gpt-4-turbo'],
+    claude: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
+    custom: [],
+  };
+
+  const makeDefaultForms = (): Record<string, ProviderForm> => ({
+    gemini: { apiKey: '', modelId: 'gemini-2.0-flash',            systemInstruction: '' },
+    openai: { apiKey: '', modelId: 'gpt-4o-mini',                 systemInstruction: '' },
+    claude: { apiKey: '', modelId: 'claude-3-7-sonnet-20250219',  systemInstruction: '' },
+    custom: { apiKey: '', modelId: '',                            systemInstruction: '' },
+  });
+
+  const [aiActiveProvider, setAiActiveProvider] = useState<string>('gemini');
+  const [aiProviderForms, setAiProviderForms] = useState<Record<string, ProviderForm>>(makeDefaultForms());
+  const [aiExpandedProvider, setAiExpandedProvider] = useState<string>('gemini');
+  const [aiModelLists, setAiModelLists] = useState<Record<string, string[]>>(DEFAULT_MODELS);
+  const [aiFetchingModels, setAiFetchingModels] = useState<Record<string, boolean>>({});
+  const [aiSavingProvider, setAiSavingProvider] = useState<Record<string, boolean>>({});
+  const [aiProviderStatus, setAiProviderStatus] = useState<Record<string, 'idle' | 'success' | 'error'>>({});
+  // ─── kept for legacy N8N / Retell sections ────────────────────────────────
   const [isSavingAI, setIsSavingAI] = useState(false);
-  const [aiSaveStatus, setAiSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // N8N Config State
   const [n8nUrl, setN8nUrl] = useState('');
@@ -216,10 +256,28 @@ const SettingsScreen: React.FC = () => {
             }
             // Load AI Config
             if (activeTab === 'ai') {
-                const config = await chatService.getGeminiConfig(user.organizationId);
-                if (config) {
-                    setGeminiKey(config.api_key || '');
-                    setSystemInstruction(config.system_instruction || '');
+                try {
+                    const config = await aiService.getAIConfig(user.organizationId);
+                    if (config) {
+                        const forms = makeDefaultForms();
+                        (Object.keys(config.providers) as AIProvider[]).forEach(p => {
+                            const pc = config.providers[p];
+                            if (pc) {
+                                forms[p] = {
+                                    apiKey: pc.apiKey || '',
+                                    modelId: pc.modelId || forms[p].modelId,
+                                    systemInstruction: pc.systemInstruction || '',
+                                };
+                            }
+                        });
+                        setAiProviderForms(forms);
+                        if (config.activeProvider) {
+                            setAiActiveProvider(config.activeProvider);
+                            setAiExpandedProvider(config.activeProvider);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[Settings] Error loading AI config:', err);
                 }
             }
             // Load N8N Config
@@ -318,7 +376,7 @@ const SettingsScreen: React.FC = () => {
       if (userId === currentUser.id && newRole !== 'admin') { if (!confirm("Warning: You are downgrading your own account.")) return; }
       const previousTeam = [...teamMembers];
       setTeamMembers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      try { await teamService.updateMemberRole(userId, newRole); } catch (error: any) { setTeamMembers(previousTeam); alert(`Error: ${error.message}`); }
+      try { await teamService.updateMemberRole(userId, newRole, currentUser.organizationId); } catch (error: any) { setTeamMembers(previousTeam); alert(`Error: ${error.message}`); }
   };
 
   const handleRemoveMember = async (userId: string) => {
@@ -329,7 +387,7 @@ const SettingsScreen: React.FC = () => {
       const previousTeam = [...teamMembers];
         setTeamMembers(teamMembers.filter(m => m.id !== userId));
         setTeamMembers(prev => prev.filter(m => m.id !== userId));
-      try { await teamService.removeMember(userId); } catch (error: any) { setTeamMembers(previousTeam); alert(`Error: ${error.message}`); }
+      try { await teamService.removeMember(userId, currentUser.organizationId); } catch (error: any) { setTeamMembers(previousTeam); alert(`Error: ${error.message}`); }
   };
 
   const handleInviteMember = async () => {
@@ -393,6 +451,64 @@ const SettingsScreen: React.FC = () => {
       } finally { 
           setIsInviting(false); 
       }
+  };
+
+  const handleSearchExistingUser = async (query: string) => {
+    setSearchEmail(query);
+    setSelectedExistingUser(null);
+    if (!currentUser?.organizationId || query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const results = await teamService.searchUsersByEmail(query, currentUser.organizationId);
+      setSearchResults(results);
+    } catch (e: any) {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddExistingMember = async () => {
+    if (!currentUser?.organizationId || !selectedExistingUser) return;
+    setIsInviting(true);
+    try {
+      await teamService.addExistingMember(selectedExistingUser.userId, currentUser.organizationId, existingRole);
+      const newMember: User = {
+        id: selectedExistingUser.userId,
+        organizationId: currentUser.organizationId,
+        name: selectedExistingUser.fullName || selectedExistingUser.email.split('@')[0],
+        email: selectedExistingUser.email,
+        role: existingRole,
+        avatar: selectedExistingUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedExistingUser.fullName || selectedExistingUser.email)}&background=random`,
+        verified: true,
+        lastSignInAt: null,
+        organizations: []
+      };
+      setTeamMembers([...teamMembers, newMember]);
+      setShowInviteModal(false);
+      setSearchEmail('');
+      setSearchResults([]);
+      setSelectedExistingUser(null);
+      setExistingRole('community');
+      alert(`${newMember.name} fue agregado a la organización.`);
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleCloseInviteModal = () => {
+    setShowInviteModal(false);
+    setInviteTab('new');
+    setInviteForm({ email: '', name: '', role: 'community', phone: '' });
+    setSearchEmail('');
+    setSearchResults([]);
+    setSelectedExistingUser(null);
+    setExistingRole('community');
   };
 
   const handleCreateSnippet = async () => {
@@ -477,10 +593,52 @@ const SettingsScreen: React.FC = () => {
       }
   };
 
-  const handleSaveAI = async () => {
-      if (!currentUser?.organizationId) return; setIsSavingAI(true); setAiSaveStatus('idle');
-      try { await chatService.saveGeminiConfig(currentUser.organizationId, geminiKey, systemInstruction); setAiSaveStatus('success'); } catch (e) { setAiSaveStatus('error'); } finally { setIsSavingAI(false); }
+  const handleSaveAIProvider = async (provider: string) => {
+      if (!currentUser?.organizationId) return;
+      setAiSavingProvider(prev => ({ ...prev, [provider]: true }));
+      setAiProviderStatus(prev => ({ ...prev, [provider]: 'idle' }));
+      try {
+          const form = aiProviderForms[provider];
+          const isActive = aiActiveProvider === provider;
+          // Save this provider's config
+          await aiService.saveAIProviderConfig(currentUser.organizationId, provider as AIProvider, {
+              provider: provider as AIProvider,
+              apiKey: form.apiKey,
+              modelId: form.modelId,
+              systemInstruction: form.systemInstruction,
+              isActive,
+          });
+          // If this is the active provider, deactivate all others in DB
+          if (isActive) {
+              await aiService.setActiveProvider(currentUser.organizationId, provider as AIProvider);
+          }
+          setAiProviderStatus(prev => ({ ...prev, [provider]: 'success' }));
+          setTimeout(() => setAiProviderStatus(prev => ({ ...prev, [provider]: 'idle' })), 3000);
+      } catch (e) {
+          setAiProviderStatus(prev => ({ ...prev, [provider]: 'error' }));
+      } finally {
+          setAiSavingProvider(prev => ({ ...prev, [provider]: false }));
+      }
   };
+
+  const handleFetchAIModels = async (provider: string) => {
+      if (!currentUser?.organizationId) return;
+      const apiKey = aiProviderForms[provider]?.apiKey;
+      if (!apiKey) return;
+      setAiFetchingModels(prev => ({ ...prev, [provider]: true }));
+      try {
+          const models = await aiService.fetchModels(currentUser.organizationId, provider as AIProvider, apiKey);
+          if (models.length > 0) {
+              setAiModelLists(prev => ({ ...prev, [provider]: models }));
+          }
+      } catch (e) {
+          console.error('Error fetching models:', e);
+      } finally {
+          setAiFetchingModels(prev => ({ ...prev, [provider]: false }));
+      }
+  };
+
+  const handleSaveAI = async () => { setIsSavingAI(true); }; // kept for legacy – no-op
 
   const handleSaveN8n = async () => {
       if (!currentUser?.organizationId) return; setIsSavingN8n(true); setN8nSaveStatus('idle');
@@ -1856,28 +2014,175 @@ const SettingsScreen: React.FC = () => {
 
           {activeTab === 'ai' && (
               <div className="max-w-3xl space-y-6">
+                 {/* Header */}
                  <div>
-                    <h3 className="text-lg font-semibold flex items-center gap-2"><Sparkles size={20} className="text-purple-600"/> Agente IA (Gemini)</h3>
-                    <p className="text-sm text-slate-500">Configura la personalidad y credenciales de tu asistente IA.</p>
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><Sparkles size={20} className="text-purple-600"/> Agente IA</h3>
+                    <p className="text-sm text-slate-500">Configura tus credenciales y elige el proveedor activo. Solo uno puede estar activo a la vez.</p>
                  </div>
-                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-                     <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">Clave API de Google Gemini</label>
-                         <div className="flex gap-2">
-                             <input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="AIzaSy..." className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm" />
-                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="px-3 py-2 bg-slate-100 text-slate-600 rounded-md text-sm hover:bg-slate-200 flex items-center gap-2">Obtener clave <ExternalLink size={14}/></a>
-                         </div>
-                         <p className="text-xs text-slate-500 mt-1">Tu clave se almacena cifrada en los ajustes de tu organización.</p>
-                     </div>
-                     <div>
-                         <label className="block text-sm font-medium text-slate-700 mb-1">Personalidad del Agente (Instrucción del Sistema)</label>
-                         <textarea value={systemInstruction} onChange={(e) => setSystemInstruction(e.target.value)} rows={6} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 outline-none text-sm" placeholder="Eres un agente de soporte al cliente amable y profesional..." />
-                     </div>
-                     <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-3">
-                         {aiSaveStatus === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
-                         {aiSaveStatus === 'error' && <span className="text-xs text-red-600">Error al guardar la configuración</span>}
-                         <button onClick={handleSaveAI} disabled={isSavingAI || !geminiKey} className="bg-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">{isSavingAI ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Guardar Configuración IA</button>
-                     </div>
+
+                 {/* ── Proveedor activo ── */}
+                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Proveedor activo</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {AI_PROVIDERS_ORDER.map(p => {
+                            const meta = AI_PROVIDER_META[p];
+                            const isSelected = aiActiveProvider === p;
+                            const isConfigured = !!aiProviderForms[p]?.apiKey;
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={() => { setAiActiveProvider(p); setAiExpandedProvider(p); }}
+                                    className={`relative flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                                        isSelected
+                                            ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm'
+                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-base ${isSelected ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                        {meta.icon}
+                                    </span>
+                                    <span className="text-xs text-center leading-tight">{meta.name}</span>
+                                    {isSelected && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500"/>}
+                                    {!isSelected && isConfigured && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400" title="Configurado"/>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-3">El proveedor marcado será el que se use en Conversaciones y CRM. Haz clic para cambiarlo y guarda la configuración correspondiente.</p>
+                 </div>
+
+                 {/* ── Configuración por proveedor ── */}
+                 <div className="space-y-3">
+                 {AI_PROVIDERS_ORDER.map((provider) => {
+                    const form = aiProviderForms[provider];
+                    const meta = AI_PROVIDER_META[provider];
+                    const isExpanded = aiExpandedProvider === provider;
+                    const isActive = aiActiveProvider === provider;
+                    const status = aiProviderStatus[provider] ?? 'idle';
+                    const isSaving = aiSavingProvider[provider] ?? false;
+                    const isFetchingModels = aiFetchingModels[provider] ?? false;
+                    const models = aiModelLists[provider] ?? DEFAULT_MODELS[provider] ?? [];
+
+                    return (
+                        <div key={provider} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${isActive ? 'border-purple-300' : 'border-slate-200'}`}>
+                            {/* Row header */}
+                            <button
+                                className="w-full flex items-center justify-between px-5 py-4 text-left focus:outline-none"
+                                onClick={() => setAiExpandedProvider(isExpanded ? '' : provider)}
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${isActive ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{meta.icon}</span>
+                                    <span className="font-semibold text-slate-800 truncate">{meta.name}</span>
+                                    {isActive && <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">Activo</span>}
+                                    {!isActive && form.apiKey && <span className="text-[10px] font-medium text-emerald-600 flex-shrink-0">✓ Configurado</span>}
+                                </div>
+                                {isExpanded ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0"/> : <ChevronDown size={16} className="text-slate-400 flex-shrink-0"/>}
+                            </button>
+
+                            {/* Expanded body */}
+                            {isExpanded && (
+                                <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4">
+                                    {/* Not active warning */}
+                                    {!isActive && (
+                                        <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                            <p className="text-xs text-amber-700">Este proveedor no está activo. Selecciónalo arriba para que el asistente lo use.</p>
+                                            <button onClick={() => setAiActiveProvider(provider)} className="text-xs font-semibold text-amber-700 underline underline-offset-2 ml-3 whitespace-nowrap">Activar</button>
+                                        </div>
+                                    )}
+
+                                    {/* API Key */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-sm font-medium text-slate-700">Clave API</label>
+                                            {meta.link && <a href={meta.link} target="_blank" rel="noreferrer" className="text-xs text-purple-600 hover:underline flex items-center gap-1">Obtener clave <ExternalLink size={10}/></a>}
+                                        </div>
+                                        <input
+                                            type="password"
+                                            value={form.apiKey}
+                                            onChange={(e) => setAiProviderForms(prev => ({ ...prev, [provider]: { ...prev[provider], apiKey: e.target.value } }))}
+                                            placeholder={meta.placeholder}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
+                                        />
+                                        <p className="text-xs text-slate-400 mt-1">Se almacena cifrada en tu organización.</p>
+                                    </div>
+
+                                    {/* Model selector */}
+                                    {provider !== 'custom' && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="text-sm font-medium text-slate-700">Modelo</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleFetchAIModels(provider)}
+                                                    disabled={!form.apiKey || isFetchingModels}
+                                                    className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 disabled:opacity-40 font-medium"
+                                                    title="Conecta con la API del proveedor para obtener la lista actualizada de modelos"
+                                                >
+                                                    {isFetchingModels ? <Loader2 size={11} className="animate-spin"/> : <RefreshCw size={11}/>}
+                                                    {isFetchingModels ? 'Obteniendo…' : '↻ Sincronizar modelos'}
+                                                </button>
+                                            </div>
+                                            <select
+                                                value={form.modelId}
+                                                onChange={(e) => setAiProviderForms(prev => ({ ...prev, [provider]: { ...prev[provider], modelId: e.target.value } }))}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm bg-white"
+                                            >
+                                                {models.map(m => <option key={m} value={m}>{m}</option>)}
+                                                {form.modelId && !models.includes(form.modelId) && (
+                                                    <option value={form.modelId}>{form.modelId}</option>
+                                                )}
+                                            </select>
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                La lista incluye los modelos más recientes conocidos. Haz clic en <strong>↻ Sincronizar modelos</strong> (con tu API Key) para obtener la lista actualizada directamente desde {meta.name}.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Custom: endpoint URL */}
+                                    {provider === 'custom' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">URL del endpoint</label>
+                                            <input
+                                                type="url"
+                                                value={form.modelId}
+                                                onChange={(e) => setAiProviderForms(prev => ({ ...prev, [provider]: { ...prev[provider], modelId: e.target.value } }))}
+                                                placeholder="https://my-llm-server.com/v1/completions"
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
+                                            />
+                                            <p className="text-xs text-slate-400 mt-1">Debe ser compatible con el formato de OpenAI Chat Completions.</p>
+                                        </div>
+                                    )}
+
+                                    {/* System instruction */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Instrucción del sistema <span className="font-normal text-slate-400">(personalidad del agente)</span></label>
+                                        <textarea
+                                            value={form.systemInstruction}
+                                            onChange={(e) => setAiProviderForms(prev => ({ ...prev, [provider]: { ...prev[provider], systemInstruction: e.target.value } }))}
+                                            rows={3}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm resize-none"
+                                            placeholder="Eres un agente de soporte al cliente amable y profesional…"
+                                        />
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="flex justify-end items-center gap-3 pt-2 border-t border-slate-100">
+                                        {status === 'success' && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle size={12}/> Guardado correctamente</span>}
+                                        {status === 'error'   && <span className="text-xs text-red-500">Error al guardar. Intenta de nuevo.</span>}
+                                        <button
+                                            onClick={() => handleSaveAIProvider(provider)}
+                                            disabled={isSaving || !form.apiKey}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 transition-colors"
+                                        >
+                                            {isSaving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>}
+                                            {isActive ? 'Guardar y mantener activo' : 'Guardar configuración'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                 })}
                  </div>
               </div>
           )}
@@ -2329,111 +2634,203 @@ const SettingsScreen: React.FC = () => {
        {showInviteModal && (
           <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                  {/* Header */}
                   <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 bg-emerald-100 rounded-lg">
                           <UserIcon size={24} className="text-emerald-600"/>
                       </div>
                       <div>
-                          <h3 className="text-lg font-bold text-slate-800">Invitar Miembro</h3>
-                          <p className="text-xs text-slate-500">Enviar una invitación para unirse a tu organización</p>
+                          <h3 className="text-lg font-bold text-slate-800">Agregar Miembro</h3>
+                          <p className="text-xs text-slate-500">Invita a alguien nuevo o agrega un usuario existente</p>
                       </div>
                   </div>
-                  
-                  <div className="space-y-4">
-                      <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <Mail size={12}/> Email <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                              type="email" 
-                              className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
-                              placeholder="user@example.com" 
-                              value={inviteForm.email} 
-                              onChange={e => setInviteForm({...inviteForm, email: e.target.value})} 
-                          />
-                      </div>
-                      
-                      <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <UserIcon size={12}/> Nombre Completo <span className="text-red-500">*</span>
-                          </label>
-                          <input 
-                              type="text" 
-                              className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
-                              placeholder="Juan Pérez" 
-                              value={inviteForm.name} 
-                              onChange={e => setInviteForm({...inviteForm, name: e.target.value})} 
-                          />
-                      </div>
-                      
-                      <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <PhoneCall size={12}/> Número de Teléfono (Opcional)
-                          </label>
-                          <input 
-                              type="tel" 
-                              className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono" 
-                              placeholder="+54911..." 
-                              value={inviteForm.phone} 
-                              onChange={e => setInviteForm({...inviteForm, phone: e.target.value})} 
-                          />
-                          <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                              <AlertTriangle size={10}/>
-                              Usa formato internacional (E.164), ej: +54911234567
-                          </p>
-                      </div>
-                      
-                      <div>
-                          <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
-                              <UserCog size={12}/> Rol <span className="text-red-500">*</span>
-                          </label>
-                          <select 
-                              value={inviteForm.role} 
-                              onChange={e => setInviteForm({...inviteForm, role: e.target.value as UserRole})} 
-                              className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                          >
-                              <option value="admin">Admin - Acceso completo a todas las funciones</option>
-                              <option value="manager">Gerente - Gestiona el equipo y ve reportes</option>
-                              <option value="community">Agente - Acceso básico</option>
-                          </select>
-                      </div>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-                      <p className="text-xs text-blue-800">
-                          <strong>Nota:</strong> Se enviará un correo de invitación al usuario con instrucciones para establecer su contraseña y unirse a tu organización.
-                      </p>
-                  </div>
-                  
-                  <div className="flex gap-2 mt-6">
-                      <button 
-                          onClick={handleInviteMember} 
-                          disabled={isInviting || !inviteForm.email || !inviteForm.name} 
-                          className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+
+                  {/* Tabs */}
+                  <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-5">
+                      <button
+                          onClick={() => setInviteTab('new')}
+                          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${inviteTab === 'new' ? 'bg-white shadow text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
                       >
-                          {isInviting ? (
-                              <>
-                                  <Loader2 size={16} className="animate-spin"/>
-                                  Enviando...
-                              </>
-                          ) : (
-                              <>
-                                  <Mail size={16}/>
-                                  Enviar Invitación
-                              </>
+                          <Mail size={13} className="inline mr-1.5"/>Nuevo usuario
+                      </button>
+                      <button
+                          onClick={() => setInviteTab('existing')}
+                          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${inviteTab === 'existing' ? 'bg-white shadow text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                          <UserIcon size={13} className="inline mr-1.5"/>Usuario existente
+                      </button>
+                  </div>
+
+                  {/* ── TAB: Nuevo usuario ── */}
+                  {inviteTab === 'new' && (
+                      <div className="space-y-4">
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <Mail size={12}/> Email <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                  type="email"
+                                  className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                  placeholder="user@example.com"
+                                  value={inviteForm.email}
+                                  onChange={e => setInviteForm({...inviteForm, email: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <UserIcon size={12}/> Nombre Completo <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                  type="text"
+                                  className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                  placeholder="Juan Pérez"
+                                  value={inviteForm.name}
+                                  onChange={e => setInviteForm({...inviteForm, name: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <PhoneCall size={12}/> Teléfono (Opcional)
+                              </label>
+                              <input
+                                  type="tel"
+                                  className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono"
+                                  placeholder="+54911..."
+                                  value={inviteForm.phone}
+                                  onChange={e => setInviteForm({...inviteForm, phone: e.target.value})}
+                              />
+                              <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                                  <AlertTriangle size={10}/>Usa formato internacional (E.164)
+                              </p>
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <UserCog size={12}/> Rol <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                  value={inviteForm.role}
+                                  onChange={e => setInviteForm({...inviteForm, role: e.target.value as UserRole})}
+                                  className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                              >
+                                  <option value="admin">Admin - Acceso completo</option>
+                                  <option value="manager">Gerente - Gestiona equipo y reportes</option>
+                                  <option value="community">Agente - Acceso básico</option>
+                              </select>
+                          </div>
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <p className="text-xs text-blue-800">
+                                  <strong>Nota:</strong> Se enviará un correo de invitación para que el usuario establezca su contraseña.
+                              </p>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                              <button
+                                  onClick={handleInviteMember}
+                                  disabled={isInviting || !inviteForm.email || !inviteForm.name}
+                                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                              >
+                                  {isInviting ? <><Loader2 size={16} className="animate-spin"/>Enviando...</> : <><Mail size={16}/>Enviar Invitación</>}
+                              </button>
+                              <button onClick={handleCloseInviteModal} disabled={isInviting} className="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50 transition-colors">
+                                  Cancelar
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* ── TAB: Usuario existente ── */}
+                  {inviteTab === 'existing' && (
+                      <div className="space-y-4">
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <Mail size={12}/> Buscar por correo electrónico
+                              </label>
+                              <div className="relative mt-1">
+                                  <input
+                                      type="email"
+                                      className="w-full border border-slate-300 p-2 pr-8 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                                      placeholder="nombre@ejemplo.com"
+                                      value={searchEmail}
+                                      onChange={e => handleSearchExistingUser(e.target.value)}
+                                  />
+                                  {isSearching && <Loader2 size={15} className="animate-spin absolute right-2.5 top-2.5 text-slate-400"/>}
+                              </div>
+                          </div>
+
+                          {/* Search results */}
+                          {searchResults.length > 0 && !selectedExistingUser && (
+                              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                                  {searchResults.map(u => (
+                                      <button
+                                          key={u.userId}
+                                          onClick={() => setSelectedExistingUser(u)}
+                                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-emerald-50 transition-colors text-left"
+                                      >
+                                          <img
+                                              src={u.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.fullName || u.email)}&background=e2e8f0&color=475569`}
+                                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                              alt=""
+                                          />
+                                          <div className="min-w-0">
+                                              <p className="text-sm font-medium text-slate-800 truncate">{u.fullName || '—'}</p>
+                                              <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                                          </div>
+                                      </button>
+                                  ))}
+                              </div>
                           )}
-                      </button>
-                      <button 
-                          onClick={() => {
-                              setShowInviteModal(false);
-                              setInviteForm({ email: '', name: '', role: 'community', phone: '' });
-                          }} 
-                          disabled={isInviting}
-                          className="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50 transition-colors"
-                      >
-                          Cancelar
-                      </button>
-                  </div>
+
+                          {searchEmail.trim().length >= 2 && !isSearching && searchResults.length === 0 && !selectedExistingUser && (
+                              <p className="text-xs text-slate-500 text-center py-2">No se encontraron usuarios con ese correo</p>
+                          )}
+
+                          {/* Selected user card */}
+                          {selectedExistingUser && (
+                              <div className="border border-emerald-200 bg-emerald-50 rounded-lg p-3 flex items-center gap-3">
+                                  <img
+                                      src={selectedExistingUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedExistingUser.fullName || selectedExistingUser.email)}&background=d1fae5&color=065f46`}
+                                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                      alt=""
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-slate-800 truncate">{selectedExistingUser.fullName || '—'}</p>
+                                      <p className="text-xs text-slate-500 truncate">{selectedExistingUser.email}</p>
+                                  </div>
+                                  <button onClick={() => { setSelectedExistingUser(null); }} className="text-slate-400 hover:text-red-500 flex-shrink-0">
+                                      <XCircle size={16}/>
+                                  </button>
+                              </div>
+                          )}
+
+                          {/* Role selector */}
+                          <div>
+                              <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1">
+                                  <UserCog size={12}/> Rol <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                  value={existingRole}
+                                  onChange={e => setExistingRole(e.target.value as UserRole)}
+                                  className="w-full border border-slate-300 p-2 rounded-lg text-sm mt-1 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                              >
+                                  <option value="admin">Admin - Acceso completo</option>
+                                  <option value="manager">Gerente - Gestiona equipo y reportes</option>
+                                  <option value="community">Agente - Acceso básico</option>
+                              </select>
+                          </div>
+
+                          <div className="flex gap-2 pt-1">
+                              <button
+                                  onClick={handleAddExistingMember}
+                                  disabled={isInviting || !selectedExistingUser}
+                                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                              >
+                                  {isInviting ? <><Loader2 size={16} className="animate-spin"/>Agregando...</> : <><UserIcon size={16}/>Agregar Usuario</>}
+                              </button>
+                              <button onClick={handleCloseInviteModal} disabled={isInviting} className="flex-1 bg-slate-200 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-300 disabled:opacity-50 transition-colors">
+                                  Cancelar
+                              </button>
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
        )}

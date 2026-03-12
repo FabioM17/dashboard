@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { User, UserRole } from '../types';
+import { User, UserRole, OrganizationMembership } from '../types';
 
 export const authService = {
   // Login with Email/Password
@@ -130,8 +130,137 @@ export const authService = {
         console.warn("Error fetching profile, using fallback:", error.message);
     }
 
+    // Fetch user's organization memberships
+    let organizations: OrganizationMembership[] = [];
+    try {
+      const { data: memberships, error: memberError } = await supabase
+        .from('organization_members')
+        .select(`
+          id,
+          user_id,
+          organization_id,
+          role,
+          is_default,
+          created_at,
+          organizations (name)
+        `)
+        .eq('user_id', session.user.id)
+        .order('is_default', { ascending: false });
+
+      console.log('🏢 organization_members query result:', { memberships, memberError });
+
+      if (memberError) {
+        console.warn('⚠️ Join query failed, trying separate queries:', memberError.message);
+        // Fallback: fetch memberships without join, then fetch org names separately
+        const { data: rawMembers } = await supabase
+          .from('organization_members')
+          .select('id, user_id, organization_id, role, is_default, created_at')
+          .eq('user_id', session.user.id);
+
+        console.log('🏢 Fallback raw members:', rawMembers);
+
+        if (rawMembers && rawMembers.length > 0) {
+          const orgIds = rawMembers.map((m: any) => m.organization_id);
+          const { data: orgs } = await supabase
+            .from('organizations')
+            .select('id, name')
+            .in('id', orgIds);
+
+          const orgMap = new Map((orgs || []).map((o: any) => [o.id, o.name]));
+
+          organizations = rawMembers.map((m: any) => ({
+            id: m.id,
+            userId: m.user_id,
+            organizationId: m.organization_id,
+            organizationName: orgMap.get(m.organization_id) || 'Sin nombre',
+            role: m.role as UserRole,
+            isDefault: m.is_default,
+            createdAt: new Date(m.created_at),
+          }));
+        }
+      } else {
+        organizations = (memberships || []).map((m: any) => ({
+          id: m.id,
+          userId: m.user_id,
+          organizationId: m.organization_id,
+          organizationName: m.organizations?.name || 'Sin nombre',
+          role: m.role as UserRole,
+          isDefault: m.is_default,
+          createdAt: new Date(m.created_at),
+        }));
+      }
+    } catch (err) {
+      console.warn('Could not fetch organization memberships:', err);
+    }
+
+    // If no memberships found but user has an org in profile, create a synthetic one
+    if (organizations.length === 0 && profile?.organization_id) {
+      console.log('🏢 No memberships found, creating synthetic from profile org');
+      let orgName = 'Mi Organización';
+      let roleFromMembership: UserRole = 'community';
+      try {
+        // Fetch org name
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', profile.organization_id)
+          .maybeSingle();
+        if (orgData?.name) orgName = orgData.name;
+
+        // Fetch role from organization_members (NOT from deleted profile.role column)
+        const { data: memberData } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .eq('organization_id', profile.organization_id)
+          .maybeSingle();
+        if (memberData?.role) roleFromMembership = memberData.role as UserRole;
+      } catch (_) {}
+      organizations = [{
+        id: 'synthetic',
+        userId: session.user.id,
+        organizationId: profile.organization_id,
+        organizationName: orgName,
+        role: roleFromMembership,
+        isDefault: true,
+        createdAt: new Date(),
+      }];
+    }
+
+    console.log('🏢 Final organizations for user:', organizations.length, organizations.map((o: any) => o.organizationName));
+
+    // Get active org membership for team context
+    const activeOrgId = profile?.organization_id;
+    let activeOrgMembership: any = null;
+    
+    if (activeOrgId && organizations.length > 0) {
+      activeOrgMembership = organizations.find((o: any) => o.organizationId === activeOrgId);
+    }
+
     // Fallback if profile doesn't exist yet
-    const userRole = (profile?.role as UserRole) || 'community';
+    const userRole = (activeOrgMembership?.role as UserRole) || 'community';
+    
+    // Get team_lead_id and assigned_lead_ids from organization_members for active org
+    let teamLeadId: string | undefined = undefined;
+    let assignedLeadIds: string[] = [];
+    
+    if (activeOrgId && session.user.id) {
+      try {
+        const { data: membership } = await supabase
+          .from('organization_members')
+          .select('team_lead_id, assigned_lead_ids')
+          .eq('user_id', session.user.id)
+          .eq('organization_id', activeOrgId)
+          .maybeSingle();
+        
+        if (membership) {
+          teamLeadId = membership.team_lead_id;
+          assignedLeadIds = membership.assigned_lead_ids || [];
+        }
+      } catch (err) {
+        console.warn('Could not fetch team context from organization_members:', err);
+      }
+    }
 
     const user: User = {
       id: session.user.id,
@@ -140,8 +269,9 @@ export const authService = {
       email: session.user.email || '',
       avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${session.user.email}`,
       role: userRole,
-      team_lead_id: profile?.team_lead_id,
-      assigned_lead_ids: profile?.assigned_lead_ids || []
+      team_lead_id: teamLeadId,
+      assigned_lead_ids: assignedLeadIds,
+      organizations,
     };
 
     return user;

@@ -25,7 +25,6 @@ interface ProfileData {
   email: string;
   full_name: string;
   organization_id: string;
-  role: string;
   avatar_url: string;
   phone?: string;
 }
@@ -102,77 +101,131 @@ serve(async (req) => {
         throw new Error("Invalid role. Must be admin, manager, or community")
     }
 
-    // 1. Invitar usuario en Supabase Auth
-    // Esto envía un email al usuario con un link mágico para establecer su contraseña
-    const inviteOptions: InviteOptions = {
-        data: { 
-            full_name: name,
-            organization_id: organization_id,
-            role: role || 'community'
-        }
-    }
-
-    // Agregar redirect_to solo si está en allowlist
-    if (redirect_to && isAllowedRedirect(redirect_to, allowedRedirects)) {
-      inviteOptions.redirectTo = redirect_to
-    } else if (defaultRedirect) {
-      inviteOptions.redirectTo = defaultRedirect
-    }
-
-    const { data: authData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        email, 
-        inviteOptions
+    // ── Check if user already exists in auth ──
+    // Search by email to see if they already have an account
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existingUser = existingUsers?.users?.find(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
     )
 
-    if (inviteError) {
-        console.error("Auth Invite Error:", inviteError)
-        throw new Error(`Failed to invite user: ${inviteError.message}`)
-    }
+    let userId: string
+    let isExistingUser = false
 
-    if (!authData?.user) {
-        throw new Error("No user data returned from auth invite")
-    }
+    if (existingUser) {
+      // ── EXISTING USER: Just add membership, don't re-invite ──
+      userId = existingUser.id
+      isExistingUser = true
+      console.log(`👤 User already exists: ${email} (${userId}), adding to org ${organization_id}`)
 
-    const newUserId = authData.user.id
-
-    // 2. Crear o Actualizar el Perfil en la tabla 'profiles'
-    // ✅ SEGURIDAD: El perfil incluye organization_id que se usa para RLS policies
-    const profileData: ProfileData = {
-        id: newUserId,
-        email: email,
-        full_name: name || email.split('@')[0],
-        organization_id: organization_id,  // ✅ Crucial: vinculado a la organización
-        role: role || 'community',
-        avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=random`
-    }
-
-    // Agregar teléfono si se proporciona
-    if (phone) {
-        profileData.phone = phone
-    }
-
-    const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .upsert(profileData, {
-            onConflict: 'id'
+      // Create organization_members record (the key part for multi-org)
+      const { error: memberError } = await supabaseAdmin
+        .from('organization_members')
+        .upsert({
+          user_id: userId,
+          organization_id: organization_id,
+          role: role || 'community',
+          is_default: false  // Not default since they already have another org
+        }, {
+          onConflict: 'user_id,organization_id'
         })
 
-    if (profileError) {
+      if (memberError) {
+        console.error("Organization member Error:", memberError)
+        throw new Error(`Failed to add user to organization: ${memberError.message}`)
+      }
+
+      console.log(`✅ Existing user ${email} added to organization ${organization_id}`)
+
+    } else {
+      // ── NEW USER: Invite via Supabase Auth (sends email with magic link) ──
+      const inviteOptions: InviteOptions = {
+        data: { 
+          full_name: name,
+          organization_id: organization_id,
+          role: role || 'community'
+        }
+      }
+
+      // Agregar redirect_to solo si está en allowlist
+      // ?invite=1 signals the frontend that the user came from an invitation
+      // (needed because Supabase JS v2 uses PKCE with ?code= instead of ?token_hash=)
+      if (redirect_to && isAllowedRedirect(redirect_to, allowedRedirects)) {
+        const separator = redirect_to.includes('?') ? '&' : '?'
+        inviteOptions.redirectTo = `${redirect_to}${separator}invite=1`
+      } else if (defaultRedirect) {
+        inviteOptions.redirectTo = `${defaultRedirect}?invite=1`
+      }
+
+      const { data: authData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        email, 
+        inviteOptions
+      )
+
+      if (inviteError) {
+        console.error("Auth Invite Error:", inviteError)
+        throw new Error(`Failed to invite user: ${inviteError.message}`)
+      }
+
+      if (!authData?.user) {
+        throw new Error("No user data returned from auth invite")
+      }
+
+      userId = authData.user.id
+
+      // Create profile for the new user
+      const profileData: ProfileData = {
+        id: userId,
+        email: email,
+        full_name: name || email.split('@')[0],
+        organization_id: organization_id,
+        avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=random`
+      }
+
+      if (phone) {
+        profileData.phone = phone
+      }
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert(profileData, { onConflict: 'id' })
+
+      if (profileError) {
         console.error("Profile Error:", profileError)
         throw new Error(`Failed to create profile: ${profileError.message}`)
+      }
+
+      // Create organization_members record
+      const { error: memberError } = await supabaseAdmin
+        .from('organization_members')
+        .upsert({
+          user_id: userId,
+          organization_id: organization_id,
+          role: role || 'community',
+          is_default: true
+        }, {
+          onConflict: 'user_id,organization_id'
+        })
+
+      if (memberError) {
+        console.error("Organization member Error:", memberError)
+        // Non-fatal: profile was created
+      }
     }
 
     // ✅ SEGURIDAD: Log de auditoría para invitaciones
-    console.log(`✅ User invited successfully: ${email} (${newUserId}) to organization: ${organization_id}`)
+    console.log(`✅ User invited successfully: ${email} (${userId}) to organization: ${organization_id} [existing=${isExistingUser}]`)
 
     return new Response(
       JSON.stringify({ 
-          message: "User invited successfully", 
-          userId: newUserId,
+          message: isExistingUser 
+            ? "Existing user added to organization successfully" 
+            : "New user invited successfully",
+          userId: userId,
           email: email,
           name: name,
           phone: phone || null,
-          organization_id: organization_id  // Confirmamos la organización en respuesta
+          organization_id: organization_id,
+          isExistingUser: isExistingUser
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     )

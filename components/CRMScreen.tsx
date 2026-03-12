@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, GripVertical, Loader2, Copy } from 'lucide-react';
 import { MOCK_PIPELINES } from '../constants';
 import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment, WhatsAppPhoneNumber } from '../types';
 import { campaignService } from '../services/campaignService';
@@ -10,6 +10,7 @@ import { listService } from '../services/listService';
 import { teamService } from '../services/teamService';
 import LoadingOverlay from './LoadingOverlay';
 import ResultOverlay from './ResultOverlay';
+import CRMFormBuilder from './CRMFormBuilder';
 import EmailEditor from './EmailEditor';
 import { supabase } from '../services/supabaseClient';
 import { whatsappPhoneService } from '../services/whatsappPhoneService';
@@ -29,7 +30,7 @@ interface CRMScreenProps {
 }
 
 const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properties: customProperties, onAddProperty, onDeleteContact, onDeleteProperty, onChatSelect, organizationId, currentUser, conversations = [], teamMembers: externalTeamMembers = [] }) => {
-  const [activeTab, setActiveTab] = useState<'contacts' | 'pipeline' | 'properties' | 'campaigns' | 'lists' | 'assignments'>('contacts');
+  const [activeTab, setActiveTab] = useState<'contacts' | 'pipeline' | 'properties' | 'campaigns' | 'lists' | 'assignments' | 'forms'>('contacts');
   const [lists, setLists] = useState<CRMList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [showListNameModal, setShowListNameModal] = useState(false);
@@ -77,9 +78,118 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
     const isManagerOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'manager';
     const communityMembers = useMemo(() => teamMembers.filter(m => m.role === 'community'), [teamMembers]);
 
-    const normalizePhone = (val?: string | number) => {
-        if (!val && val !== 0) return '';
-        return String(val).replace(/\D/g, '');
+    // Column visibility for custom properties in list view
+    const [hiddenPropertyColumns, setHiddenPropertyColumns] = useState<Set<string>>(new Set());
+    const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+    const togglePropertyColumn = (propertyId: string) => {
+        setHiddenPropertyColumns(prev => {
+            const next = new Set(prev);
+            if (next.has(propertyId)) next.delete(propertyId);
+            else next.add(propertyId);
+            return next;
+        });
+    };
+
+    const visiblePropertyColumns = customProperties.filter(p => !hiddenPropertyColumns.has(p.id));
+
+    // Resolve a property value from a contact, tolerating mismatched key casing or name-vs-id storage
+    const getPropValue = (props: Record<string, any> | undefined, prop: { id: string; name: string }): string => {
+        if (!props) return '';
+        // 1. Exact id match
+        if (props[prop.id] !== undefined && props[prop.id] !== null && props[prop.id] !== '') return String(props[prop.id]);
+        // 2. Exact name match
+        if (props[prop.name] !== undefined && props[prop.name] !== null && props[prop.name] !== '') return String(props[prop.name]);
+        // 3. Case-insensitive search across all keys (handles "Mensaje" vs "mensaje")
+        const idLower = prop.id.toLowerCase();
+        const nameLower = prop.name.toLowerCase();
+        const matchedKey = Object.keys(props).find(k => k.toLowerCase() === idLower || k.toLowerCase() === nameLower);
+        if (matchedKey !== undefined && props[matchedKey] !== null && props[matchedKey] !== '') return String(props[matchedKey]);
+        return '';
+    };
+    type SortField = 'name' | 'email' | 'company' | 'pipelineStageId' | string;
+    const [sortField, setSortField] = useState<SortField | null>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const [sortMenuCol, setSortMenuCol] = useState<SortField | null>(null);
+
+    const handleSortSelect = (field: SortField, dir: 'asc' | 'desc') => {
+        setSortField(field);
+        setSortDir(dir);
+        setSortMenuCol(null);
+    };
+
+    const SortIcon = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <ArrowUpDown size={12} className="opacity-30 ml-1 inline" />;
+        return sortDir === 'asc'
+            ? <ArrowUp size={12} className="text-emerald-600 ml-1 inline" />
+            : <ArrowDown size={12} className="text-emerald-600 ml-1 inline" />;
+    };
+
+    // Sort dropdown component
+    const SortMenu = ({ field }: { field: SortField }) => (
+        sortMenuCol === field ? (
+            <>
+                <div className="fixed inset-0 z-[200]" onClick={() => setSortMenuCol(null)} />
+                <div className="absolute top-full left-0 z-[201] mt-1 bg-white shadow-lg border border-slate-200 rounded-lg min-w-[160px] py-1 text-slate-700 normal-case font-normal">
+                    <button
+                        onClick={e => { e.stopPropagation(); handleSortSelect(field, 'asc'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 ${
+                            sortField === field && sortDir === 'asc' ? 'text-emerald-600 font-bold' : ''
+                        }`}
+                    >
+                        <ArrowUp size={13}/> Ascendente (A → Z)
+                    </button>
+                    <button
+                        onClick={e => { e.stopPropagation(); handleSortSelect(field, 'desc'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 ${
+                            sortField === field && sortDir === 'desc' ? 'text-emerald-600 font-bold' : ''
+                        }`}
+                    >
+                        <ArrowDown size={13}/> Descendente (Z → A)
+                    </button>
+                    {sortField === field && (
+                        <button
+                            onClick={e => { e.stopPropagation(); setSortField(null); setSortMenuCol(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 text-slate-400 border-t border-slate-100"
+                        >
+                            <X size={13}/> Sin orden
+                        </button>
+                    )}
+                </div>
+            </>
+        ) : null
+    );
+
+    // Column resizing — use stored widths, never read from DOM
+    const COL_DEFAULTS: Record<string, number> = {
+        '_check': 48, 'name': 200, 'email': 180,
+        'company': 160, 'pipelineStageId': 140, '_actions': 120
+    };
+    const getColW = (key: string) => colWidths[key] ?? COL_DEFAULTS[key] ?? 140;
+
+    // Column resizing
+    const tableRef = useRef<HTMLTableElement>(null);
+    const [colWidths, setColWidths] = useState<Record<string, number>>({});
+    const resizingRef = useRef<{ col: string; startX: number; startW: number } | null>(null);
+
+    const startResize = (e: React.MouseEvent, colKey: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Use stored width (or default) — never read from DOM to avoid desync
+        resizingRef.current = { col: colKey, startX: e.clientX, startW: getColW(colKey) };
+        const onMove = (ev: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const diff = ev.clientX - resizingRef.current.startX;
+            const newW = Math.max(60, resizingRef.current.startW + diff);
+            setColWidths(prev => ({ ...prev, [resizingRef.current!.col]: newW }));
+        };
+        const onUp = () => {
+            resizingRef.current = null;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
     };
 
     const findContactByPhone = (phone?: string) => {
@@ -269,7 +379,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
           .select('credentials')
           .eq('organization_id', organizationId)
           .eq('service_name', 'gmail')
-          .single();
+          .maybeSingle();
         setIsGmailConfigured(!!gmailData?.credentials?.access_token);
       } catch {
         setIsGmailConfigured(false);
@@ -280,7 +390,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
           .select('credentials')
           .eq('organization_id', organizationId)
           .eq('service_name', 'whatsapp')
-          .single();
+          .maybeSingle();
         setIsWhatsAppConfigured(!!waData?.credentials?.phone_id && !!waData?.credentials?.access_token);
         // Load WhatsApp phone numbers
         if (waData?.credentials?.phone_id) {
@@ -347,9 +457,19 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
     }
   };
 
-  // Filtrado de contactos
-  const filteredContacts = filterContactsByCriteria(contacts, searchTerm, filters as CRMFilter[]);
-  
+  // Filtrado y ordenamiento de contactos
+  const filteredContacts = useMemo(() => {
+    const base = filterContactsByCriteria(contacts, searchTerm, filters as CRMFilter[]);
+    if (!sortField) return base;
+    return [...base].sort((a, b) => {
+      const prop = customProperties.find(p => p.id === sortField);
+      let aVal: string = (a as any)[sortField] != null ? String((a as any)[sortField]) : (prop ? getPropValue(a.properties, prop) : '');
+      let bVal: string = (b as any)[sortField] != null ? String((b as any)[sortField]) : (prop ? getPropValue(b.properties, prop) : '');
+      const cmp = aVal.toLowerCase().localeCompare(bVal.toLowerCase(), undefined, { numeric: true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [contacts, searchTerm, filters, sortField, sortDir, customProperties]);
+
   // Cargar campaigns, templates y lists al montar
   useEffect(() => {
     const loadData = async () => {
@@ -676,6 +796,12 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
   const handleEditContactFromModal = () => {
       if (!selectedContact) return;
+      // Normalize stored property keys to canonical p.id so form inputs can find them
+      const normalizedProps: Record<string, any> = {};
+      customProperties.forEach(p => {
+          const val = getPropValue(selectedContact.properties, p);
+          if (val !== '') normalizedProps[p.id] = val;
+      });
       setContactForm({
           id: selectedContact.id,
           name: selectedContact.name,
@@ -683,11 +809,17 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
           phone: selectedContact.phone,
           company: selectedContact.company,
           pipelineStageId: selectedContact.pipelineStageId,
-          properties: selectedContact.properties
+          properties: normalizedProps
       });
       setSelectedContact(null);
       setShowContactModal(true);
   };
+
+  const openContactDetail = (contact: CRMContact) => {
+      setSelectedContact(contact);
+  };
+
+
 
     const handleSaveContact = () => {
             if (!contactForm.name) {
@@ -909,6 +1041,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                       <span className="flex items-center gap-1"><UserPlus size={14} /> Asignaciones</span>
                     </button>
                   )}
+                  <button onClick={() => setActiveTab('forms')} className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${activeTab === 'forms' ? 'bg-white shadow' : 'text-slate-500'}`}>Formularios</button>
               </div>
             </div>
         </div>
@@ -993,6 +1126,37 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         </div>
                                         <button onClick={() => setShowFilters(f => !f)} className="bg-white text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-100 flex items-center gap-2 border border-slate-200 shadow-sm"><Database size={14}/> Filtros avanzados</button>
                                         
+                                        {customProperties.length > 0 && (
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setShowColumnMenu(v => !v)}
+                                                    className="bg-white text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-100 flex items-center gap-2 border border-slate-200 shadow-sm"
+                                                >
+                                                    <List size={14}/> Columnas {hiddenPropertyColumns.size > 0 && <span className="bg-emerald-100 text-emerald-700 px-1.5 rounded-full">{customProperties.length - hiddenPropertyColumns.size}/{customProperties.length}</span>}
+                                                </button>
+                                                {showColumnMenu && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-40" onClick={() => setShowColumnMenu(false)} />
+                                                        <div className="absolute top-full left-0 z-50 mt-1 bg-white shadow-xl border border-slate-100 rounded-lg min-w-[200px] p-2">
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase px-2 pb-1">Propiedades visibles</p>
+                                                            {customProperties.map(p => (
+                                                                <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={!hiddenPropertyColumns.has(p.id)}
+                                                                        onChange={() => togglePropertyColumn(p.id)}
+                                                                        className="rounded"
+                                                                    />
+                                                                    <span className="text-xs text-slate-700">{p.name}</span>
+                                                                    <span className="ml-auto text-[10px] text-slate-400 uppercase">{p.type}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                        
                                         {lists.length > 0 && (
                                             <div className="relative group">
                                                 <button className="bg-white text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-100 flex items-center gap-2 border border-slate-200 shadow-sm">
@@ -1059,39 +1223,106 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                     </div>
                                 )}
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table ref={tableRef} className="w-full text-left" style={{ tableLayout: 'fixed', minWidth: 600 }}>
+                        <colgroup>
+                          <col style={{ width: getColW('_check') }} />
+                          <col style={{ width: getColW('name') }} />
+                          <col style={{ width: getColW('email') }} />
+                          <col style={{ width: getColW('company') }} />
+                          <col style={{ width: getColW('pipelineStageId') }} />
+                          {visiblePropertyColumns.map(p => (
+                            <col key={p.id} style={{ width: getColW(p.id) }} />
+                          ))}
+                          <col style={{ width: getColW('_actions') }} />
+                        </colgroup>
                         <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                             <tr>
-                              <th className="px-6 py-4 w-12">
-                                <button onClick={selectAllContacts} className="text-slate-400 hover:text-slate-700">
-                                  {selectedContacts.size > 0 && selectedContacts.size === filteredContacts.length ? <CheckSquare size={18} /> : <Square size={18} />}
-                                </button>
+                              <th className="px-3 py-4">
+                                <div className="flex items-center gap-1">
+                                  <button onClick={selectAllContacts} className="text-slate-400 hover:text-slate-700">
+                                    {selectedContacts.size > 0 && selectedContacts.size === filteredContacts.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                                  </button>
+                                  <span onMouseDown={e => startResize(e, '_check')} className="ml-auto cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
                               </th>
-                              <th className="px-6 py-4">Nombre</th>
-                              <th className="px-6 py-4 hidden sm:table-cell">Correo</th>
-                              <th className="px-6 py-4 hidden md:table-cell">Empresa</th>
-                              <th className="px-6 py-4 hidden sm:table-cell">Etapa</th>
-                              <th className="px-6 py-4">Acciones</th>
+                              <th className="px-4 py-4 select-none">
+                                <div className="relative flex items-center justify-between">
+                                  <button className="flex items-center gap-1 hover:text-slate-700" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === 'name' ? null : 'name'); }}>Nombre<SortIcon field="name"/></button>
+                                  <SortMenu field="name" />
+                                  <span onMouseDown={e => startResize(e, 'name')} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
+                              </th>
+                              <th className="px-4 py-4 hidden sm:table-cell select-none">
+                                <div className="relative flex items-center justify-between">
+                                  <button className="flex items-center gap-1 hover:text-slate-700" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === 'email' ? null : 'email'); }}>Correo<SortIcon field="email"/></button>
+                                  <SortMenu field="email" />
+                                  <span onMouseDown={e => startResize(e, 'email')} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
+                              </th>
+                              <th className="px-4 py-4 hidden md:table-cell select-none">
+                                <div className="relative flex items-center justify-between">
+                                  <button className="flex items-center gap-1 hover:text-slate-700" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === 'company' ? null : 'company'); }}>Empresa<SortIcon field="company"/></button>
+                                  <SortMenu field="company" />
+                                  <span onMouseDown={e => startResize(e, 'company')} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
+                              </th>
+                              <th className="px-4 py-4 hidden sm:table-cell select-none">
+                                <div className="relative flex items-center justify-between">
+                                  <button className="flex items-center gap-1 hover:text-slate-700" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === 'pipelineStageId' ? null : 'pipelineStageId'); }}>Etapa<SortIcon field="pipelineStageId"/></button>
+                                  <SortMenu field="pipelineStageId" />
+                                  <span onMouseDown={e => startResize(e, 'pipelineStageId')} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
+                              </th>
+                              {visiblePropertyColumns.map(p => (
+                                <th key={p.id} className="px-4 py-4 hidden xl:table-cell select-none">
+                                  <div className="relative flex items-center justify-between">
+                                    <button className="flex items-center gap-1 hover:text-slate-700 truncate" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === p.id ? null : p.id); }}>{p.name}<SortIcon field={p.id}/></button>
+                                    <SortMenu field={p.id} />
+                                    <span onMouseDown={e => startResize(e, p.id)} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="px-4 py-4">
+                                <div className="flex items-center justify-between">
+                                  <span>Acciones</span>
+                                  <span onMouseDown={e => startResize(e, '_actions')} className="cursor-col-resize px-1 text-slate-300 hover:text-slate-500 select-none"><GripVertical size={12}/></span>
+                                </div>
+                              </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                                                         {filteredContacts
                                                             .map(contact => (
-                                <tr key={contact.id} className="hover:bg-slate-50/50 cursor-pointer group" onClick={() => setSelectedContact(contact)}>
-                                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                <tr key={contact.id} className="hover:bg-slate-50/50 cursor-pointer group" onClick={() => openContactDetail(contact)}>
+                                    <td className="px-3 py-4" style={{ overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
                                       <button onClick={() => toggleContactSelection(contact.id)} className="text-slate-400 hover:text-emerald-600">
                                         {selectedContacts.has(contact.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                                       </button>
                                     </td>
-                                    <td className="px-6 py-4 font-medium flex items-center gap-3">
-                                        <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full bg-slate-200" />
-                                        {contact.name}
+                                    <td className="px-4 py-4 font-medium" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0" />
+                                            <span className="truncate">{contact.name}</span>
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600 hidden sm:table-cell">{contact.email || '-'}</td>
-                                    <td className="px-6 py-4 text-slate-600 hidden md:table-cell">{contact.company || '-'}</td>
-                                    <td className="px-6 py-4 hidden sm:table-cell"><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{MOCK_PIPELINES.find(p => p.id === contact.pipelineStageId)?.name}</span></td>
-                                    <td className="px-6 py-4 relative">
-                                        <div className="flex items-center gap-2">
+                                    <td className="px-4 py-4 text-slate-600 hidden sm:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                        <span className="block truncate">{contact.email || '-'}</span>
+                                    </td>
+                                    <td className="px-4 py-4 text-slate-600 hidden md:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                        <span className="block truncate">{contact.company || '-'}</span>
+                                    </td>
+                                    <td className="px-4 py-4 hidden sm:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                        <span className="block truncate px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 w-fit max-w-full">{MOCK_PIPELINES.find(p => p.id === contact.pipelineStageId)?.name}</span>
+                                    </td>
+                                    {visiblePropertyColumns.map(p => (
+                                      <td key={p.id} className="px-4 py-4 text-slate-600 hidden xl:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                        <span className="block truncate">
+                                          {(() => { const v = getPropValue(contact.properties, p); return v ? v : <span className="text-slate-300">—</span>; })()}
+                                        </span>
+                                      </td>
+                                    ))}
+                                    <td className="px-4 py-4" style={{ overflow: 'hidden' }}>
+                                        <div className="flex items-center gap-1">
                                             {onChatSelect && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onChatSelect(contact); }}
@@ -1101,11 +1332,9 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                                     <MessageCircle size={18} />
                                                 </button>
                                             )}
-                                            <div>
-                                                <button onClick={(e) => openActionsMenu(e, contact.id)} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors" title="Más acciones">
-                                                    <MoreHorizontal size={18} />
-                                                </button>
-                                            </div>
+                                            <button onClick={(e) => openActionsMenu(e, contact.id)} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors" title="Más acciones">
+                                                <MoreHorizontal size={18} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1128,7 +1357,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                         </div>
                         <div className="bg-slate-100/50 rounded-xl p-3 flex-1 overflow-y-auto space-y-3">
                             {contacts.filter(c => c.pipelineStageId === stage.id).map(contact => (
-                                <div key={contact.id} onClick={() => setSelectedContact(contact)} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow relative group">
+                                <div key={contact.id} onClick={() => openContactDetail(contact)} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow relative group">
                                     <div className="flex items-start justify-between mb-3">
                                          <div className="flex items-center gap-3">
                                               <img src={contact.avatar || `https://ui-avatars.com/api/?name=${contact.name}`} className="w-8 h-8 rounded-full border border-slate-100" />
@@ -1150,7 +1379,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                                     <MessageCircle size={16} />
                                                 </button>
                                              )}
-                                             <button onClick={(e) => { e.stopPropagation(); setSelectedContact(contact); }} className="text-xs text-emerald-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">View</button>
+                                             <button onClick={(e) => { e.stopPropagation(); openContactDetail(contact); }} className="text-xs text-emerald-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">View</button>
                                          </div>
                                     </div>
                                 </div>
@@ -1976,6 +2205,17 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
           </div>
         )}
 
+        {/* Forms Builder View */}
+        {activeTab === 'forms' && (
+          <div className="p-4">
+            <CRMFormBuilder
+              organizationId={organizationId}
+              customProperties={customProperties}
+              currentUserId={currentUser?.id || ''}
+            />
+          </div>
+        )}
+
         {/* Campaigns View */}
         {activeTab === 'campaigns' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -2425,8 +2665,8 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
         {/* View Details Modal */}
         {selectedContact && (
             <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-                    <div className="bg-slate-800 p-6 text-white relative">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-slate-800 p-6 text-white relative flex-shrink-0">
                         <div className="flex justify-between items-start">
                              <div className="flex gap-4 items-center">
                                  <img src={selectedContact.avatar || `https://ui-avatars.com/api/?name=${selectedContact.name}`} className="w-16 h-16 rounded-full border-2 border-white"/>
@@ -2438,7 +2678,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                              <button onClick={()=>setSelectedContact(null)}><X size={24} className="text-slate-400 hover:text-white"/></button>
                         </div>
                     </div>
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-4 overflow-y-auto">
                         <div className="flex gap-2 mb-4">
                             {onChatSelect && (
                                 <button 
@@ -2455,15 +2695,26 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                         </div>
                         {customProperties.length > 0 && (
                             <div className="border-t pt-2">
-                                <h4 className="font-bold mb-2 text-sm">Custom Properties</h4>
-                                {customProperties.map(p => (
-                                    <div key={p.id} className="flex justify-between border-b border-slate-100 py-1">
-                                        <span className="text-sm text-slate-500">{p.name}</span>
-                                        <span className="text-sm font-medium">{selectedContact.properties[p.id] || '-'}</span>
-                                    </div>
-                                ))}
+                                <h4 className="font-bold mb-2 text-sm">Propiedades</h4>
+                                <div className="grid grid-cols-1 gap-1">
+                                {customProperties.map(p => {
+                                    const val = getPropValue(selectedContact.properties, p);
+                                    const hasValue = val !== '' && val !== undefined && val !== null;
+                                    return (
+                                        <div key={p.id} className="flex justify-between items-center border-b border-slate-100 py-1.5">
+                                            <span className="text-sm text-slate-500">{p.name}</span>
+                                            <span className={`text-sm font-medium ${hasValue ? 'text-slate-800' : 'text-slate-300'}`}>
+                                                {hasValue ? String(val) : '—'}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                                </div>
                             </div>
                         )}
+
+
+
                         <div className="pt-4 mt-2 border-t flex justify-end">
                             <button onClick={handleEditContactFromModal} className="flex items-center gap-2 text-slate-600 hover:text-emerald-600 font-medium">
                                 <Edit2 size={16}/> Edit Contact

@@ -13,56 +13,119 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
-CREATE EXTENSION IF NOT EXISTS "pg_cron" WITH SCHEMA "pg_catalog";
+CREATE SCHEMA IF NOT EXISTS "public";
 
 
-
-
+ALTER SCHEMA "public" OWNER TO "pg_database_owner";
 
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
-CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "public";
+CREATE OR REPLACE FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text" DEFAULT 'community'::"text") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_target_profile profiles%ROWTYPE;
+BEGIN
+  -- Only admins of the org can add members
+  IF NOT EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_members.user_id = auth.uid()
+      AND organization_members.organization_id = p_organization_id
+      AND organization_members.role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Only organization admins can add members';
+  END IF;
+
+  -- Verify target user exists
+  SELECT * INTO v_target_profile FROM public.profiles WHERE id = p_target_user_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User not found';
+  END IF;
+
+  -- Check not already a member
+  IF EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE user_id = p_target_user_id AND organization_id = p_organization_id
+  ) THEN
+    RAISE EXCEPTION 'User is already a member of this organization';
+  END IF;
+
+  -- Validate role
+  IF p_role NOT IN ('admin', 'manager', 'community') THEN
+    RAISE EXCEPTION 'Invalid role: %', p_role;
+  END IF;
+
+  -- Insert membership
+  INSERT INTO public.organization_members (user_id, organization_id, role, is_default)
+  VALUES (p_target_user_id, p_organization_id, p_role, false);
+
+  RETURN json_build_object(
+    'success', true,
+    'user_id', p_target_user_id,
+    'email', v_target_profile.email,
+    'full_name', v_target_profile.full_name
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text") IS 'Adds an existing registered user to an organization. Admin-only. Does not send any email.';
 
 
 
+CREATE OR REPLACE FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  affected_rows INT := 0;
+  result JSON;
+BEGIN
+  UPDATE profiles
+  SET 
+    full_name = 'Usuario Eliminado',
+    email = 'deleted_' || target_user_id || '@removed.local',
+    avatar_url = NULL,
+    phone = NULL,
+    updated_at = NOW()
+  WHERE id = target_user_id;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  DELETE FROM team_members_hierarchy WHERE manager_id = target_user_id OR member_id = target_user_id;
+  DELETE FROM user_assigned_leads WHERE user_id = target_user_id OR assigned_by = target_user_id;
+
+  UPDATE conversations SET assigned_to = NULL WHERE assigned_to = target_user_id;
+  UPDATE tasks SET assignee_id = NULL WHERE assignee_id = target_user_id;
+
+  UPDATE notes SET author_id = '00000000-0000-0000-0000-000000000000' WHERE author_id = target_user_id;
+
+  UPDATE messages
+  SET sender_id = '00000000-0000-0000-0000-000000000000'
+  WHERE sender_id = target_user_id::text;
+
+  result := json_build_object(
+    'success', true,
+    'level', 'anonymize',
+    'user_id', target_user_id,
+    'message', 'Datos personales anonimizados exitosamente'
+  );
+
+  RETURN result;
+END;
+$$;
 
 
-
-CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
-
+ALTER FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") OWNER TO "postgres";
 
 
-
-
-
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
-
-
-
+COMMENT ON FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") IS 'Level 1: Anonymizes user personal data while keeping organizational data intact.';
 
 
 
@@ -118,6 +181,233 @@ ALTER FUNCTION "public"."calculate_avg_response_time"("org_id" "uuid", "days_bac
 
 COMMENT ON FUNCTION "public"."calculate_avg_response_time"("org_id" "uuid", "days_back" integer) IS 'Calculates average response time in seconds for an organization. Returns 0 if no data available.';
 
+
+
+CREATE OR REPLACE FUNCTION "public"."can_current_user_create_organization"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT COALESCE((
+    SELECT s.can_create
+    FROM public.get_creator_org_limit_status(auth.uid()) s
+  ), false);
+$$;
+
+
+ALTER FUNCTION "public"."can_current_user_create_organization"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."create_organization_for_user"("p_name" "text", "p_support_email" "text" DEFAULT NULL::"text") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_user_id uuid;
+  v_limit_status RECORD;
+  v_new_org organizations%ROWTYPE;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  IF p_name IS NULL OR trim(p_name) = '' THEN
+    RAISE EXCEPTION 'Organization name cannot be empty';
+  END IF;
+
+  SELECT * INTO v_limit_status FROM public.get_creator_org_limit_status(v_user_id);
+  IF NOT COALESCE(v_limit_status.can_create, false) THEN
+    RAISE EXCEPTION 'Límite alcanzado: puedes crear hasta % organizaciones.', COALESCE(v_limit_status.max_organizations, 1);
+  END IF;
+
+  INSERT INTO public.organizations (name, created_by, support_email)
+  VALUES (trim(p_name), v_user_id, p_support_email)
+  RETURNING * INTO v_new_org;
+
+  INSERT INTO public.organization_members (user_id, organization_id, role, is_default)
+  VALUES (v_user_id, v_new_org.id, 'admin', false)
+  ON CONFLICT (user_id, organization_id) DO NOTHING;
+
+  RETURN row_to_json(v_new_org);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_organization_for_user"("p_name" "text", "p_support_email" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."delete_organization_data"("requesting_user_id" "uuid", "target_org_id" "uuid") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  creator_id uuid;
+  affected_count int := 0;
+  profile_repoint_count int := 0;
+  result JSON;
+BEGIN
+  SELECT public.get_org_creator_id(target_org_id) INTO creator_id;
+
+  IF (requesting_user_id != creator_id) THEN
+    RETURN json_build_object('error', 'Only org creator can delete organization', 'success', false);
+  END IF;
+
+  -- Identificar usuarios cuyo active org es esta
+  WITH affected AS (
+    SELECT DISTINCT p.id
+    FROM public.profiles p
+    WHERE p.organization_id = target_org_id
+  ),
+  fallback AS (
+    SELECT
+      a.id,
+      (
+        SELECT om.organization_id
+        FROM public.organization_members om
+        WHERE om.user_id = a.id
+          AND om.organization_id <> target_org_id
+        ORDER BY om.is_default DESC, om.created_at ASC
+        LIMIT 1
+      ) AS fallback_org
+    FROM affected a
+  )
+  UPDATE public.profiles p
+  SET organization_id = f.fallback_org,
+      updated_at = now()
+  FROM fallback f
+  WHERE p.id = f.id;
+
+  GET DIAGNOSTICS profile_repoint_count = ROW_COUNT;
+
+  -- Eliminar organization_members
+  DELETE FROM public.organization_members WHERE organization_id = target_org_id;
+
+  -- Cascada: Todas las tablas con FK a organizations irán CASCADE
+  DELETE FROM public.conversations WHERE organization_id = target_org_id;
+  DELETE FROM public.messages WHERE organization_id = target_org_id;
+  DELETE FROM public.message_statuses WHERE organization_id = target_org_id;
+  DELETE FROM public.crm_contacts WHERE organization_id = target_org_id;
+  DELETE FROM public.campaigns WHERE organization_id = target_org_id;
+  DELETE FROM public.workflows WHERE organization_id = target_org_id;
+  DELETE FROM public.workflow_enrollments WHERE organization_id = target_org_id;
+  DELETE FROM public.workflow_steps WHERE workflow_id NOT IN (SELECT id FROM workflows);
+  DELETE FROM public.lists WHERE organization_id = target_org_id;
+  DELETE FROM public.snippets WHERE organization_id = target_org_id;
+  DELETE FROM public.api_keys WHERE organization_id = target_org_id;
+  DELETE FROM public.api_endpoint_configs WHERE organization_id = target_org_id;
+  DELETE FROM public.integration_settings WHERE organization_id = target_org_id;
+  DELETE FROM public.team_members_hierarchy WHERE organization_id = target_org_id;
+  DELETE FROM public.user_assigned_leads WHERE organization_id = target_org_id;
+  DELETE FROM public.scheduled_notifications WHERE organization_id = target_org_id;
+  DELETE FROM public.crm_property_definitions WHERE organization_id = target_org_id;
+  DELETE FROM public.whatsapp_phone_numbers WHERE organization_id = target_org_id;
+  DELETE FROM public.meta_templates WHERE organization_id = target_org_id;
+
+  -- NUNCA eliminar auth.users
+  DELETE FROM public.organizations WHERE id = target_org_id;
+
+  SELECT json_build_object(
+    'success', true,
+    'message', 'Organization deleted successfully',
+    'profiles_repointed', profile_repoint_count,
+    'members_removed', affected_count
+  ) INTO result;
+
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."delete_organization_data"("requesting_user_id" "uuid", "target_org_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."delete_team_member_data"("requesting_user_id" "uuid", "target_user_id" "uuid", "target_org_id" "uuid") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  creator_id uuid;
+  member_role text;
+  remaining_memberships int;
+  should_delete_auth_user boolean := false;
+  fallback_membership record;
+  result JSON;
+BEGIN
+  SELECT public.get_org_creator_id(target_org_id) INTO creator_id;
+
+  -- Solo creator puede eliminar miembros
+  IF (requesting_user_id != creator_id) THEN
+    RETURN json_build_object('error', 'Only org creator can delete members', 'success', false);
+  END IF;
+
+  -- Obtener el role del miembro en esta org
+  SELECT om.role INTO member_role
+  FROM public.organization_members om
+  WHERE om.user_id = target_user_id
+    AND om.organization_id = target_org_id;
+
+  IF member_role IS NULL THEN
+    RETURN json_build_object('error', 'User not found in organization', 'success', false);
+  END IF;
+
+  -- Contar membersías restantes
+  SELECT COUNT(*) INTO remaining_memberships
+  FROM public.organization_members
+  WHERE user_id = target_user_id
+    AND organization_id <> target_org_id;
+
+  -- Si no hay más membersías, marcar para eliminar auth.users
+  should_delete_auth_user := (remaining_memberships = 0);
+
+  -- Eliminar membership
+  DELETE FROM public.organization_members
+  WHERE user_id = target_user_id
+    AND organization_id = target_org_id;
+
+  -- Si es la org activa de profiles, reapuntar
+  IF (
+    SELECT COUNT(*) FROM public.profiles
+    WHERE id = target_user_id AND organization_id = target_org_id
+  ) > 0 THEN
+    -- Buscar fallback org
+    SELECT * INTO fallback_membership
+    FROM public.organization_members
+    WHERE user_id = target_user_id
+    ORDER BY is_default DESC, created_at ASC
+    LIMIT 1;
+
+    IF fallback_membership IS NOT NULL THEN
+      UPDATE public.profiles
+      SET organization_id = fallback_membership.organization_id,
+          updated_at = now()
+      WHERE id = target_user_id;
+    ELSE
+      -- Sin fallback: reapuntar a NULL
+      UPDATE public.profiles
+      SET organization_id = NULL,
+          updated_at = now()
+      WHERE id = target_user_id;
+    END IF;
+  END IF;
+
+  -- Limpiar asignaciones de leads específicas de esta org
+  DELETE FROM public.user_assigned_leads
+  WHERE user_id = target_user_id
+    AND organization_id = target_org_id;
+
+  SELECT json_build_object(
+    'success', true,
+    'message', 'Member deleted from organization',
+    'user_id', target_user_id,
+    'organization_id', target_org_id,
+    'remaining_memberships', remaining_memberships,
+    'delete_auth_user', should_delete_auth_user
+  ) INTO result;
+
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."delete_team_member_data"("requesting_user_id" "uuid", "target_user_id" "uuid", "target_org_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."enroll_active_workflow_contacts"() RETURNS "trigger"
@@ -194,6 +484,26 @@ $$;
 ALTER FUNCTION "public"."enroll_active_workflow_contacts"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."ensure_single_default_phone"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  IF NEW.is_default = true THEN
+    UPDATE whatsapp_phone_numbers 
+    SET is_default = false 
+    WHERE organization_id = NEW.organization_id 
+      AND id != NEW.id 
+      AND is_default = true;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."ensure_single_default_phone"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_auth_user_org_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -228,6 +538,64 @@ COMMENT ON FUNCTION "public"."get_conversation_counts_by_status"("org_id" "uuid"
 
 
 
+CREATE OR REPLACE FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") RETURNS TABLE("created_count" integer, "max_organizations" integer, "remaining_slots" integer, "can_create" boolean)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  WITH user_membership AS (
+    SELECT EXISTS (
+      SELECT 1 FROM public.organization_members om WHERE om.user_id = p_user_id
+    ) AS has_membership
+  ),
+  created_orgs AS (
+    SELECT COUNT(*)::integer AS count_created
+    FROM public.organizations o
+    WHERE o.created_by = p_user_id
+  ),
+  limit_row AS (
+    SELECT
+      COALESCE((
+        SELECT col.max_organizations
+        FROM public.creator_org_limits col
+        WHERE col.user_id = p_user_id
+      ), 1) AS max_allowed,
+      EXISTS (
+        SELECT 1 FROM public.creator_org_limits col WHERE col.user_id = p_user_id
+      ) AS has_explicit_limit
+  )
+  SELECT
+    co.count_created AS created_count,
+    lr.max_allowed AS max_organizations,
+    GREATEST(lr.max_allowed - co.count_created, 0) AS remaining_slots,
+    (
+      -- First org: allowed if user has no memberships (new user)
+      -- OR if admin explicitly granted them a limit in creator_org_limits.
+      (co.count_created = 0 AND (um.has_membership = false OR lr.has_explicit_limit = true))
+      OR
+      -- Additional orgs: allowed if they've already created at least one and are under limit.
+      (co.count_created > 0 AND co.count_created < lr.max_allowed)
+    ) AS can_create
+  FROM created_orgs co
+  CROSS JOIN limit_row lr
+  CROSS JOIN user_membership um;
+$$;
+
+
+ALTER FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") IS 'Returns org creation quota for a user.
+- New users (no memberships) can always create their first org.
+- Invited users (already have memberships) can create orgs ONLY if an admin
+  grants them an explicit entry in creator_org_limits.
+- To unlock org creation for an invited user, run:
+    INSERT INTO creator_org_limits (user_id, max_organizations)
+    VALUES (''<user_uuid>'', 1)
+    ON CONFLICT (user_id) DO UPDATE SET max_organizations = EXCLUDED.max_organizations;
+- Users who already created an org can create more orgs if under their max limit.';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."get_current_user_org_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -242,14 +610,31 @@ ALTER FUNCTION "public"."get_current_user_org_id"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."get_current_user_role"() RETURNS "text"
     LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    SET "row_security" TO 'off'
     AS $$
-  select role from public.profiles where id = auth.uid();
+  SELECT COALESCE(
+    -- Primero intentar obtener el role del organization_members para la org activa
+    (
+      SELECT om.role
+      FROM public.organization_members om
+      WHERE om.user_id = auth.uid()
+        AND om.organization_id = (
+          SELECT p.organization_id
+          FROM public.profiles p
+          WHERE p.id = auth.uid()
+        )
+      LIMIT 1
+    ),
+    -- Fallback: 'community' (role column en profiles se eliminó)
+    'community'::text
+  );
 $$;
 
 
 ALTER FUNCTION "public"."get_current_user_role"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."get_current_user_role"() IS 'Returns active role for auth.uid() from organization_members using profiles.organization_id as active org; falls back to profiles.role for legacy rows.';
+
 
 
 CREATE OR REPLACE FUNCTION "public"."get_daily_message_volume"("org_id" "uuid", "days_back" integer DEFAULT 30) RETURNS TABLE("message_date" "date", "message_count" bigint)
@@ -361,6 +746,54 @@ $$;
 ALTER FUNCTION "public"."get_my_org_id"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_my_org_ids"() RETURNS SETOF "uuid"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT organization_id
+  FROM public.organization_members
+  WHERE user_id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "public"."get_my_org_ids"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_org_creator_id"("org_id" "uuid") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  creator_id uuid;
+BEGIN
+  SELECT o.created_by INTO creator_id
+  FROM public.organizations o
+  WHERE o.id = org_id;
+
+  IF creator_id IS NOT NULL THEN
+    RETURN creator_id;
+  END IF;
+
+  -- Legacy fallback: earliest admin membership in that org.
+  SELECT om.user_id INTO creator_id
+  FROM public.organization_members om
+  WHERE om.organization_id = org_id
+    AND om.role = 'admin'
+  ORDER BY om.created_at ASC
+  LIMIT 1;
+
+  RETURN creator_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_org_creator_id"("org_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."get_org_creator_id"("org_id" "uuid") IS 'Returns creator user ID from organizations.created_by; falls back to earliest admin membership for legacy data.';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_count" integer DEFAULT 5) RETURNS TABLE("agent_id" "uuid", "agent_name" "text", "messages_handled" bigint, "conversations_assigned" bigint)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -388,6 +821,179 @@ ALTER FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_cou
 
 
 COMMENT ON FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_count" integer) IS 'Returns top agents ranked by number of messages handled';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."preview_organization_deletion"("requesting_user_id" "uuid", "target_org_id" "uuid") RETURNS json
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  creator_id UUID;
+  result JSON;
+BEGIN
+  SELECT public.get_org_creator_id(target_org_id) INTO creator_id;
+
+  IF (requesting_user_id != creator_id) THEN
+    RETURN json_build_object('error', 'Only org creator can delete organization');
+  END IF;
+
+  SELECT json_build_object(
+    'organization_id', target_org_id,
+    'name', (SELECT name FROM organizations WHERE id = target_org_id),
+    'created_by', creator_id,
+    'requested_by', requesting_user_id,
+    'preview_timestamp', now(),
+    'items_to_delete', json_build_object(
+      'conversations', (SELECT COUNT(*) FROM conversations WHERE organization_id = target_org_id),
+      'messages', (SELECT COUNT(*) FROM messages WHERE organization_id = target_org_id),
+      'contacts', (SELECT COUNT(*) FROM crm_contacts WHERE organization_id = target_org_id),
+      'campaigns', (SELECT COUNT(*) FROM campaigns WHERE organization_id = target_org_id),
+      'workflows', (SELECT COUNT(*) FROM workflows WHERE organization_id = target_org_id),
+      'workflow_enrollments', (SELECT COUNT(*) FROM workflow_enrollments WHERE organization_id = target_org_id),
+      'lists', (SELECT COUNT(*) FROM lists WHERE organization_id = target_org_id),
+      'snippets', (SELECT COUNT(*) FROM snippets WHERE organization_id = target_org_id),
+      'message_statuses', (SELECT COUNT(*) FROM message_statuses WHERE organization_id = target_org_id),
+      'team_hierarchy', (SELECT COUNT(*) FROM team_members_hierarchy WHERE organization_id = target_org_id),
+      'lead_assignments', (SELECT COUNT(*) FROM user_assigned_leads WHERE organization_id = target_org_id)
+    ),
+    'members', (
+      SELECT json_agg(json_build_object(
+        'id', p.id,
+        'name', p.full_name,
+        'email', p.email,
+        'role', om.role,
+        'is_creator', p.id = creator_id,
+        'has_other_organizations', EXISTS (
+          SELECT 1 FROM public.organization_members om2
+          WHERE om2.user_id = p.id
+            AND om2.organization_id <> target_org_id
+        )
+      ))
+      FROM public.organization_members om
+      JOIN public.profiles p ON p.id = om.user_id
+      WHERE om.organization_id = target_org_id
+    )
+  ) INTO result;
+
+  RETURN result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."preview_organization_deletion"("requesting_user_id" "uuid", "target_org_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") RETURNS TABLE("user_id" "uuid", "email" "text", "full_name" "text", "avatar_url" "text")
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+  -- Only admins of the org can search
+  IF NOT EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_members.user_id = auth.uid()
+      AND organization_members.organization_id = p_organization_id
+      AND organization_members.role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Only organization admins can search users';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    p.id AS user_id,
+    p.email,
+    p.full_name,
+    p.avatar_url
+  FROM public.profiles p
+  WHERE
+    p.email ILIKE '%' || p_email_query || '%'
+    AND p.id NOT IN (
+      SELECT om.user_id FROM public.organization_members om
+      WHERE om.organization_id = p_organization_id
+    )
+  ORDER BY p.email
+  LIMIT 10;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") IS 'Search existing users by partial email, excluding users already in the given org. Admin-only.';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."seed_api_endpoint_defaults"("org_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+BEGIN
+    INSERT INTO api_endpoint_configs (organization_id, endpoint_name, method, is_enabled, rate_limit_per_minute)
+    VALUES
+        (org_id, 'contacts', 'GET', true, 60),
+        (org_id, 'contacts', 'POST', true, 30),
+        (org_id, 'contacts', 'PUT', true, 30),
+        (org_id, 'contacts', 'DELETE', true, 10),
+        (org_id, 'contacts-search', 'POST', true, 30),
+        (org_id, 'conversations', 'GET', true, 60),
+        (org_id, 'conversations', 'PUT', true, 30),
+        (org_id, 'messages', 'GET', true, 60),
+        (org_id, 'send-message', 'POST', true, 30),
+        (org_id, 'templates', 'GET', true, 60)
+    ON CONFLICT (organization_id, endpoint_name, method) DO NOTHING;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."seed_api_endpoint_defaults"("org_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."switch_organization"("target_org_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  membership RECORD;
+BEGIN
+  SELECT * INTO membership
+  FROM public.organization_members
+  WHERE user_id = auth.uid()
+    AND organization_id = target_org_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User does not have access to this organization';
+  END IF;
+
+  UPDATE public.profiles
+  SET organization_id = target_org_id,
+      updated_at = now()
+  WHERE id = auth.uid();
+
+  -- Step 1: clear all defaults
+  UPDATE public.organization_members
+  SET is_default = false
+  WHERE user_id = auth.uid();
+
+  -- Step 2: set target as default
+  UPDATE public.organization_members
+  SET is_default = true
+  WHERE user_id = auth.uid()
+    AND organization_id = target_org_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'organization_id', target_org_id,
+    'role', membership.role
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."switch_organization"("target_org_id" "uuid") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."switch_organization"("target_org_id" "uuid") IS 'Switches user active organization. Updates profiles.organization_id to target org. Role, team_lead_id, and assigned_lead_ids are now exclusively managed in organization_members table.';
 
 
 
@@ -436,6 +1042,68 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
+CREATE TABLE IF NOT EXISTS "public"."api_endpoint_configs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "endpoint_name" "text" NOT NULL,
+    "method" "text" DEFAULT 'GET'::"text" NOT NULL,
+    "is_enabled" boolean DEFAULT true,
+    "rate_limit_per_minute" integer DEFAULT 60,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."api_endpoint_configs" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."api_endpoint_configs" IS 'Per-organization endpoint configuration. Allows admins to enable/disable individual API endpoints.';
+
+
+
+COMMENT ON COLUMN "public"."api_endpoint_configs"."endpoint_name" IS 'API endpoint name: contacts, messages, conversations, send-message, templates, contacts-search';
+
+
+
+COMMENT ON COLUMN "public"."api_endpoint_configs"."rate_limit_per_minute" IS 'Maximum requests per minute for this endpoint per API key';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."api_keys" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "key_prefix" "text" NOT NULL,
+    "key_hash" "text" NOT NULL,
+    "scopes" "text"[] DEFAULT '{}'::"text"[],
+    "is_active" boolean DEFAULT true,
+    "last_used_at" timestamp with time zone,
+    "expires_at" timestamp with time zone,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."api_keys" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."api_keys" IS 'API keys for external platform integrations. Keys are stored hashed (SHA-256).';
+
+
+
+COMMENT ON COLUMN "public"."api_keys"."key_prefix" IS 'First 8 characters of the key for identification in UI (e.g. dk_live_)';
+
+
+
+COMMENT ON COLUMN "public"."api_keys"."key_hash" IS 'SHA-256 hash of the full API key. The plaintext key is only shown once at creation.';
+
+
+
+COMMENT ON COLUMN "public"."api_keys"."scopes" IS 'Array of allowed scopes: contacts:read, contacts:write, messages:read, messages:send, conversations:read, conversations:write';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."campaigns" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
@@ -454,7 +1122,8 @@ CREATE TABLE IF NOT EXISTS "public"."campaigns" (
     "scheduled_at" timestamp with time zone,
     "template_language" "text",
     "created_by" "uuid",
-    "user_timezone" "text" DEFAULT 'UTC'::"text"
+    "user_timezone" "text" DEFAULT 'UTC'::"text",
+    "whatsapp_phone_number_id" "uuid"
 );
 
 
@@ -473,6 +1142,10 @@ COMMENT ON COLUMN "public"."campaigns"."stats" IS 'Estadísticas de la campaña:
 
 
 
+COMMENT ON COLUMN "public"."campaigns"."whatsapp_phone_number_id" IS 'Número de WhatsApp desde el que se envía la campaña';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."conversations" (
     "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "contact_name" "text" NOT NULL,
@@ -488,6 +1161,7 @@ CREATE TABLE IF NOT EXISTS "public"."conversations" (
     "organization_id" "uuid",
     "team_lead_id" "uuid",
     "lead_id" "uuid",
+    "whatsapp_phone_number_id" "uuid",
     CONSTRAINT "conversations_platform_check" CHECK (("platform" = ANY (ARRAY['whatsapp'::"text", 'instagram'::"text", 'messenger'::"text", 'web'::"text"]))),
     CONSTRAINT "conversations_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'closed'::"text", 'snoozed'::"text"])))
 );
@@ -504,6 +1178,22 @@ COMMENT ON COLUMN "public"."conversations"."team_lead_id" IS 'Manager responsabl
 
 COMMENT ON COLUMN "public"."conversations"."lead_id" IS 'Referencia al contacto/lead de esta conversación.';
 
+
+
+COMMENT ON COLUMN "public"."conversations"."whatsapp_phone_number_id" IS 'Número de WhatsApp de la organización usado en esta conversación';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."creator_org_limits" (
+    "user_id" "uuid" NOT NULL,
+    "max_organizations" integer DEFAULT 1 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "creator_org_limits_max_organizations_check" CHECK (("max_organizations" > 0))
+);
+
+
+ALTER TABLE "public"."creator_org_limits" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."crm_contacts" (
@@ -558,61 +1248,6 @@ CREATE TABLE IF NOT EXISTS "public"."integration_settings" (
 
 
 ALTER TABLE "public"."integration_settings" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."api_keys" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "organization_id" "uuid" NOT NULL,
-    "name" "text" NOT NULL,
-    "key_prefix" "text" NOT NULL,
-    "key_hash" "text" NOT NULL,
-    "scopes" "text"[] DEFAULT '{}'::"text"[],
-    "is_active" boolean DEFAULT true,
-    "last_used_at" timestamp with time zone,
-    "expires_at" timestamp with time zone,
-    "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"()
-);
-
-
-ALTER TABLE "public"."api_keys" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."api_keys" IS 'API keys for external platform integrations. Keys are stored hashed (SHA-256).';
-
-
-
-COMMENT ON COLUMN "public"."api_keys"."key_prefix" IS 'First 8 characters of the key for identification in UI (e.g. dk_live_)';
-
-
-
-COMMENT ON COLUMN "public"."api_keys"."key_hash" IS 'SHA-256 hash of the full API key. The plaintext key is only shown once at creation.';
-
-
-
-COMMENT ON COLUMN "public"."api_keys"."scopes" IS 'Array of allowed scopes: contacts:read, contacts:write, messages:read, messages:send, conversations:read, conversations:write';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."api_endpoint_configs" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "organization_id" "uuid" NOT NULL,
-    "endpoint_name" "text" NOT NULL,
-    "method" "text" NOT NULL DEFAULT 'GET'::"text",
-    "is_enabled" boolean DEFAULT true,
-    "rate_limit_per_minute" integer DEFAULT 60,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "api_endpoint_configs_unique" UNIQUE ("organization_id", "endpoint_name", "method")
-);
-
-
-ALTER TABLE "public"."api_endpoint_configs" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."api_endpoint_configs" IS 'Per-organization endpoint configuration. Allows admins to enable/disable individual API endpoints.';
-
 
 
 CREATE TABLE IF NOT EXISTS "public"."lists" (
@@ -699,7 +1334,8 @@ CREATE TABLE IF NOT EXISTS "public"."messages" (
     "media_path" "text",
     "media_mime_type" "text",
     "media_size" bigint,
-    "organization_id" "uuid" NOT NULL
+    "organization_id" "uuid" NOT NULL,
+    "whatsapp_phone_number_id" "uuid"
 );
 
 ALTER TABLE ONLY "public"."messages" REPLICA IDENTITY FULL;
@@ -735,11 +1371,33 @@ CREATE TABLE IF NOT EXISTS "public"."notes" (
 ALTER TABLE "public"."notes" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."organization_members" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "role" "text" DEFAULT 'community'::"text" NOT NULL,
+    "team_lead_id" "uuid",
+    "assigned_lead_ids" "uuid"[] DEFAULT '{}'::"uuid"[],
+    "is_default" boolean DEFAULT false,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "organization_members_role_check" CHECK (("role" = ANY (ARRAY['admin'::"text", 'manager'::"text", 'community'::"text"])))
+);
+
+
+ALTER TABLE "public"."organization_members" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."organization_members" IS 'Membresías de usuarios en múltiples organizaciones. Cada usuario puede pertenecer a varias organizaciones con roles diferentes.';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "name" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "support_email" "text"
+    "support_email" "text",
+    "created_by" "uuid"
 );
 
 
@@ -755,25 +1413,21 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "email" "text",
     "full_name" "text",
     "avatar_url" "text",
-    "role" "text" DEFAULT 'agent'::"text",
     "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()),
     "organization_id" "uuid",
     "phone" "text",
-    "team_lead_id" "uuid",
-    "assigned_lead_ids" "uuid"[] DEFAULT '{}'::"uuid"[],
-    "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()),
-    CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['admin'::"text", 'manager'::"text", 'community'::"text"])))
+    "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"())
 );
 
 
 ALTER TABLE "public"."profiles" OWNER TO "postgres";
 
 
-COMMENT ON COLUMN "public"."profiles"."team_lead_id" IS 'Si el usuario es Community, este es su Manager supervisor.';
+COMMENT ON TABLE "public"."profiles" IS 'Global user profile. Role and team data is per-organization in organization_members table.';
 
 
 
-COMMENT ON COLUMN "public"."profiles"."assigned_lead_ids" IS 'Array de IDs de leads asignados (para Community users).';
+COMMENT ON COLUMN "public"."profiles"."organization_id" IS 'Active organization for this user. Role and team context comes from organization_members.';
 
 
 
@@ -821,11 +1475,16 @@ CREATE TABLE IF NOT EXISTS "public"."tasks" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "team_lead_id" "uuid",
     "assigned_to_team_lead" "uuid",
+    "whatsapp_phone_number_id" "uuid",
     CONSTRAINT "tasks_status_check" CHECK (("status" = ANY (ARRAY['todo'::"text", 'in_progress'::"text", 'done'::"text"])))
 );
 
 
 ALTER TABLE "public"."tasks" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."tasks"."whatsapp_phone_number_id" IS 'Número de WhatsApp asociado a esta tarea';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."team_members_hierarchy" (
@@ -875,6 +1534,59 @@ CREATE TABLE IF NOT EXISTS "public"."webhook_logs" (
 ALTER TABLE "public"."webhook_logs" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."whatsapp_phone_numbers" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "phone_number_id" "text" NOT NULL,
+    "display_phone_number" "text" NOT NULL,
+    "verified_name" "text",
+    "label" "text" DEFAULT ''::"text",
+    "is_default" boolean DEFAULT false NOT NULL,
+    "quality_rating" "text" DEFAULT 'UNKNOWN'::"text",
+    "messaging_limit_tier" "text" DEFAULT 'TIER_UNKNOWN'::"text",
+    "waba_id" "text",
+    "access_token" "text",
+    "business_id" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."whatsapp_phone_numbers" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."whatsapp_phone_numbers" IS 'Números de teléfono WhatsApp Business asociados a cada organización. Una org puede tener múltiples números.';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."phone_number_id" IS 'ID del número de teléfono en Meta (Phone Number ID)';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."display_phone_number" IS 'Número de teléfono visible en formato E.164';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."label" IS 'Etiqueta amigable para identificar el número (ej: Ventas, Soporte)';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."is_default" IS 'Si es el número por defecto de la organización';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."waba_id" IS 'ID del WhatsApp Business Account al que pertenece este número';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."access_token" IS 'Token de acceso del System User para el WABA de este número. Distintos WABAs requieren distintos tokens';
+
+
+
+COMMENT ON COLUMN "public"."whatsapp_phone_numbers"."business_id" IS 'ID del Meta Business que posee el WABA (referencia)';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."workflow_enrollments" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workflow_id" "uuid" NOT NULL,
@@ -915,12 +1627,19 @@ CREATE TABLE IF NOT EXISTS "public"."workflow_steps" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workflow_id" "uuid" NOT NULL,
     "step_order" integer NOT NULL,
-    "template_id" "uuid" NOT NULL,
-    "template_name" "text" NOT NULL,
+    "template_id" "uuid",
+    "template_name" "text",
     "delay_days" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "send_time" "text",
+    "channel" "text" DEFAULT 'whatsapp'::"text" NOT NULL,
+    "email_subject" "text",
+    "email_body" "text",
+    "variable_mappings" "jsonb" DEFAULT '[]'::"jsonb",
+    CONSTRAINT "workflow_steps_channel_check" CHECK (((("channel" = 'whatsapp'::"text") AND ("template_id" IS NOT NULL)) OR (("channel" = 'email'::"text") AND ("email_subject" IS NOT NULL) AND ("email_body" IS NOT NULL)))),
     CONSTRAINT "workflow_steps_delay_nonnegative" CHECK (("delay_days" >= 0)),
-    CONSTRAINT "workflow_steps_order_positive" CHECK (("step_order" > 0))
+    CONSTRAINT "workflow_steps_order_positive" CHECK (("step_order" > 0)),
+    CONSTRAINT "workflow_steps_send_time_format" CHECK ((("send_time" IS NULL) OR ("send_time" ~ '^\d{2}:\d{2}$'::"text")))
 );
 
 
@@ -939,6 +1658,26 @@ COMMENT ON COLUMN "public"."workflow_steps"."delay_days" IS 'Días de espera des
 
 
 
+COMMENT ON COLUMN "public"."workflow_steps"."send_time" IS 'Hora del día para enviar (formato HH:MM en UTC). NULL = enviar lo antes posible tras cumplir delay_days. El frontend convierte hora local a UTC antes de guardar.';
+
+
+
+COMMENT ON COLUMN "public"."workflow_steps"."channel" IS 'Channel for this step: whatsapp or email';
+
+
+
+COMMENT ON COLUMN "public"."workflow_steps"."email_subject" IS 'Email subject (supports {{merge_tags}})';
+
+
+
+COMMENT ON COLUMN "public"."workflow_steps"."email_body" IS 'Email HTML body (supports {{merge_tags}})';
+
+
+
+COMMENT ON COLUMN "public"."workflow_steps"."variable_mappings" IS 'JSON array mapping template variables to contact properties or manual values';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."workflows" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "organization_id" "uuid" NOT NULL,
@@ -947,7 +1686,8 @@ CREATE TABLE IF NOT EXISTS "public"."workflows" (
     "is_active" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "created_by" "uuid"
+    "created_by" "uuid",
+    "whatsapp_phone_number_id" "uuid"
 );
 
 
@@ -966,13 +1706,7 @@ COMMENT ON COLUMN "public"."workflows"."is_active" IS 'Si está activo, los cont
 
 
 
-ALTER TABLE ONLY "public"."campaigns"
-    ADD CONSTRAINT "campaigns_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."api_keys"
-    ADD CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id");
+COMMENT ON COLUMN "public"."workflows"."whatsapp_phone_number_id" IS 'Número de WhatsApp desde el que se envían los mensajes del flujo';
 
 
 
@@ -981,8 +1715,28 @@ ALTER TABLE ONLY "public"."api_endpoint_configs"
 
 
 
+ALTER TABLE ONLY "public"."api_endpoint_configs"
+    ADD CONSTRAINT "api_endpoint_configs_unique" UNIQUE ("organization_id", "endpoint_name", "method");
+
+
+
+ALTER TABLE ONLY "public"."api_keys"
+    ADD CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."conversations"
     ADD CONSTRAINT "conversations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."creator_org_limits"
+    ADD CONSTRAINT "creator_org_limits_pkey" PRIMARY KEY ("user_id");
 
 
 
@@ -1023,6 +1777,16 @@ ALTER TABLE ONLY "public"."meta_templates"
 
 ALTER TABLE ONLY "public"."notes"
     ADD CONSTRAINT "notes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_user_org_unique" UNIQUE ("user_id", "organization_id");
 
 
 
@@ -1081,6 +1845,16 @@ ALTER TABLE ONLY "public"."webhook_logs"
 
 
 
+ALTER TABLE ONLY "public"."whatsapp_phone_numbers"
+    ADD CONSTRAINT "whatsapp_phone_numbers_org_phone_unique" UNIQUE ("organization_id", "phone_number_id");
+
+
+
+ALTER TABLE ONLY "public"."whatsapp_phone_numbers"
+    ADD CONSTRAINT "whatsapp_phone_numbers_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."workflow_enrollments"
     ADD CONSTRAINT "workflow_enrollments_pkey" PRIMARY KEY ("id");
 
@@ -1110,22 +1884,6 @@ CREATE INDEX "campaigns_created_at_idx" ON "public"."campaigns" USING "btree" ("
 
 
 
-CREATE INDEX "idx_api_keys_organization_id" ON "public"."api_keys" USING "btree" ("organization_id");
-
-
-
-CREATE INDEX "idx_api_keys_key_hash" ON "public"."api_keys" USING "btree" ("key_hash");
-
-
-
-CREATE INDEX "idx_api_keys_active" ON "public"."api_keys" USING "btree" ("organization_id", "is_active") WHERE ("is_active" = true);
-
-
-
-CREATE INDEX "idx_api_endpoint_configs_org" ON "public"."api_endpoint_configs" USING "btree" ("organization_id");
-
-
-
 CREATE INDEX "campaigns_organization_id_idx" ON "public"."campaigns" USING "btree" ("organization_id");
 
 
@@ -1135,6 +1893,22 @@ CREATE INDEX "campaigns_scheduled_at_status_idx" ON "public"."campaigns" USING "
 
 
 CREATE INDEX "campaigns_status_idx" ON "public"."campaigns" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_api_endpoint_configs_org" ON "public"."api_endpoint_configs" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "idx_api_keys_active" ON "public"."api_keys" USING "btree" ("organization_id", "is_active") WHERE ("is_active" = true);
+
+
+
+CREATE INDEX "idx_api_keys_key_hash" ON "public"."api_keys" USING "btree" ("key_hash");
+
+
+
+CREATE INDEX "idx_api_keys_organization_id" ON "public"."api_keys" USING "btree" ("organization_id");
 
 
 
@@ -1167,6 +1941,10 @@ CREATE INDEX "idx_conversations_organization_id" ON "public"."conversations" USI
 
 
 CREATE INDEX "idx_conversations_team_lead_id" ON "public"."conversations" USING "btree" ("team_lead_id");
+
+
+
+CREATE INDEX "idx_conversations_whatsapp_phone" ON "public"."conversations" USING "btree" ("whatsapp_phone_number_id") WHERE ("whatsapp_phone_number_id" IS NOT NULL);
 
 
 
@@ -1254,11 +2032,35 @@ CREATE INDEX "idx_messages_organization_id" ON "public"."messages" USING "btree"
 
 
 
+CREATE INDEX "idx_messages_whatsapp_phone" ON "public"."messages" USING "btree" ("whatsapp_phone_number_id") WHERE ("whatsapp_phone_number_id" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_meta_templates_org" ON "public"."meta_templates" USING "btree" ("organization_id");
 
 
 
 CREATE INDEX "idx_notes_conversation_id" ON "public"."notes" USING "btree" ("conversation_id");
+
+
+
+CREATE UNIQUE INDEX "idx_org_members_one_default_per_user" ON "public"."organization_members" USING "btree" ("user_id") WHERE ("is_default" = true);
+
+
+
+CREATE INDEX "idx_organization_members_organization_id" ON "public"."organization_members" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "idx_organization_members_user_id" ON "public"."organization_members" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "idx_organization_members_user_org" ON "public"."organization_members" USING "btree" ("user_id", "organization_id");
+
+
+
+CREATE INDEX "idx_organizations_created_by" ON "public"."organizations" USING "btree" ("created_by");
 
 
 
@@ -1271,10 +2073,6 @@ CREATE INDEX "idx_profiles_id_org" ON "public"."profiles" USING "btree" ("id", "
 
 
 CREATE INDEX "idx_profiles_organization_id" ON "public"."profiles" USING "btree" ("organization_id");
-
-
-
-CREATE INDEX "idx_profiles_team_lead_id" ON "public"."profiles" USING "btree" ("team_lead_id");
 
 
 
@@ -1334,6 +2132,14 @@ CREATE INDEX "idx_user_assigned_leads_user_id" ON "public"."user_assigned_leads"
 
 
 
+CREATE INDEX "idx_whatsapp_phone_numbers_default" ON "public"."whatsapp_phone_numbers" USING "btree" ("organization_id", "is_default") WHERE ("is_default" = true);
+
+
+
+CREATE INDEX "idx_whatsapp_phone_numbers_org" ON "public"."whatsapp_phone_numbers" USING "btree" ("organization_id");
+
+
+
 CREATE INDEX "lists_created_at_idx" ON "public"."lists" USING "btree" ("created_at" DESC);
 
 
@@ -1386,6 +2192,10 @@ CREATE OR REPLACE TRIGGER "message_statuses_update_timestamp" BEFORE UPDATE ON "
 
 
 
+CREATE OR REPLACE TRIGGER "set_creator_org_limits_updated_at" BEFORE UPDATE ON "public"."creator_org_limits" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
 CREATE OR REPLACE TRIGGER "trig_scheduled_notifications_updated_at" BEFORE UPDATE ON "public"."scheduled_notifications" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
@@ -1394,15 +2204,7 @@ CREATE OR REPLACE TRIGGER "trigger_enroll_workflow_contacts" AFTER INSERT OR UPD
 
 
 
-CREATE OR REPLACE TRIGGER "update_lists_updated_at" BEFORE UPDATE ON "public"."lists" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
-
-
-
-CREATE OR REPLACE TRIGGER "update_workflows_updated_at" BEFORE UPDATE ON "public"."workflows" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
-
-
-
-CREATE OR REPLACE TRIGGER "update_api_keys_updated_at" BEFORE UPDATE ON "public"."api_keys" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+CREATE OR REPLACE TRIGGER "trigger_ensure_single_default_phone" BEFORE INSERT OR UPDATE OF "is_default" ON "public"."whatsapp_phone_numbers" FOR EACH ROW EXECUTE FUNCTION "public"."ensure_single_default_phone"();
 
 
 
@@ -1410,8 +2212,24 @@ CREATE OR REPLACE TRIGGER "update_api_endpoint_configs_updated_at" BEFORE UPDATE
 
 
 
-ALTER TABLE ONLY "public"."api_keys"
-    ADD CONSTRAINT "api_keys_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+CREATE OR REPLACE TRIGGER "update_api_keys_updated_at" BEFORE UPDATE ON "public"."api_keys" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_lists_updated_at" BEFORE UPDATE ON "public"."lists" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_whatsapp_phone_numbers_updated_at" BEFORE UPDATE ON "public"."whatsapp_phone_numbers" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_workflows_updated_at" BEFORE UPDATE ON "public"."workflows" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+ALTER TABLE ONLY "public"."api_endpoint_configs"
+    ADD CONSTRAINT "api_endpoint_configs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1420,8 +2238,8 @@ ALTER TABLE ONLY "public"."api_keys"
 
 
 
-ALTER TABLE ONLY "public"."api_endpoint_configs"
-    ADD CONSTRAINT "api_endpoint_configs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."api_keys"
+    ADD CONSTRAINT "api_keys_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1432,6 +2250,11 @@ ALTER TABLE ONLY "public"."campaigns"
 
 ALTER TABLE ONLY "public"."campaigns"
     ADD CONSTRAINT "campaigns_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."campaigns"
+    ADD CONSTRAINT "campaigns_whatsapp_phone_number_id_fkey" FOREIGN KEY ("whatsapp_phone_number_id") REFERENCES "public"."whatsapp_phone_numbers"("id") ON DELETE SET NULL;
 
 
 
@@ -1451,7 +2274,12 @@ ALTER TABLE ONLY "public"."conversations"
 
 
 ALTER TABLE ONLY "public"."conversations"
-    ADD CONSTRAINT "conversations_team_lead_id_fkey" FOREIGN KEY ("team_lead_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "conversations_whatsapp_phone_number_id_fkey" FOREIGN KEY ("whatsapp_phone_number_id") REFERENCES "public"."whatsapp_phone_numbers"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."creator_org_limits"
+    ADD CONSTRAINT "creator_org_limits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -1462,11 +2290,6 @@ ALTER TABLE ONLY "public"."crm_contacts"
 
 ALTER TABLE ONLY "public"."crm_contacts"
     ADD CONSTRAINT "crm_contacts_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
-
-
-
-ALTER TABLE ONLY "public"."crm_contacts"
-    ADD CONSTRAINT "crm_contacts_team_lead_id_fkey" FOREIGN KEY ("team_lead_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1510,6 +2333,11 @@ ALTER TABLE ONLY "public"."messages"
 
 
 
+ALTER TABLE ONLY "public"."messages"
+    ADD CONSTRAINT "messages_whatsapp_phone_number_id_fkey" FOREIGN KEY ("whatsapp_phone_number_id") REFERENCES "public"."whatsapp_phone_numbers"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."meta_templates"
     ADD CONSTRAINT "meta_templates_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
@@ -1525,18 +2353,28 @@ ALTER TABLE ONLY "public"."notes"
 
 
 
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."organizations"
+    ADD CONSTRAINT "organizations_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id");
 
 
 
 ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
-
-
-
-ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_team_lead_id_fkey" FOREIGN KEY ("team_lead_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "profiles_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE SET NULL;
 
 
 
@@ -1581,7 +2419,7 @@ ALTER TABLE ONLY "public"."tasks"
 
 
 ALTER TABLE ONLY "public"."tasks"
-    ADD CONSTRAINT "tasks_team_lead_id_fkey" FOREIGN KEY ("team_lead_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "tasks_whatsapp_phone_number_id_fkey" FOREIGN KEY ("whatsapp_phone_number_id") REFERENCES "public"."whatsapp_phone_numbers"("id") ON DELETE SET NULL;
 
 
 
@@ -1617,6 +2455,11 @@ ALTER TABLE ONLY "public"."user_assigned_leads"
 
 ALTER TABLE ONLY "public"."user_assigned_leads"
     ADD CONSTRAINT "user_assigned_leads_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."whatsapp_phone_numbers"
+    ADD CONSTRAINT "whatsapp_phone_numbers_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1660,7 +2503,36 @@ ALTER TABLE ONLY "public"."workflows"
 
 
 
+ALTER TABLE ONLY "public"."workflows"
+    ADD CONSTRAINT "workflows_whatsapp_phone_number_id_fkey" FOREIGN KEY ("whatsapp_phone_number_id") REFERENCES "public"."whatsapp_phone_numbers"("id") ON DELETE SET NULL;
+
+
+
 CREATE POLICY "Access org settings" ON "public"."integration_settings" USING (("organization_id" = "public"."get_auth_user_org_id"()));
+
+
+
+CREATE POLICY "Admins can add members" ON "public"."organization_members" FOR INSERT TO "authenticated" WITH CHECK (((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "admin_mem"
+  WHERE (("admin_mem"."user_id" = "auth"."uid"()) AND ("admin_mem"."organization_id" = "organization_members"."organization_id") AND ("admin_mem"."role" = 'admin'::"text")))) OR ("auth"."uid"() = "user_id")));
+
+
+
+CREATE POLICY "Admins can manage phone numbers" ON "public"."whatsapp_phone_numbers" USING ((("organization_id" = "public"."get_my_org_id"()) AND ("public"."get_current_user_role"() = 'admin'::"text")));
+
+
+
+CREATE POLICY "Admins can remove members" ON "public"."organization_members" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "admin_mem"
+  WHERE (("admin_mem"."user_id" = "auth"."uid"()) AND ("admin_mem"."organization_id" = "organization_members"."organization_id") AND ("admin_mem"."role" = 'admin'::"text")))));
+
+
+
+CREATE POLICY "Admins can update members" ON "public"."organization_members" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "admin_mem"
+  WHERE (("admin_mem"."user_id" = "auth"."uid"()) AND ("admin_mem"."organization_id" = "organization_members"."organization_id") AND ("admin_mem"."role" = 'admin'::"text"))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "admin_mem"
+  WHERE (("admin_mem"."user_id" = "auth"."uid"()) AND ("admin_mem"."organization_id" = "organization_members"."organization_id") AND ("admin_mem"."role" = 'admin'::"text")))));
 
 
 
@@ -1722,17 +2594,15 @@ CREATE POLICY "Manage org tasks" ON "public"."tasks" USING (("organization_id" =
 
 
 
-CREATE POLICY "Only admins can create organizations" ON "public"."organizations" FOR INSERT WITH CHECK (("id" IN ( SELECT "profiles"."organization_id"
-   FROM "public"."profiles"
-  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'admin'::"text")))));
+CREATE POLICY "Only creator admins can create organizations" ON "public"."organizations" FOR INSERT TO "authenticated" WITH CHECK ((("created_by" = "auth"."uid"()) AND "public"."can_current_user_create_organization"()));
 
 
 
-CREATE POLICY "Only admins can update organization details" ON "public"."organizations" FOR UPDATE USING (("id" IN ( SELECT "profiles"."organization_id"
-   FROM "public"."profiles"
-  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'admin'::"text"))))) WITH CHECK (("id" IN ( SELECT "profiles"."organization_id"
-   FROM "public"."profiles"
-  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'admin'::"text")))));
+CREATE POLICY "Service role can manage API keys" ON "public"."api_keys" USING (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role can manage endpoint configs" ON "public"."api_endpoint_configs" USING (("auth"."role"() = 'service_role'::"text"));
 
 
 
@@ -1752,6 +2622,12 @@ CREATE POLICY "Update org conversations" ON "public"."conversations" FOR UPDATE 
 
 
 
+CREATE POLICY "Users can create API keys in their organization" ON "public"."api_keys" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
 CREATE POLICY "Users can create campaigns in their organization" ON "public"."campaigns" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
@@ -1759,6 +2635,12 @@ CREATE POLICY "Users can create campaigns in their organization" ON "public"."ca
 
 
 CREATE POLICY "Users can create crm_contacts in their organization" ON "public"."crm_contacts" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Users can create endpoint configs in their organization" ON "public"."api_endpoint_configs" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
 
@@ -1796,6 +2678,12 @@ CREATE POLICY "Users can create workflows in their organization" ON "public"."wo
 
 
 
+CREATE POLICY "Users can delete API keys from their organization" ON "public"."api_keys" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
 CREATE POLICY "Users can delete campaigns from their organization" ON "public"."campaigns" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
@@ -1803,6 +2691,12 @@ CREATE POLICY "Users can delete campaigns from their organization" ON "public"."
 
 
 CREATE POLICY "Users can delete crm_contacts in their organization" ON "public"."crm_contacts" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Users can delete endpoint configs from their organization" ON "public"."api_endpoint_configs" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
 
@@ -1823,16 +2717,6 @@ CREATE POLICY "Users can delete snippets in their organization" ON "public"."sni
 CREATE POLICY "Users can delete templates in their organization" ON "public"."meta_templates" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
-
-
-
-CREATE POLICY "Users can delete their own messages or admin can delete any" ON "public"."messages" FOR DELETE USING ((("sender_id" = ("auth"."uid"())::"text") OR ("conversation_id" IN ( SELECT "c"."id"
-   FROM "public"."conversations" "c"
-  WHERE (("c"."organization_id" IN ( SELECT "profiles"."organization_id"
-           FROM "public"."profiles"
-          WHERE ("profiles"."id" = "auth"."uid"()))) AND (("c"."assigned_to" = "auth"."uid"()) OR (EXISTS ( SELECT 1
-           FROM "public"."profiles"
-          WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role" = 'admin'::"text"))))))))));
 
 
 
@@ -1874,6 +2758,12 @@ CREATE POLICY "Users can insert their own profile" ON "public"."profiles" FOR IN
 
 
 
+CREATE POLICY "Users can update API keys in their organization" ON "public"."api_keys" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
 CREATE POLICY "Users can update campaigns from their organization" ON "public"."campaigns" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
@@ -1883,6 +2773,12 @@ CREATE POLICY "Users can update campaigns from their organization" ON "public"."
 CREATE POLICY "Users can update crm_contacts in their organization" ON "public"."crm_contacts" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"())))) WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Users can update endpoint configs in their organization" ON "public"."api_endpoint_configs" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
 
@@ -1936,6 +2832,12 @@ CREATE POLICY "Users can update workflows in their organization" ON "public"."wo
 
 
 
+CREATE POLICY "Users can view API keys from their organization" ON "public"."api_keys" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
 CREATE POLICY "Users can view campaigns from their organization" ON "public"."campaigns" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
@@ -1943,6 +2845,12 @@ CREATE POLICY "Users can view campaigns from their organization" ON "public"."ca
 
 
 CREATE POLICY "Users can view crm_contacts in their organization" ON "public"."crm_contacts" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Users can view endpoint configs from their organization" ON "public"."api_endpoint_configs" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
 
@@ -1980,6 +2888,18 @@ CREATE POLICY "Users can view messages from their organization's conversations" 
 
 
 
+CREATE POLICY "Users can view org co-members" ON "public"."organization_members" FOR SELECT USING (("organization_id" IN ( SELECT "public"."get_my_org_ids"() AS "get_my_org_ids")));
+
+
+
+CREATE POLICY "Users can view own creator quota" ON "public"."creator_org_limits" FOR SELECT TO "authenticated" USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can view own memberships" ON "public"."organization_members" FOR SELECT USING (("auth"."uid"() = "user_id"));
+
+
+
 CREATE POLICY "Users can view snippets from their organization" ON "public"."snippets" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id"
    FROM "public"."profiles"
   WHERE ("profiles"."id" = "auth"."uid"()))));
@@ -1992,9 +2912,11 @@ CREATE POLICY "Users can view templates from their organization" ON "public"."me
 
 
 
-CREATE POLICY "Users can view their organization details" ON "public"."organizations" FOR SELECT USING (("id" IN ( SELECT "profiles"."organization_id"
-   FROM "public"."profiles"
-  WHERE ("profiles"."id" = "auth"."uid"()))));
+CREATE POLICY "Users can view their org phone numbers" ON "public"."whatsapp_phone_numbers" FOR SELECT USING (("organization_id" = "public"."get_my_org_id"()));
+
+
+
+CREATE POLICY "Users can view their organization details" ON "public"."organizations" FOR SELECT USING (("id" IN ( SELECT "public"."get_my_org_ids"() AS "get_my_org_ids")));
 
 
 
@@ -2026,42 +2948,13 @@ CREATE POLICY "View org notes" ON "public"."notes" FOR SELECT USING ((EXISTS ( S
 
 
 
-CREATE POLICY "admin_update_profiles" ON "public"."profiles" FOR UPDATE USING (((( SELECT "profiles_1"."role"
-   FROM "public"."profiles" "profiles_1"
-  WHERE ("profiles_1"."id" = "auth"."uid"())) = 'admin'::"text") AND ("organization_id" = ( SELECT "profiles_1"."organization_id"
-   FROM "public"."profiles" "profiles_1"
-  WHERE ("profiles_1"."id" = "auth"."uid"())))));
-
-
-
-ALTER TABLE "public"."campaigns" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."api_endpoint_configs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."api_keys" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."api_endpoint_configs" ENABLE ROW LEVEL SECURITY;
-
-
-CREATE POLICY "Users can view API keys from their organization" ON "public"."api_keys" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can create API keys in their organization" ON "public"."api_keys" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can update API keys in their organization" ON "public"."api_keys" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can delete API keys from their organization" ON "public"."api_keys" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Service role can manage API keys" ON "public"."api_keys" USING (("auth"."role"() = 'service_role'::"text"));
-
-CREATE POLICY "Users can view endpoint configs from their organization" ON "public"."api_endpoint_configs" FOR SELECT USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can create endpoint configs in their organization" ON "public"."api_endpoint_configs" FOR INSERT WITH CHECK (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can update endpoint configs in their organization" ON "public"."api_endpoint_configs" FOR UPDATE USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Users can delete endpoint configs from their organization" ON "public"."api_endpoint_configs" FOR DELETE USING (("organization_id" IN ( SELECT "profiles"."organization_id" FROM "public"."profiles" WHERE ("profiles"."id" = "auth"."uid"()))));
-
-CREATE POLICY "Service role can manage endpoint configs" ON "public"."api_endpoint_configs" USING (("auth"."role"() = 'service_role'::"text"));
+ALTER TABLE "public"."campaigns" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."conversations" ENABLE ROW LEVEL SECURITY;
@@ -2079,6 +2972,9 @@ CREATE POLICY "conversations_select_community" ON "public"."conversations" FOR S
 
 CREATE POLICY "conversations_select_manager" ON "public"."conversations" FOR SELECT USING ((("public"."get_current_user_role"() = 'manager'::"text") AND ("team_lead_id" = "auth"."uid"())));
 
+
+
+ALTER TABLE "public"."creator_org_limits" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."crm_contacts" ENABLE ROW LEVEL SECURITY;
@@ -2119,17 +3015,18 @@ ALTER TABLE "public"."meta_templates" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."notes" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."organization_members" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."organizations" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "profiles_select_admin_org" ON "public"."profiles" FOR SELECT USING ((("public"."get_current_user_role"() = 'admin'::"text") AND ("organization_id" = "public"."get_current_user_org_id"())));
-
-
-
-CREATE POLICY "profiles_select_manager_team" ON "public"."profiles" FOR SELECT USING ((("public"."get_current_user_role"() = 'manager'::"text") AND ("team_lead_id" = "auth"."uid"())));
+CREATE POLICY "profiles_select_org_members" ON "public"."profiles" FOR SELECT USING (("id" IN ( SELECT "om"."user_id"
+   FROM "public"."organization_members" "om"
+  WHERE ("om"."organization_id" IN ( SELECT "public"."get_my_org_ids"() AS "get_my_org_ids")))));
 
 
 
@@ -2155,6 +3052,9 @@ ALTER TABLE "public"."user_assigned_leads" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."webhook_logs" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."whatsapp_phone_numbers" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."workflow_enrollments" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2164,30 +3064,6 @@ ALTER TABLE "public"."workflow_steps" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."workflows" ENABLE ROW LEVEL SECURITY;
 
 
-
-
-ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
-
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."conversations";
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."message_statuses";
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."messages";
-
-
-
-
-
-
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
@@ -2195,177 +3071,15 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."add_existing_member_to_org"("p_target_user_id" "uuid", "p_organization_id" "uuid", "p_role" "text") TO "service_role";
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+GRANT ALL ON FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."anonymize_user_data"("target_user_id" "uuid") TO "service_role";
 
 
 
@@ -2375,9 +3089,39 @@ GRANT ALL ON FUNCTION "public"."calculate_avg_response_time"("org_id" "uuid", "d
 
 
 
+GRANT ALL ON FUNCTION "public"."can_current_user_create_organization"() TO "anon";
+GRANT ALL ON FUNCTION "public"."can_current_user_create_organization"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_current_user_create_organization"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_organization_for_user"("p_name" "text", "p_support_email" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."create_organization_for_user"("p_name" "text", "p_support_email" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_organization_for_user"("p_name" "text", "p_support_email" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."delete_organization_data"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."delete_organization_data"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."delete_organization_data"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."delete_team_member_data"("requesting_user_id" "uuid", "target_user_id" "uuid", "target_org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."delete_team_member_data"("requesting_user_id" "uuid", "target_user_id" "uuid", "target_org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."delete_team_member_data"("requesting_user_id" "uuid", "target_user_id" "uuid", "target_org_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."enroll_active_workflow_contacts"() TO "anon";
 GRANT ALL ON FUNCTION "public"."enroll_active_workflow_contacts"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."enroll_active_workflow_contacts"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."ensure_single_default_phone"() TO "anon";
+GRANT ALL ON FUNCTION "public"."ensure_single_default_phone"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."ensure_single_default_phone"() TO "service_role";
 
 
 
@@ -2390,6 +3134,12 @@ GRANT ALL ON FUNCTION "public"."get_auth_user_org_id"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."get_conversation_counts_by_status"("org_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_conversation_counts_by_status"("org_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_conversation_counts_by_status"("org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_creator_org_limit_status"("p_user_id" "uuid") TO "service_role";
 
 
 
@@ -2429,9 +3179,45 @@ GRANT ALL ON FUNCTION "public"."get_my_org_id"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."get_my_org_ids"() TO "anon";
+GRANT ALL ON FUNCTION "public"."get_my_org_ids"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_my_org_ids"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_org_creator_id"("org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_org_creator_id"("org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_org_creator_id"("org_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_count" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_count" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_top_agents_by_messages"("org_id" "uuid", "limit_count" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."preview_organization_deletion"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."preview_organization_deletion"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."preview_organization_deletion"("requesting_user_id" "uuid", "target_org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("p_email_query" "text", "p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."seed_api_endpoint_defaults"("org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."seed_api_endpoint_defaults"("org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."seed_api_endpoint_defaults"("org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."switch_organization"("target_org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."switch_organization"("target_org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."switch_organization"("target_org_id" "uuid") TO "service_role";
 
 
 
@@ -2453,30 +3239,9 @@ GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-GRANT ALL ON TABLE "public"."campaigns" TO "anon";
-GRANT ALL ON TABLE "public"."campaigns" TO "authenticated";
-GRANT ALL ON TABLE "public"."campaigns" TO "service_role";
+GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "anon";
+GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "authenticated";
+GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "service_role";
 
 
 
@@ -2486,15 +3251,21 @@ GRANT ALL ON TABLE "public"."api_keys" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "anon";
-GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "authenticated";
-GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "service_role";
+GRANT ALL ON TABLE "public"."campaigns" TO "anon";
+GRANT ALL ON TABLE "public"."campaigns" TO "authenticated";
+GRANT ALL ON TABLE "public"."campaigns" TO "service_role";
 
 
 
 GRANT ALL ON TABLE "public"."conversations" TO "anon";
 GRANT ALL ON TABLE "public"."conversations" TO "authenticated";
 GRANT ALL ON TABLE "public"."conversations" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."creator_org_limits" TO "anon";
+GRANT ALL ON TABLE "public"."creator_org_limits" TO "authenticated";
+GRANT ALL ON TABLE "public"."creator_org_limits" TO "service_role";
 
 
 
@@ -2546,6 +3317,12 @@ GRANT ALL ON TABLE "public"."notes" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."organization_members" TO "anon";
+GRANT ALL ON TABLE "public"."organization_members" TO "authenticated";
+GRANT ALL ON TABLE "public"."organization_members" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."organizations" TO "anon";
 GRANT ALL ON TABLE "public"."organizations" TO "authenticated";
 GRANT ALL ON TABLE "public"."organizations" TO "service_role";
@@ -2594,6 +3371,12 @@ GRANT ALL ON TABLE "public"."webhook_logs" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."whatsapp_phone_numbers" TO "anon";
+GRANT ALL ON TABLE "public"."whatsapp_phone_numbers" TO "authenticated";
+GRANT ALL ON TABLE "public"."whatsapp_phone_numbers" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."workflow_enrollments" TO "anon";
 GRANT ALL ON TABLE "public"."workflow_enrollments" TO "authenticated";
 GRANT ALL ON TABLE "public"."workflow_enrollments" TO "service_role";
@@ -2609,12 +3392,6 @@ GRANT ALL ON TABLE "public"."workflow_steps" TO "service_role";
 GRANT ALL ON TABLE "public"."workflows" TO "anon";
 GRANT ALL ON TABLE "public"."workflows" TO "authenticated";
 GRANT ALL ON TABLE "public"."workflows" TO "service_role";
-
-
-
-
-
-
 
 
 
@@ -2642,30 +3419,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

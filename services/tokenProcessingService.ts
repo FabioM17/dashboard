@@ -74,6 +74,16 @@ export const tokenProcessingService = {
     const tokenHash = params.get('token_hash');
     const type = params.get('type');
 
+    // Check for PKCE invite flow (our custom invite=1 param added by the edge function)
+    // In Supabase JS v2, invites redirect with ?code=XXXXX (PKCE) instead of ?token_hash=XXX
+    // We add ?invite=1 to the redirectTo URL in the edge function to signal invite flow
+    const inviteParam = params.get('invite');
+    if (inviteParam === '1') {
+      console.log("📧 Found invite=1 in URL - PKCE invite flow detected");
+      this.markAsInvitationFlow('invite');
+      return true;
+    }
+
     if (tokenHash) {
       console.log("📧 Found token in query params, type:", type);
       
@@ -133,9 +143,11 @@ export const tokenProcessingService = {
     const hasTokenInHash = hash.includes('token_hash');
     const hasTokenInQuery = params.has('token_hash');
     const isInviteType = params.get('type') === 'invite' || params.get('type') === 'signup';
+    // Direct URL check for PKCE invite flow (fallback in case flag hasn't been set yet)
+    const hasInviteParam = params.get('invite') === '1';
     
-    const result = flagFromStorage || hasTokenInHash || (hasTokenInQuery && isInviteType);
-    console.log("🔗 isInvitationFlow:", { flagFromStorage, hasTokenInHash, hasTokenInQuery, isInviteType, result });
+    const result = flagFromStorage || hasTokenInHash || (hasTokenInQuery && isInviteType) || hasInviteParam;
+    console.log("🔗 isInvitationFlow:", { flagFromStorage, hasTokenInHash, hasTokenInQuery, isInviteType, hasInviteParam, result });
     return result;
   }
 };

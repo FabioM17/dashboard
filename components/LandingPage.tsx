@@ -191,7 +191,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                   { text: 'Estadísticas y métricas de conversaciones' },
                   { text: 'Roles de acceso: Admin, Gerente y Agente' },
                   { text: 'Asistente IA integrado en el CRM y conversaciones' },
-                  { text: 'Integración con n8n para automatizaciones externas' },
+                  { text: 'Conexión con plataformas de automatización externas' },
                   { text: 'Instagram Direct — próximamente', soon: true },
                   { text: 'Facebook Messenger — próximamente', soon: true },
                 ].map((item, i) => (
@@ -316,8 +316,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
               {
                 icon: <Share2 className="text-teal-600" size={22} />,
                 bg: 'bg-teal-50',
-                title: 'Conexión con n8n',
-                desc: 'Conecta Docre-A con n8n para disparar flujos de automatización externos — integra con cualquier app, base de datos o servicio usando webhooks y la API REST.',
+                title: 'Conexión con plataformas de automatización',
+                desc: 'Conecta Docre-A con plataformas de automatización externas para disparar flujos — integra con cualquier app, base de datos o servicio usando webhooks y la API REST.',
               },
             ].map((card, i) => (
               <div key={i} className="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md hover:-translate-y-1 transition-all duration-200">
@@ -616,12 +616,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
             <div>
               <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">Contáctanos</p>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">¿Listo para empezar?</h2>
-              <p className="text-slate-600 text-base leading-relaxed mb-8">
-                Escríbenos con tus preguntas. Respondemos a{' '}
-                <a href="mailto:notificaciones@docreativelatam.com" className="text-emerald-600 font-semibold hover:underline">
-                  notificaciones@docreativelatam.com
-                </a>
-              </p>
 
               {formSent && (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-lg mb-6">
@@ -629,6 +623,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                   Se abrió tu cliente de correo con el mensaje listo. ¡Gracias!
                 </div>
               )}
+
+              <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-lg mb-4">
+                <Mail size={15} className="flex-shrink-0 mt-0.5 text-emerald-600" />
+                <span>Escríbenos tus preguntas a{' '}<a href="mailto:notificaciones@docreativelatam.com" className="font-semibold underline hover:text-emerald-700">notificaciones@docreativelatam.com</a></span>
+              </div>
 
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">

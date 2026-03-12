@@ -16,17 +16,27 @@ export const crmService = {
       .eq('organization_id', organizationId);
     if (error) { console.error(error); return []; }
     
-    return data.map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      email: c.email || '',
-      phone: c.phone || '',
-      company: c.company || '',
-      pipelineStageId: c.pipeline_stage || 'lead',
-      avatar: c.avatar_url,
-      createdAt: c.created_at ? new Date(c.created_at) : undefined,
-      properties: c.custom_properties || {}
-    }));
+    return data.map((c: any) => {
+      let properties: Record<string, any> = {};
+      if (c.custom_properties) {
+        if (typeof c.custom_properties === 'string') {
+          try { properties = JSON.parse(c.custom_properties); } catch { properties = {}; }
+        } else {
+          properties = c.custom_properties;
+        }
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        email: c.email || '',
+        phone: c.phone || '',
+        company: c.company || '',
+        pipelineStageId: c.pipeline_stage || 'lead',
+        avatar: c.avatar_url,
+        createdAt: c.created_at ? new Date(c.created_at) : undefined,
+        properties
+      };
+    });
   },
 
   async saveContact(contact: CRMContact, organizationId: string) {

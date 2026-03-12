@@ -15,7 +15,6 @@ interface ProfileData {
   email: string;
   full_name: string;
   organization_id: string;
-  role: string;
   avatar_url: string;
   phone?: string;
 }
@@ -125,9 +124,10 @@ serve(async (req) => {
       };
 
       if (redirect_to && isAllowedRedirect(redirect_to, allowedRedirects)) {
-        inviteOptions.redirectTo = redirect_to;
+        const separator = redirect_to.includes('?') ? '&' : '?';
+        inviteOptions.redirectTo = `${redirect_to}${separator}invite=1`;
       } else if (defaultRedirect) {
-        inviteOptions.redirectTo = defaultRedirect;
+        inviteOptions.redirectTo = `${defaultRedirect}?invite=1`;
       }
 
       const { data: authData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -150,7 +150,6 @@ serve(async (req) => {
         email,
         full_name: name || email.split("@")[0],
         organization_id,
-        role: role || "community",
         avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=random`,
       };
 

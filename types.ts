@@ -21,6 +21,7 @@ export interface User {
   lastSignInAt?: string | null; // Fecha/hora del último inicio de sesión (null = nunca, invitado pendiente)
   team_lead_id?: string; // Para managers: ID del supervisor del equipo
   assigned_lead_ids?: string[]; // Para community: IDs de leads asignados
+  organizations?: OrganizationMembership[]; // Multi-org: all orgs this user belongs to
 }
 
 export interface UserInfo {
@@ -119,7 +120,7 @@ export enum AppState {
   DASHBOARD
 }
 
-export type DashboardView = 'chats' | 'crm' | 'stats' | 'settings' | 'tasks' | 'team' | 'properties' | 'integrations' | 'workflows';
+export type DashboardView = 'chats' | 'crm' | 'stats' | 'settings' | 'tasks' | 'team' | 'properties' | 'integrations' | 'workflows' | 'ai_assistant';
 
 // CRM Types
 export interface CRMContact {
@@ -338,6 +339,17 @@ export interface ApiEndpointConfig {
   rateLimitPerMinute: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Organization Membership (Multi-org support)
+export interface OrganizationMembership {
+  id: string;
+  userId: string;
+  organizationId: string;
+  organizationName: string;
+  role: UserRole;
+  isDefault: boolean;
+  createdAt: Date;
 }
 
 // WhatsApp Phone Number Types (Multi-number support)

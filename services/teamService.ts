@@ -4,81 +4,80 @@ import { User, UserRole, LeadAssignment } from '../types';
 
 export const teamService = {
   
-  // 1. Obtener miembros del equipo (perfiles asociados a la organización)
+  // 1. Obtener miembros del equipo (desde organization_members con datos de profiles)
   async getTeamMembers(organizationId: string): Promise<User[]> {
-    // Query a profiles table - Supabase RLS requiere columnas de auth.users
-    // Usamos una vista o función que tenga acceso a last_sign_in_at
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, avatar_url, role, phone, last_sign_in_at, organization_id')
-      .eq('organization_id', organizationId)
-      .order('full_name', { ascending: true });
+    // organization_members.user_id → auth.users (not profiles), so PostgREST can't join directly.
+    // Do two separate queries instead.
+    const { data: members, error } = await supabase
+      .from('organization_members')
+      .select('id, user_id, role, team_lead_id, assigned_lead_ids, is_default')
+      .eq('organization_id', organizationId);
 
     if (error) {
-      // Si la columna last_sign_in_at no existe en la view, fallback
-      console.warn("Note: last_sign_in_at not available in query, using alternative method");
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .order('full_name', { ascending: true });
-
-      if (profilesError) {
-        console.error("Error fetching team:", profilesError);
-        return [];
-      }
-
-      return profilesData.map((p: any) => ({
-        id: p.id,
-        organizationId: p.organization_id,
-        name: p.full_name || p.email?.split('@')[0] || 'Unknown',
-        email: p.email || 'No Email',
-        avatar: p.avatar_url || `https://ui-avatars.com/api/?name=${p.full_name}`,
-        role: (p.role as UserRole) || 'community',
-        phone: p.phone || p.phone_number || undefined,
-        verified: false,
-        lastSignInAt: null
-      }));
+      console.error("Error fetching team from organization_members:", error);
+      return [];
     }
 
-    return data.map((p: any) => ({
-      id: p.id,
-      organizationId: p.organization_id,
-      name: p.full_name || p.email?.split('@')[0] || 'Unknown',
-      email: p.email || 'No Email',
-      avatar: p.avatar_url || `https://ui-avatars.com/api/?name=${p.full_name}`,
-      role: (p.role as UserRole) || 'community',
-      phone: p.phone || p.phone_number || undefined,
-      verified: !!p.last_sign_in_at,  // ✅ Verified si last_sign_in_at existe (ya ingresó)
-      lastSignInAt: p.last_sign_in_at || null // ✅ Guardar fecha de último login
-    }));
+    if (!members || members.length === 0) return [];
+
+    // Fetch profiles for all member user_ids
+    const userIds = members.map((m: any) => m.user_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, phone')
+      .in('id', userIds);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    const result = members.map((m: any) => {
+      const profile = profileMap.get(m.user_id);
+      return {
+        id: profile?.id || m.user_id,
+        organizationId: organizationId,
+        name: profile?.full_name || profile?.email?.split('@')[0] || 'Unknown',
+        email: profile?.email || 'No Email',
+        avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || m.user_id}`,
+        role: (m.role as UserRole) || 'community',
+        team_lead_id: m.team_lead_id,
+        assigned_lead_ids: m.assigned_lead_ids || [],
+        phone: profile?.phone || undefined,
+        verified: false,
+        lastSignInAt: null,
+        organizations: []
+      };
+    });
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   },
 
-  // 2. Actualizar el rol de un usuario
-  async updateMemberRole(userId: string, newRole: UserRole) {
+  // 2. Actualizar el rol de un usuario (en organization_members)
+  async updateMemberRole(userId: string, newRole: UserRole, organizationId: string) {
     const { error } = await supabase
-      .from('profiles')
+      .from('organization_members')
       .update({ role: newRole })
-      .eq('id', userId);
+      .eq('user_id', userId)
+      .eq('organization_id', organizationId);
 
     if (error) throw error;
   },
 
-  // 3. Eliminar miembro
-  async removeMember(userId: string) {
+  // 3. Eliminar miembro de la organización
+  async removeMember(userId: string, organizationId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user && user.id === userId) {
-        throw new Error("You cannot remove yourself via the team management interface.");
+      throw new Error("You cannot remove yourself via the team management interface.");
     }
 
-    // En un entorno real, también deberíamos llamar a una Edge Function para borrarlo de auth.users
-    // Por ahora, borramos el acceso al perfil
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
+    // Usar la función RPC delete_team_member_data que maneja multi-org correctamente
+    const { data, error } = await supabase
+      .rpc('delete_team_member_data', {
+        requesting_user_id: user?.id,
+        target_user_id: userId,
+        target_org_id: organizationId
+      });
 
     if (error) throw error;
+    return data;
   },
 
   // 4. Invitar miembro (REAL)
@@ -248,5 +247,50 @@ export const teamService = {
     }
 
     return (data || []).map((a: any) => a.contact_id);
-  }
+  },
+
+  // 13. Buscar usuarios existentes por email parcial (excluyendo miembros actuales de la org)
+  async searchUsersByEmail(
+    emailQuery: string,
+    organizationId: string
+  ): Promise<{ userId: string; email: string; fullName: string | null; avatarUrl: string | null }[]> {
+    if (!emailQuery || emailQuery.trim().length < 2) return [];
+
+    const { data, error } = await supabase
+      .rpc('search_users_by_email', {
+        p_email_query: emailQuery.trim(),
+        p_organization_id: organizationId
+      });
+
+    if (error) {
+      console.error('Error searching users:', error);
+      throw new Error(error.message);
+    }
+
+    return (data || []).map((u: any) => ({
+      userId: u.user_id,
+      email: u.email,
+      fullName: u.full_name,
+      avatarUrl: u.avatar_url,
+    }));
+  },
+
+  // 14. Agregar un usuario existente (registrado) a la organización
+  async addExistingMember(
+    targetUserId: string,
+    organizationId: string,
+    role: UserRole
+  ): Promise<void> {
+    const { error } = await supabase
+      .rpc('add_existing_member_to_org', {
+        p_target_user_id: targetUserId,
+        p_organization_id: organizationId,
+        p_role: role
+      });
+
+    if (error) {
+      console.error('Error adding existing member:', error);
+      throw new Error(error.message);
+    }
+  },
 };
