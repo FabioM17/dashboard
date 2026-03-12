@@ -43,6 +43,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     { label: 'Funciones', id: 'features' },
     { label: 'Canales', id: 'whatsapp' },
     { label: 'Beneficios', id: 'benefits' },
+    { label: 'Planes', id: 'pricing' },
     { label: 'Contacto', id: 'contact' },
   ];
 
@@ -563,6 +564,286 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
         </div>
       </section>
 
+      {/* PRICING */}
+      <section id="pricing" className="w-full bg-slate-50 py-20 lg:py-28">
+        <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-8 lg:px-12">
+
+          <div className="text-center mb-14">
+            <p className="text-emerald-600 text-xs font-bold tracking-widest uppercase mb-3">Planes y paquetes</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">
+              Paga según lo que usas, no lo que no necesitas
+            </h2>
+            <p className="text-slate-600 max-w-2xl mx-auto text-base leading-relaxed">
+              Cada plan define límites de consumo claros — contactos, conversaciones y campañas.
+              Más consumo, más plan. Sin sorpresas.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 2xl:grid-cols-4 gap-8 items-stretch">
+
+            {/* Plan Básico */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 flex flex-col hover:shadow-md transition-shadow">
+              <div className="mb-5">
+                <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center mb-4">
+                  <Users className="text-emerald-600" size={22} />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 mb-1">Básico</h3>
+                <p className="text-slate-500 text-sm leading-snug">Para negocios pequeños que inician con WhatsApp</p>
+              </div>
+
+              {/* Cuota de consumo */}
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-5 space-y-2">
+                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-1">Cuota mensual incluida</p>
+                {[
+                  ['Contactos CRM', '500'],
+                  ['Conversaciones / mes', '1,000'],
+                  ['Mensajes de campaña / mes', '500'],
+                  ['Ejecuciones de flujo / mes', '50'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-bold text-emerald-700">{value}</span>
+                  </div>
+                ))}
+                <div className="pt-1 border-t border-emerald-100 flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Número WhatsApp</span>
+                  <span className="font-bold text-emerald-700">1</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Agentes</span>
+                  <span className="font-bold text-emerald-700">3</span>
+                </div>
+              </div>
+
+              {/* Funcionalidades */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Bandeja unificada (WhatsApp + Gmail)',
+                  'CRM con pipeline de ventas',
+                  'Importar y exportar contactos',
+                  'Plantillas y snippets de respuesta rápida',
+                  'Tablero de tareas Kanban',
+                  '3 roles: Admin, Gerente y Agente',
+                  'Asistente IA (con tu propio token de API)',
+                  'Estadísticas básicas de conversaciones',
+                  'Soporte por correo electrónico',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={15} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => scrollTo('contact')}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl transition-colors text-sm border border-slate-200"
+              >
+                Solicitar información →
+              </button>
+            </div>
+
+            {/* Plan Intermedio - POPULAR */}
+            <div className="bg-slate-900 rounded-2xl p-7 flex flex-col relative ring-2 ring-emerald-500 shadow-xl">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide shadow">
+                  Más popular
+                </span>
+              </div>
+              <div className="mb-5">
+                <div className="w-11 h-11 bg-white/10 rounded-xl flex items-center justify-center mb-4">
+                  <Zap className="text-emerald-400" size={22} />
+                </div>
+                <h3 className="text-xl font-extrabold text-white mb-1">Intermedio</h3>
+                <p className="text-slate-400 text-sm leading-snug">Para equipos en crecimiento con automatización y campañas</p>
+              </div>
+
+              {/* Cuota de consumo */}
+              <div className="bg-white/10 border border-white/20 rounded-xl p-4 mb-5 space-y-2">
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-1">Cuota mensual incluida</p>
+                {[
+                  ['Contactos CRM', '2,500'],
+                  ['Conversaciones / mes', '5,000'],
+                  ['Mensajes de campaña / mes', '5,000'],
+                  ['Ejecuciones de flujo / mes', '500'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300">{label}</span>
+                    <span className="font-bold text-emerald-400">{value}</span>
+                  </div>
+                ))}
+                <div className="pt-1 border-t border-white/10 flex items-center justify-between text-sm">
+                  <span className="text-slate-300">Números WhatsApp</span>
+                  <span className="font-bold text-emerald-400">2</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-300">Agentes</span>
+                  <span className="font-bold text-emerald-400">10</span>
+                </div>
+              </div>
+
+              {/* Funcionalidades */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Todo lo del plan Básico',
+                  'CRM avanzado con propiedades personalizadas',
+                  'Listas dinámicas y segmentación de contactos',
+                  'Constructor de formularios web embebibles',
+                  'Flujos de trabajo automatizados',
+                  'Campañas masivas (WhatsApp y correo)',
+                  'Notificaciones push',
+                  'Soporte prioritario',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-slate-200">
+                    <CheckCircle className="text-emerald-400 flex-shrink-0 mt-0.5" size={15} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={onGoToLogin}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              >
+                Empezar ahora →
+              </button>
+            </div>
+
+            {/* Plan Avanzado */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 flex flex-col hover:shadow-md transition-shadow">
+              <div className="mb-5">
+                <div className="w-11 h-11 bg-violet-50 rounded-xl flex items-center justify-center mb-4">
+                  <Shield className="text-violet-600" size={22} />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 mb-1">Avanzado</h3>
+                <p className="text-slate-500 text-sm leading-snug">Para empresas medianas con múltiples equipos e integraciones</p>
+              </div>
+
+              {/* Cuota de consumo */}
+              <div className="bg-violet-50 border border-violet-100 rounded-xl p-4 mb-5 space-y-2">
+                <p className="text-xs font-bold text-violet-700 uppercase tracking-wide mb-1">Cuota mensual incluida</p>
+                {[
+                  ['Contactos CRM', '15,000'],
+                  ['Conversaciones / mes', '25,000'],
+                  ['Mensajes de campaña / mes', '25,000'],
+                  ['Ejecuciones de flujo / mes', 'Ilimitadas'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-bold text-violet-700">{value}</span>
+                  </div>
+                ))}
+                <div className="pt-1 border-t border-violet-100 flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Números WhatsApp</span>
+                  <span className="font-bold text-violet-700">5</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Agentes</span>
+                  <span className="font-bold text-violet-700">25</span>
+                </div>
+              </div>
+
+              {/* Funcionalidades */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Todo lo del plan Intermedio',
+                  'Flujos de trabajo ilimitados',
+                  'API externa con claves de acceso',
+                  'Webhook de automatización hacia sistemas externos',
+                  'Múltiples organizaciones',
+                  'Informes de rendimiento por agente',
+                  'Soporte dedicado',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={15} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => scrollTo('contact')}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl transition-colors text-sm border border-slate-200"
+              >
+                Solicitar información →
+              </button>
+            </div>
+
+            {/* Plan Corporativo */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-7 flex flex-col hover:shadow-md transition-shadow">
+              <div className="mb-5">
+                <div className="w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center mb-4">
+                  <Star className="text-amber-500" size={22} fill="currentColor" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 mb-1">Corporativo</h3>
+                <p className="text-slate-500 text-sm leading-snug">Para corporaciones con SLA garantizado y sin límites de uso</p>
+              </div>
+
+              {/* Cuota de consumo */}
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5 space-y-2">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Consumo sin límites</p>
+                {[
+                  ['Contactos CRM', 'Ilimitados'],
+                  ['Conversaciones / mes', 'Ilimitadas'],
+                  ['Mensajes de campaña / mes', 'Ilimitados'],
+                  ['Ejecuciones de flujo / mes', 'Ilimitadas'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-bold text-amber-700">{value}</span>
+                  </div>
+                ))}
+                <div className="pt-1 border-t border-amber-100 flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Números WhatsApp</span>
+                  <span className="font-bold text-amber-700">Ilimitados</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Agentes</span>
+                  <span className="font-bold text-amber-700">Ilimitados</span>
+                </div>
+              </div>
+
+              {/* Funcionalidades */}
+              <ul className="space-y-2.5 flex-1 mb-8">
+                {[
+                  'Todo lo del plan Avanzado',
+                  'Organizaciones ilimitadas',
+                  'Onboarding personalizado incluido',
+                  'Manager de cuenta exclusivo',
+                  'SLA de disponibilidad garantizado',
+                  'Integraciones y configuraciones a medida',
+                  'Soporte 24/7 dedicado',
+                ].map((f, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={15} />
+                    {f}
+                  </li>
+                ))}
+                <li className="flex items-start gap-2.5 text-sm text-slate-400">
+                  <CheckCircle className="text-slate-300 flex-shrink-0 mt-0.5" size={15} />
+                  <span>Agente de voz y canales adicionales{' '}<span className="text-xs font-semibold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">Próximamente</span></span>
+                </li>
+              </ul>
+              <button
+                onClick={() => scrollTo('contact')}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              >
+                Contactar ventas →
+              </button>
+            </div>
+
+          </div>
+
+          <p className="text-center text-slate-500 text-sm mt-10">
+            ¿Necesitas más consumo o un plan a tu medida?{' '}
+            <button
+              onClick={() => scrollTo('contact')}
+              className="text-emerald-600 font-semibold hover:underline"
+            >
+              Escríbenos y lo armamos juntos →
+            </button>
+          </p>
+
+        </div>
+      </section>
+
       {/* TESTIMONIALS */}
       <section className="w-full bg-white py-20 lg:py-28">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -786,6 +1067,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                   { label: 'Funcionalidades', action: () => scrollTo('features') },
                   { label: 'WhatsApp & Gmail', action: () => scrollTo('whatsapp') },
                   { label: 'Beneficios', action: () => scrollTo('benefits') },
+                  { label: 'Planes', action: () => scrollTo('pricing') },
                   { label: 'Iniciar sesión', action: onGoToLogin },
                 ].map(item => (
                   <li key={item.label}>

@@ -818,10 +818,13 @@ const App: React.FC = () => {
         <TaskBoard 
             tasks={tasks} 
             onUpdateStatus={handleUpdateTaskStatus} 
-            onDeleteTask={handleDeleteTask} 
+            onDeleteTask={handleDeleteTask}
+            onAddTask={handleAddTask}
             onChatSelect={handleNavigateToChat}
-                        teamMembers={teamMembers}
+            teamMembers={teamMembers}
             phoneNumbers={orgPhoneNumbers}
+            currentUser={currentUser}
+            organizationId={currentUser?.organizationId}
         />
       );
       case 'workflows': return (

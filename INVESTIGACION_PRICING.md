@@ -1,554 +1,677 @@
-# Investigación de Pricing - DoCreChat
+# Investigación de Pricing — Docre-A
 ## Análisis de Mercado y Propuesta de Precios para El Salvador
 
-**Fecha:** Marzo 2026  
-**Moneda:** USD (Dólar estadounidense - moneda oficial de El Salvador)
+**Última actualización:** Marzo 2026  
+**Moneda base:** USD (Dólar estadounidense — moneda oficial de El Salvador desde 2001)  
+**Empresa:** Domen Capital S.A. De C.V. — El Salvador  
+**Plataforma:** Docre-A (dashboardchat.docreativelatam.com)
+
+---
+
+## 📋 TABLA DE CONTENIDOS
+
+| # | Sección |
+|---|---------|
+| 0 | [Contexto de la Plataforma](#-contexto-de-la-plataforma) |
+| 1 | [Análisis de la Competencia](#-1-análisis-de-la-competencia) |
+| 2 | [Tabla Comparativa Global de Competidores](#-2-tabla-comparativa-global-de-competidores) |
+| 3 | [Características de Docre-A](#-3-características-de-docre-a) |
+| 4 | [Propuesta de Pricing para Docre-A](#-4-propuesta-de-pricing-para-docre-a) |
+| 5 | [Comparación de Planes Docre-A](#-5-comparación-de-planes-docre-a) |
+| 6 | [Contexto del Mercado Salvadoreño](#-6-contexto-del-mercado-salvadoreño) |
+| 7 | [Métodos de Pago para El Salvador](#-7-métodos-de-pago-para-el-salvador) |
+| 8 | [Proyecciones de Ingresos](#-8-proyecciones-de-ingresos-referencia) |
+| 9 | [Recomendaciones Estratégicas](#-9-recomendaciones-estratégicas) |
+| 10 | [Servicios Adicionales y Add-Ons](#-10-servicios-adicionales-y-add-ons) |
+| 11 | [Docre-A vs Principales Competidores](#-11-comparación-docre-a-vs-principales-competidores) |
+| 12 | [Resumen Ejecutivo](#-12-resumen-ejecutivo) |
+
+---
+
+## 🧭 CONTEXTO DE LA PLATAFORMA
+
+Docre-A es una plataforma B2B de mensajería empresarial que centraliza WhatsApp Business y Gmail con CRM, automatización de flujos, campañas masivas, asistente IA multiproveedor, tablero de tareas Kanban, API externa, formularios embebibles, gestión multi-organización y multi-teléfono. En términos de cobertura funcional, representa la opción más completa de su segmento para el mercado PyME de El Salvador y Latinoamérica.
 
 ---
 
 ## 📊 1. ANÁLISIS DE LA COMPETENCIA
 
-### Chatfuel (Competidor Principal)
+### 1.1 Herramientas enfocadas en WhatsApp Business API (competencia directa)
+
+---
+
+#### Wati.io — Competidor principal
+**Enfoque:** WhatsApp Business API + inbox compartido + automatización  
+**Mercado:** Global, fuerte en LATAM e India
+
+| Plan | Precio mensual | Agentes | Números WA | Notas |
+|------|---------------|---------|------------|-------|
+| **Growth** | $49/mes | 5 | 1 | Chatbots, broadcasts, API básica |
+| **Pro** | $99/mes | 10 | 1 | Workflows, integraciones, CSAT |
+| **Business** | $229/mes | Ilimitados | 1 | Todo + soporte prioritario |
+| **Enterprise** | Personalizado | Ilimitados | Múltiples | SLA, manager dedicado |
+
+**Notas Wati:**
+- Cobra $49+ **por encima** del costo de la API de Meta (conversaciones no incluidas)
+- CRM muy básico, sin pipeline visual
+- No incluye envío de correo (Gmail)
+- Sin IA generativa nativa (solo chatbot por reglas)
+- Solo 1 número de WA en todos los planes estándar
+
+---
+
+#### Callbell — Competidor directo
+**Enfoque:** Bandeja compartida multi-canal (WA, IG, FB, Telegram)  
+**Mercado:** Europa y LATAM
+
+| Plan | Precio mensual | Agentes | Notas |
+|------|---------------|---------|-------|
+| **Sandbox** | $0 | 2 | Solo 500 mensajes/mes |
+| **Sandbox Pro** | $15/agente | Flexible | Todos los canales, CRM básico |
+| **Advanced** | $25/agente | Flexible | API, informes, integraciones |
+
+**Notas Callbell:**
+- Modelo **por agente** (se encarece rápido: 10 agentes = $150-250/mes)
+- CRM básico (sin pipeline, sin propiedades personalizadas)
+- Sin IA nativa ni campañas masivas
+- Sin workflows de automatización
+- No incluye Gmail
+- **Precio comparativo:** 10 agentes Advanced = $250/mes vs Docre-A Intermedio
+
+---
+
+#### Respond.io — Competidor intermedio-alto
+**Enfoque:** Plataforma omnicanal avanzada, principalmente enterprise
+
+| Plan | Precio mensual | Usuarios | Canales | Notas |
+|------|---------------|---------|---------|-------|
+| **Starter** | $79/mes | 10 | 2 | Automatización básica |
+| **Growth** | $159/mes | Ilimitados | 10 | AI básica, workflows avanzados |
+| **Advanced** | $279/mes | Ilimitados | Ilimitados | AI avanzada, todo incluido |
+| **Enterprise** | Personalizado | Ilimitados | Ilimitados | SLA, soporte dedicado |
+
+**Notas Respond.io:**
+- Plataforma sólida pero com­pleja; precio elevado para el segmento PyME
+- Plan más accesible ($79/mes) supera en precio al plan Avanzado de Docre-A
+- Sin CRM nativo avanzado (depende de integraciones)
+- Sin tablero de tareas
+- IA muy avanzada (AI Agent, AI routing)
+- Fuerte en enterprise, débil en PyMEs
+
+---
+
+#### Trengo — Competidor europeo con presencia LATAM
+**Enfoque:** Bandeja unificada y colaboración de equipo
+
+| Plan | Precio mensual | Agentes | Notas |
+|------|---------------|---------|-------|
+| **Grow** | $19/agente | Flexible | WA, email, chat, integraciones básicas |
+| **Scale** | $31/agente | Flexible | Automatizaciones, AI básica |
+| **Enterprise** | Personalizado | Ilimitados | Todo + SLA |
+
+**Notas Trengo:**
+- Modelo por agente
+- 10 agentes Scale = $310/mes
+- Buena interfaz pero sin CRM avanzado ni campañas masivas
+- IA generativa básica (sugerencias de respuesta)
+
+---
+
+#### Leadsales — Competidor LATAM directo
+**Enfoque:** CRM WhatsApp para ventas, muy fuerte en México y Centroamérica
+
+| Plan | Precio mensual | Usuarios | Notas |
+|------|---------------|---------|-------|
+| **Starter** | $83/mes | 3 | Canal WA básico + CRM básico |
+| **Business** | $166/mes | 6 | Automatizaciones, campañas |
+| **Pro** | $249/mes | 12 | Todo incluido |
+
+**Notas Leadsales:**
+- Enfocado exclusivamente en WhatsApp
+- Sin Gmail, sin IA nativa, workflows limitados
+- Precios altos para el mercado salvadoreño
+- Buena reputación en México pero limitado en features vs Docre-A
+- **Comparación:** Starter Leadsales ($83/3 usuarios) vs Docre-A Básico
+
+---
+
+#### Kommo (antes amoCRM) — CRM con WhatsApp
+**Enfoque:** CRM + mensajería, muy fuerte en LATAM
+
+| Plan | Precio mensual/usuario | Notas |
+|------|----------------------|-------|
+| **Base** | $15/usuario | Pipeline, chat básico |
+| **Advanced** | $25/usuario | Automatizaciones |
+| **Enterprise** | $45/usuario | Todo incluido |
+
+**Notas Kommo:**
+- Modelo por usuario (10 usuarios Advanced = $250/mes)
+- CRM robusto con pipeline drag-drop y etapas personalizadas
+- WhatsApp vía integración (no nativo)
+- Sin campañas masivas de WA nativas
+- Fuerte presencia en El Salvador y región
+
+---
+
+### 1.2 Herramientas de chatbot/marketing (competencia indirecta)
+
+---
+
+#### Chatfuel — Competidor de chatbots
 **Plataforma:** WhatsApp, Facebook Messenger, Instagram
 
-#### Planes de Chatfuel:
 | Plan | Precio | Características |
 |------|--------|----------------|
-| **Business** | **$23.99/mes** | • 1,000 conversaciones/mes<br>• Conversaciones extra: $0.02 cada una<br>• Chatbots ilimitados<br>• Live chat<br>• CRM integrado<br>• Integraciones (Google Sheets, ChatGPT, Stripe, Zapier) |
-| **Enterprise** | **Desde $400/mes** | • Todo en Business<br>• Account manager personal<br>• 10 horas gratis de construcción de bots<br>• Pricing a granel<br>• Soporte prioritario |
+| **Business** | **$23.99/mes** | 1,000 conversaciones/mes, chatbots ilimitados, live chat, CRM básico, integraciones |
+| **Enterprise** | **Desde $400/mes** | Todo + account manager, 10hs de setup, soporte prioritario |
 
-**Servicios adicionales de Chatfuel:**
+**Servicios adicionales:**
 - Lead generation bot: desde $200
 - Customer support bot: desde $150
 - Sales bot: desde $500
-- Integraciones personalizadas: desde $100
 
 ---
 
-### Manychat (Competidor Secundario)
+#### Manychat — Líder en marketing conversacional
 **Plataforma:** Instagram, Facebook Messenger, WhatsApp, SMS, Email
 
-#### Planes de Manychat:
 | Plan | Precio | Características |
 |------|--------|----------------|
-| **Free** | **$0/mes** | • Hasta 1,000 contactos<br>• Flujos ilimitados<br>• 10 Tags<br>• 1 miembro de equipo<br>• 3 Keywords |
-| **Pro** | **Desde $15/mes** | • Contactos ilimitados (precio escala con cantidad)<br>• Tags y campos ilimitados<br>• 3 miembros de equipo<br>• Analytics e insights<br>• Integraciones completas<br>• Features de IA (reconocimiento de intención, AI Step) |
-| **Elite** | **Personalizado** | • Todo en Pro<br>• Onboarding dedicado<br>• Customer Success Manager<br>• Soporte prioritario<br>• Sin branding de Manychat |
+| **Free** | $0/mes | Hasta 1,000 contactos, flujos ilimitados, 1 agente, 3 keywords |
+| **Pro** | Desde $15/mes | Contactos ilimitados (escala por cantidad), 3 agentes, analytics, IA básica |
+| **Elite** | Personalizado | Todo Pro + CSM dedicado, sin branding Manychat |
 
-**Estructura de precios Pro por contactos:**
+**Estructura Pro por cantidad de contactos:**
 - 500 contactos: $15/mes
 - 1,000 contactos: ~$25/mes
-- 2,500 contactos: ~$45/mes
 - 5,000 contactos: ~$75/mes
-- 10,000+ contactos: Precio personalizado
+- 10,000+ contactos: precio personalizado
+
+**Notas Manychat:**
+- Sin CRM avanzado ni tablero de tareas
+- Sin envío de correo nativo
+- Fuerte en automatización de respuestas y flujos de marketing
 
 ---
 
-## 🎯 2. CARACTERÍSTICAS DE DOCRECHAT
+#### HubSpot CRM — Referencia enterprise (no competencia directa)
+**Mercado objetivo:** Medianas y grandes empresas globales
 
-### Ventajas Competitivas de DoCreChat:
-✅ **Multi-canal omnicanal:** WhatsApp + Instagram + Facebook Messenger  
-✅ **CRM completo integrado:** Pipeline de ventas, propiedades personalizadas  
-✅ **Tablero de tareas Kanban:** Gestión de proyectos interna  
-✅ **Workflows avanzados:** Automatizaciones multi-paso  
-✅ **IA Gemini integrada:** Respuestas inteligentes contextuales  
-✅ **Campañas programadas:** WhatsApp + Email  
-✅ **Gmail integrado:** Envío de correos desde la plataforma  
-✅ **Sistema de roles:** Admin, Manager, Community Manager  
-✅ **API externa:** Para integraciones con terceros  
-✅ **Multi-tenancy:** Organizaciones aisladas  
-✅ **Estadísticas avanzadas:** Analytics de conversiones y rendimiento  
+| Plan | Precio | Usuarios |
+|------|--------|---------|
+| **Free** | $0 | Ilimitados (funcionalidades muy limitadas) |
+| **Starter** | $20/usuario/mes | Funcionalidades básicas de CRM + email |
+| **Professional** | $890/mes (3 seats) | Automatizaciones avanzadas, workflows |
+| **Enterprise** | $3,600/mes | Todo + gobernanza, predictive AI |
 
-### Módulos Principales:
-1. Bandeja unificada (WhatsApp, IG, FB)
-2. CRM con pipeline
-3. Tablero de tareas
-4. Campañas programadas
-5. Workflows automatizados
-6. IA conversacional
-7. Estadísticas y reportes
-8. Gestión de equipos
-9. Plantillas de WhatsApp
-10. Media viewer integrado
+**Notas HubSpot:**
+- No es competencia directa pero es referencia de mercado
+- WhatsApp vía integración de terceros (no nativo)
+- Professional = **$890/mes** con solo 3 usuarios — inaccesible para PyMEs SV
+- Demuestra que Docre-A ofrece **funcionalidades similares a 10-30x menor precio**
 
 ---
 
-## 💰 3. PROPUESTA DE PRICING PARA DOCRECHAT
+#### Zenvia — Competidor latinoamericano enterprise
+**Enfoque:** Plataforma de comunicaciones CPaaS para LATAM
 
-### Estrategia de Monetización: **Cuándo Cobrar**
+| Plan | Precio aprox. | Notas |
+|------|--------------|-------|
+| **Chat** | Desde $99/mes | WhatsApp + chat agents |
+| **Conversion** | Desde $199/mes | + CRM, automatizaciones |
+| **Success** | Personalizado | Enterprise completo |
 
-#### Fase 1: BETA / MVP (Primeros 3-6 meses)
-**Recomendación:** Ofrecer **GRATIS o precio simbólico** para:
-- Validar el producto con usuarios reales
-- Obtener feedback y testimonios
-- Construir casos de éxito
-- Ajustar funcionalidades según demanda
-- Establecer métricas de uso
-
-**Usuarios objetivo para Beta:**
-- 20-50 empresas piloto en El Salvador
-- Pequeñas y medianas empresas (PyMEs)
-- Agencias de marketing digital
-- E-commerce locales
-
-**Condiciones del Beta:**
-- Plan gratuito limitado (ej: 500 conversaciones/mes)
-- Acceso a todas las funcionalidades
-- Compromiso de dar feedback
-- Permitir uso de sus casos como testimonios
+**Notas Zenvia:**
+- Orientado a empresas medianas-grandes de Brasil y LATAM
+- Muy fuerte en Brasil; menor penetración en Centroamérica
+- Precios altos para el mercado salvadoreño
 
 ---
 
-#### Fase 2: LANZAMIENTO COMERCIAL (Mes 6-12)
-**Recomendación:** Implementar modelo **FREEMIUM + PLANES PAGOS**
+#### Treble.ai — Competidor en automatización WhatsApp LATAM
+**Enfoque:** Automatización de ventas y marketing por WhatsApp
 
-**Indicadores para iniciar cobro:**
+| Plan | Precio | Notas |
+|------|--------|-------|
+| **Starter** | ~$150/mes | Automatizaciones básicas, hasta 5 agentes |
+| **Growth** | ~$300/mes | Campañas, CRM básico |
+| **Enterprise** | Personalizado | Ilimitado |
+
+**Notas Treble:**
+- Muy fuerte en Colombia y México
+- Sin CRM completo ni tablero de tareas
+- Más caro que Docre-A por menos funcionalidades
+
+---
+
+## 🆚 2. TABLA COMPARATIVA GLOBAL DE COMPETIDORES
+
+| Plataforma | Plan base aprox. | CRM avanzado | Campañas WA | IA generativa | Gmail | Workflows | Tablero tareas | Multi-org | API externa | Precio relativo para SV |
+|-----------|-----------------|:------------:|:-----------:|:-------------:|:-----:|:---------:|:--------------:|:---------:|:-----------:|:-----------------------:|
+| **Docre-A (Básico)** | TBD | ✅ pipeline | ❌ | ✅ token propio | ✅ | ❌ | ✅ Kanban | ❌ | ❌ | ✅ Accesible |
+| **Docre-A (Intermedio)** | TBD | ✅ avanzado | ✅ | ✅ token propio | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ Accesible |
+| **Docre-A (Avanzado)** | TBD | ✅ avanzado | ✅ | ✅ token propio | ✅ | ✅ ilimitado | ✅ | ✅ | ✅ | ✅ Competitivo |
+| **Docre-A (Corporativo)** | Cotizar | ✅ | ✅ | ✅ token propio | ✅ | ✅ | ✅ | ✅ ilimitado | ✅ | — |
+| Wati Growth | $49/mes | ❌ | ✅ básico | ❌ | ❌ | ✅ básico | ❌ | ❌ | ✅ | ⚠️ Sin CRM/Gmail |
+| Callbell Advanced | $25/agente | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ⚠️ Caro por agente |
+| Respond.io Starter | $79/mes | ❌ | ✅ | ✅ básica | ❌ | ✅ | ❌ | ❌ | ✅ | ⚠️ Caro |
+| Leadsales Starter | $83/mes | ✅ básico | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ Caro/menos features |
+| Kommo Advanced | $25/usuario | ✅ bueno | ❌ nativo | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ | ⚠️ Caro x usuarios |
+| Chatfuel Business | $23.99/mes | ✅ básico | ✅ | ⚠️ ChatGPT | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ Barato/menos features |
+| Manychat Pro | $15+/mes | ❌ | ✅ | ⚠️ básica | ❌ | ✅ | ❌ | ❌ | ⚠️ limitada | ✅ Barato/sin CRM |
+| Trengo Scale | $31/agente | ❌ | ❌ | ⚠️ básica | ✅ | ✅ | ❌ | ❌ | ✅ | ⚠️ Caro x agente |
+| HubSpot Professional | $890/mes | ✅ completo | ❌ nativo | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ Inaccesible PyME SV |
+| Zenvia Chat | $99+/mes | ❌ | ✅ | ❌ | ❌ | ✅ básico | ❌ | ❌ | ✅ | ⚠️ Caro/Brasil-focus |
+
+**Conclusión clave:** Docre-A ofrece la cobertura funcional más completa del mercado en su rango de precio, especialmente para el segmento PyME de El Salvador.
+
+---
+
+## 🎯 3. CARACTERÍSTICAS DE DOCRE-A
+
+### Ventajas Competitivas de Docre-A:
+✅ **WhatsApp Business API oficial (Meta):** Conexión directa, sin intermediarios  
+✅ **Gmail integrado:** Envío de correos desde la plataforma, vinculado al CRM  
+✅ **CRM completo integrado:** Pipeline de ventas drag-drop, propiedades personalizadas, filtros avanzados, listas dinámicas  
+✅ **Constructor de formularios embebibles:** CRM Form Builder con preview en vivo y código HTML generado automáticamente  
+✅ **Tablero de tareas Kanban:** Gestión de proyectos interna con fases personalizadas y asignación a agentes  
+✅ **Workflows multi-paso:** Secuencias automatizadas por WhatsApp y correo con delays y horarios configurables  
+✅ **IA multiproveedor:** Gemini (Google), GPT-4 (OpenAI) y Claude (Anthropic) — configurable  
+✅ **Campañas masivas:** WhatsApp con plantillas Meta aprobadas + Correo vía Gmail, programadas  
+✅ **Sistema de roles:** Admin, Gerente y Agente con permisos granulares  
+✅ **API externa documentada:** Claves de acceso con scopes configurables  
+✅ **Multi-tenancy completo:** RLS en Supabase, organizaciones completamente aisladas  
+✅ **Multi-teléfono:** Múltiples números de WhatsApp por organización  
+✅ **Estadísticas avanzadas:** Volumen, tiempos de respuesta, top agentes, calidad del número WA  
+
+### Módulos principales:
+1. Bandeja unificada (WhatsApp + Gmail; Instagram y Messenger próximamente)
+2. CRM con pipeline visual y propiedades personalizadas
+3. Constructor de formularios web embebibles
+4. Listas dinámicas y segmentación de contactos
+5. Flujos de trabajo automáticos multi-paso
+6. Campañas masivas (WhatsApp + correo)
+7. Asistente IA en conversaciones y CRM (Gemini / GPT-4 / Claude)
+8. Tablero de tareas Kanban con fases personalizadas
+9. Estadísticas y reportes de conversaciones y agentes
+10. Gestión de equipos y roles
+11. Snippets y plantillas de WhatsApp sincronizadas desde Meta
+12. API externa con documentación integrada
+13. Webhook de automatización hacia sistemas externos
+14. Webhook para agente de voz (configuración próximamente)
+15. Multi-organización con cambio instantáneo
+16. Multi-teléfono WA con etiquetas y calidad por número
+
+---
+
+## 💰 4. PROPUESTA DE PRICING PARA DOCRE-A
+
+### Planes definidos en la landing page (nombres oficiales)
+
+> **Modelo de precios:** Consumo + Funcionalidad. El precio de cada plan se determina principalmente por los límites de consumo (contactos, conversaciones, campañas y ejecuciones de flujo). Las funcionalidades disponibles escalan con el plan.
+
+---
+
+### 🟢 **PLAN BÁSICO**
+**Posicionamiento:** Negocios pequeños que inician con atención por WhatsApp
+
+#### Límites de consumo (determinan el precio):
+| Métrica | Cuota mensual |
+|---------|:--------------:|
+| Contactos en CRM | 500 |
+| Conversaciones activas / mes | 1,000 |
+| Mensajes de campaña / mes | 500 |
+| Ejecuciones de flujo / mes | 50 |
+| Números de WhatsApp | 1 |
+| Agentes / usuarios | 3 |
+
+#### Funcionalidades incluidas:
+- Bandeja unificada (WhatsApp + Gmail)
+- CRM con pipeline de ventas
+- Importar y exportar contactos (Excel)
+- Plantillas y snippets de respuesta rápida
+- Tablero de tareas Kanban
+- 3 roles de acceso: Admin, Gerente y Agente
+- Asistente IA (configurable con token propio del usuario)
+- Estadísticas básicas de conversaciones
+- Soporte por correo electrónico
+
+**Precio sugerido:** $25–$35/mes  
+**Referencia:** Chatfuel $23.99 (solo 1,000 conv/mes, sin CRM/Gmail/Kanban) · Manychat Pro desde $15 (sin CRM, sin Gmail)  
+**Argumento de precio:** CRM + Gmail + Kanban + IA + 3 roles desde el nivel base — ningún competidor en este rango los combina
+
+---
+
+### ⚡ **PLAN INTERMEDIO** *(Más popular — destacado en landing page)*
+**Posicionamiento:** Equipos en crecimiento que necesitan automatización y campañas
+
+#### Límites de consumo (determinan el precio):
+| Métrica | Cuota mensual |
+|---------|:--------------:|
+| Contactos en CRM | 2,500 |
+| Conversaciones activas / mes | 5,000 |
+| Mensajes de campaña / mes | 5,000 |
+| Ejecuciones de flujo / mes | 500 |
+| Números de WhatsApp | 2 |
+| Agentes / usuarios | 10 |
+
+#### Funcionalidades incluidas (todo Básico +):
+- CRM avanzado con propiedades personalizadas
+- Listas dinámicas y segmentación de contactos
+- Constructor de formularios web embebibles
+- Flujos de trabajo automatizados (multi-paso)
+- Campañas masivas (WhatsApp y correo)
+- Notificaciones push
+- Soporte prioritario
+
+**Precio sugerido:** $55–$80/mes  
+**Referencia:** Wati Pro $99 (1 número, sin CRM ni Gmail) · Respond.io Starter $79 (sin CRM avanzado) · Leadsales Business $166/mes  
+**Argumento de precio:** 5× el consumo del plan Básico, más funcionalidades clave (Form Builder + automatizaciones + campañas) a precio similar o menor que Wati pro sin CRM
+
+---
+
+### 🛡️ **PLAN AVANZADO**
+**Posicionamiento:** Empresas medianas con múltiples equipos, organizaciones e integraciones externas
+
+#### Límites de consumo (determinan el precio):
+| Métrica | Cuota mensual |
+|---------|:--------------:|
+| Contactos en CRM | 15,000 |
+| Conversaciones activas / mes | 25,000 |
+| Mensajes de campaña / mes | 25,000 |
+| Ejecuciones de flujo / mes | Ilimitadas |
+| Números de WhatsApp | 5 |
+| Agentes / usuarios | 25 |
+
+#### Funcionalidades incluidas (todo Intermedio +):
+- Flujos de trabajo ilimitados
+- API externa con claves de acceso y scopes configurables
+- Webhook de automatización hacia sistemas externos
+- Múltiples organizaciones
+- Informes de rendimiento por agente
+- Soporte dedicado
+
+**Precio sugerido:** $120–$180/mes  
+**Referencia:** Respond.io Growth $159 · Wati Business $229 · Kommo 10 ag. $250 · Trengo 10 ag. $310  
+**Argumento de precio:** Consumo 30× superior al Básico; incluye API, webhook y multi-org — funcionalidades enterprise a precio de herramienta regionales intermedias
+
+---
+
+### ⭐ **PLAN CORPORATIVO**
+**Posicionamiento:** Corporaciones con SLA garantizado, consumo ilimitado y atención dedicada
+
+#### Límites de consumo (determinan el precio):
+| Métrica | Cuota mensual |
+|---------|:--------------:|
+| Contactos en CRM | **Ilimitados** |
+| Conversaciones activas / mes | **Ilimitadas** |
+| Mensajes de campaña / mes | **Ilimitados** |
+| Ejecuciones de flujo / mes | **Ilimitadas** |
+| Números de WhatsApp | **Ilimitados** |
+| Agentes / usuarios | **Ilimitados** |
+
+#### Funcionalidades incluidas (todo Avanzado +):
+- Organizaciones ilimitadas
+- Onboarding personalizado incluido
+- Manager de cuenta exclusivo
+- SLA de disponibilidad garantizado
+- Integraciones y configuraciones a medida
+- Soporte 24/7 dedicado
+- *Agente de voz y canales adicionales (próximamente)*
+
+**Precio sugerido:** $300+/mes o cotizar según volumen  
+**Referencia:** Respond.io Advanced $279 · Chatfuel Enterprise $400+ · HubSpot Professional $890/mes  
+**Argumento de precio:** Consumo ilimitado + SLA + manager dedicado + soporte 24/7 en español — competitivo frente a plataformas enterprise globales
+
+---
+
+### Estrategia de lanzamiento por fases
+
+#### **FASE 1: Beta privada (Mes 1-4)**
+- Ofrecer acceso gratuito o precio simbólico a 20-50 empresas piloto en El Salvador
+- Recolectar feedback intensivo, ajustar funcionalidades
+- Construir casos de éxito y testimonios verificados
+
+#### **FASE 2: Lanzamiento comercial (Mes 5+)**
+Indicadores para iniciar cobro:
 - ✅ Más de 30 usuarios activos consistentemente
-- ✅ Tasa de retención > 60% a 30 días
+- ✅ Tasa de retención >60% a 30 días
 - ✅ Al menos 5 casos de éxito documentados
 - ✅ Funcionalidades core estables
-- ✅ Sistema de facturación implementado
-- ✅ Soporte al cliente establecido
+- ✅ Sistema de facturación (Stripe) implementado
+
+#### **FASE 3: Escala regional (Mes 9+)**
+- Expandir a Guatemala, Honduras, Costa Rica
+- Activar plan Corporativo con SLA
+- Partnerships con cámaras de comercio y agencias
 
 ---
 
-## 📦 4. ESTRUCTURA DE PAQUETES RECOMENDADA
+## 📊 5. COMPARACIÓN DE PLANES DOCRE-A
 
-### MODELO PROPUESTO: Basado en Conversaciones + Características
+### Consumo por plan
 
----
+| Métrica de consumo | Básico | Intermedio | Avanzado | Corporativo |
+|--------------------|:------:|:----------:|:--------:|:-----------:|
+| **Precio aprox.** | ~$25-35/mes | ~$55-80/mes | ~$120-180/mes | Cotizar |
+| **Contactos CRM** | 500 | 2,500 | 15,000 | Ilimitados |
+| **Conversaciones / mes** | 1,000 | 5,000 | 25,000 | Ilimitadas |
+| **Mensajes de campaña / mes** | 500 | 5,000 | 25,000 | Ilimitados |
+| **Ejecuciones de flujo / mes** | 50 | 500 | Ilimitadas | Ilimitadas |
+| **Números de WhatsApp** | 1 | 2 | 5 | Ilimitados |
+| **Agentes / usuarios** | 3 | 10 | 25 | Ilimitados |
+| **Organizaciones** | 1 | 1 | Múltiples | Ilimitadas |
 
-### 🎁 **PLAN STARTER (Freemium)**
-**Precio:** **$0/mes** - GRATIS
+### Funcionalidades por plan
 
-**Límites:**
-- 250 conversaciones/mes
-- 1 canal (WhatsApp O Instagram O Facebook)
-- 500 contactos en CRM
-- 2 usuarios/agentes
-- 3 workflows activos
-- 5 campañas programadas/mes
-
-**Características:**
-- ✅ Bandeja unificada básica
-- ✅ CRM básico (sin pipeline personalizado)
-- ✅ Live chat
-- ✅ Plantillas de WhatsApp
-- ✅ Respuestas rápidas (snippets)
-- ✅ Estadísticas básicas
-- ✅ Soporte vía email (48hrs)
-- ⚠️ Branding "Powered by DoCreChat"
-- ❌ Sin IA Gemini
-- ❌ Sin workflows
-- ❌ Sin campañas masivas
-
-**Objetivo:** Captación y validación de usuarios nuevos
-
----
-
-### 🚀 **PLAN PROFESIONAL**
-**Precio:** **$29/mes** (pago mensual) o **$24/mes** (pago anual = $288/año)
-
-**Límites:**
-- **1,500 conversaciones/mes**
-- 3 canales (WhatsApp + Instagram + Facebook)
-- 3,000 contactos en CRM
-- 5 usuarios/agentes
-- 15 workflows activos
-- 25 campañas programadas/mes
-- **Conversaciones extra:** $0.015 cada una
-
-**Características:**
-- ✅ Todo en Starter, MÁS:
-- ✅ **IA Gemini ilimitada** (sugerencias inteligentes)
-- ✅ CRM completo con pipeline personalizado
-- ✅ Tablero de tareas Kanban
-- ✅ Workflows automatizados
-- ✅ Campañas masivas (WhatsApp + Email)
-- ✅ Gmail integrado
-- ✅ Plantillas personalizadas
-- ✅ Estadísticas avanzadas
-- ✅ Segmentación de audiencia
-- ✅ Tags y propiedades personalizadas
-- ✅ Exportación de datos
-- ✅ Integración API básica
-- ✅ Soporte prioritario vía chat (24hrs)
-- ✅ Sin branding de DoCreChat
-
-**Ideal para:** PyMEs, tiendas online, consultores independientes
+| Funcionalidad | Básico | Intermedio | Avanzado | Corporativo |
+|---------------|:------:|:----------:|:--------:|:-----------:|
+| **Roles (Admin/Gerente/Agente)** | ✅ | ✅ | ✅ | ✅ |
+| **CRM pipeline** | ✅ básico | ✅ avanzado | ✅ avanzado | ✅ avanzado |
+| **Propiedades personalizadas CRM** | ❌ | ✅ | ✅ | ✅ |
+| **Form Builder embebible** | ❌ | ✅ | ✅ | ✅ |
+| **Listas dinámicas** | ❌ | ✅ | ✅ | ✅ |
+| **Workflows automatizados** | ❌ | ✅ | ✅ ilimitados | ✅ ilimitados |
+| **Campañas masivas (WA + email)** | ❌ | ✅ | ✅ | ✅ |
+| **Asistente IA** | ✅ token propio | ✅ token propio | ✅ token propio | ✅ token propio |
+| **API externa** | ❌ | ❌ | ✅ | ✅ |
+| **Webhook automatización** | ❌ | ❌ | ✅ | ✅ |
+| **Agente de voz / más canales** | ❌ | ❌ | ❌ | 🔜 próximamente |
+| **Onboarding** | Auto | Docs | Dedicado | Personalizado |
+| **Manager de cuenta** | ❌ | ❌ | ❌ | ✅ |
+| **SLA garantizado** | ❌ | ❌ | ❌ | ✅ |
+| **Soporte** | Email | Prioritario | Dedicado | 24/7 |
 
 ---
 
-### 💼 **PLAN BUSINESS**
-**Precio:** **$79/mes** (pago mensual) o **$66/mes** (pago anual = $792/año)
+## 🌎 6. CONTEXTO DEL MERCADO SALVADOREÑO
 
-**Límites:**
-- **5,000 conversaciones/mes**
-- Canales ilimitados (todos los disponibles)
-- 10,000 contactos en CRM
-- 15 usuarios/agentes
-- Workflows ilimitados
-- Campañas ilimitadas
-- **Conversaciones extra:** $0.012 cada una
+### Indicadores económicos clave (2026):
+- **Moneda:** USD (oficial desde 2001, también Bitcoin como moneda de curso legal)
+- **PIB per cápita:** ~$5,500-6,000 USD/año
+- **Sector PyME:** 95% de las empresas registradas
+- **Penetración de internet:** ~70% de la población
+- **WhatsApp:** Canal principal de comunicación empresarial (>85% de empresas)
+- **Salario mínimo:** ~$365-400/mes (sector comercio/servicios)
 
-**Características:**
-- ✅ Todo en Profesional, MÁS:
-- ✅ **Múltiples números de WhatsApp** (hasta 3)
-- ✅ **Roles avanzados** (Admin, Manager, Community, Custom)
-- ✅ **A/B Testing** de campañas
-- ✅ **Automatizaciones multi-paso avanzadas**
-- ✅ **Reportes personalizados**
-- ✅ **Webhooks personalizados**
-- ✅ **API completa** con mayor límite de llamadas
-- ✅ **Retell AI** integrado (llamadas automatizadas)
-- ✅ **Integración con Google Sheets avanzada**
-- ✅ **Backup automático de datos**
-- ✅ **Subdominio personalizado** (ej: empresa.docrechat.com)
-- ✅ Soporte prioritario 24/7 (12hrs)
-- ✅ Onboarding personalizado (1 hora)
+### Competidores con presencia activa en El Salvador:
+1. **Kommo (amoCRM)** — Muy conocido, usado por agencias locales
+2. **Manychat** — Popular entre e-commerce y tiendas online
+3. **Chatfuel** — Usado por negocios con chatbots de atención
+4. **Callbell** — Creciendo en equipos de ventas
+5. **HubSpot** (Free plan) — Empresas medianas y corporativas
 
-**Ideal para:** Empresas medianas, agencias de marketing, múltiples equipos
+### Sectores con mayor adopción de WhatsApp Business en SV:
+- 🛒 Retail y e-commerce
+- 🍕 Restaurantes y delivery
+- 🏥 Clínicas y salud
+- 🏠 Bienes raíces
+- 🚗 Venta de vehículos y repuestos
+- 🎓 Academias y educación privada
+- 🏢 Servicios profesionales (contadores, abogados)
+- 📦 Importadores y distribuidores
 
----
+### Sensibilidad de precios estimada por segmento:
 
-### 🏢 **PLAN ENTERPRISE**
-**Precio:** **Desde $299/mes** (personalizado según necesidades)
-
-**Límites:**
-- **20,000+ conversaciones/mes** (o según necesidad)
-- Canales ilimitados
-- Contactos ilimitados
-- Usuarios ilimitados
-- Todo ilimitado
-- **Pricing a granel** (descuentos por volumen)
-
-**Características:**
-- ✅ Todo en Business, MÁS:
-- ✅ **Account Manager dedicado**
-- ✅ **Desarrollo de features personalizadas** (hasta 10hrs/mes)
-- ✅ **SLA garantizado** (99.9% uptime)
-- ✅ **Soporte 24/7 prioritario** (respuesta en 2hrs)
-- ✅ **Capacitación del equipo** (incluida)
-- ✅ **Onboarding completo** (hasta 5hrs)
-- ✅ **White-label** (marca personalizada)
-- ✅ **Servidor dedicado** (opcional)
-- ✅ **Integraciones personalizadas** con sistemas de la empresa
-- ✅ **Multi-organización** (gestión de múltiples empresas)
-- ✅ **Reportes ejecutivos mensuales**
-- ✅ **Consultoría estratégica** (1hr/mes incluida)
-
-**Ideal para:** Grandes empresas, corporativos, call centers, BPOs
-
----
-
-## 📊 5. COMPARACIÓN DE PLANES
-
-| Característica | Starter | Profesional | Business | Enterprise |
-|----------------|---------|-------------|----------|------------|
-| **Precio** | $0 | $29/mes | $79/mes | Desde $299/mes |
-| **Conversaciones** | 250/mes | 1,500/mes | 5,000/mes | 20,000+/mes |
-| **Canales** | 1 | 3 | Todos | Todos |
-| **Usuarios** | 2 | 5 | 15 | Ilimitados |
-| **Contactos CRM** | 500 | 3,000 | 10,000 | Ilimitados |
-| **Workflows** | ❌ | 15 | Ilimitados | Ilimitados |
-| **IA Gemini** | ❌ | ✅ | ✅ | ✅ |
-| **Campañas** | ❌ | 25/mes | Ilimitadas | Ilimitadas |
-| **Tablero tareas** | ❌ | ✅ | ✅ | ✅ |
-| **API** | ❌ | Básica | Completa | Personalizada |
-| **Soporte** | Email 48h | Chat 24h | Chat 12h | 24/7 (2hrs) |
-| **WhatsApp múltiple** | ❌ | ❌ | 3 números | Ilimitados |
-| **Branding** | ⚠️ DoCreChat | ✅ Sin marca | ✅ Sin marca | ✅ White-label |
-| **Onboarding** | Auto-servicio | Documentación | 1 hora | 5 horas |
-| **Account Manager** | ❌ | ❌ | ❌ | ✅ Dedicado |
-
----
-
-## 🌎 6. ADAPTACIÓN AL MERCADO SALVADOREÑO
-
-### Contexto Económico de El Salvador (2026):
-- **Moneda:** USD (Dólar estadounidense oficial desde 2001)
-- **PIB per cápita:** ~$5,000 - $6,000 USD/año
-- **Sector PyME:** 95% de las empresas
-- **Penetración digital:** ~70% población con internet
-- **WhatsApp:** Principal canal de comunicación empresarial (>85% uso)
-- **Bitcoin:** Moneda de curso legal (considerar pagos en BTC)
-
-### Estrategia de Precios para El Salvador:
-
-#### **Precios Competitivos vs Región:**
-Los precios propuestos ($0, $29, $79, $299) son **COMPETITIVOS** para El Salvador porque:
-
-1. **20% más barato que Chatfuel** en plan base ($29 vs $23.99, pero con MÁS funcionalidades)
-2. **Similar a Manychat Pro** pero con CRM completo incluido
-3. **Accesible para PyMEs salvadoreñas** (plan Pro = ~$29 vs salario mínimo ~$365/mes = 8%)
-4. **Valor agregado superior:** CRM + Tareas + IA Gemini en un solo lugar
-
-#### **Descuentos Locales Recomendados:**
-
-##### 🎯 **Descuento Emprendedor Salvadoreño**
-- **15% OFF** en planes anuales para:
-  - Empresas registradas en El Salvador
-  - Startups con menos de 2 años
-  - Requisito: Comprobante de RTU (Registro Tributario Único)
-
-##### 🏫 **Descuento Educativo**
-- **30% OFF** para:
-  - Instituciones educativas
-  - Universidades
-  - ONGs registradas
-
-##### 👥 **Descuento por Referidos**
-- **1 mes GRATIS** por cada 3 referidos que contraten plan pago
-- Aplicable a cualquier plan
-
-##### 🚀 **Programa de Early Adopters**
-- Primeros 100 clientes de pago:
-  - **50% OFF** el primer año
-  - Precio bloqueado de por vida (grandfathering)
-  - Status de "Founding Member"
+| Segmento | Rango cómodo/mes | Plan recomendado |
+|----------|-----------------|-----------------|
+| Microempresa (1-3 empleados) | $20-40 | Básico |
+| PyME pequeña (4-15 empleados) | $50-100 | Intermedio |
+| PyME mediana (16-50 empleados) | $100-200 | Avanzado |
+| Empresa grande (50+ empleados) | $250+ | Corporativo |
+| Corporación / Grupo empresarial | Cotizar | Corporativo |
 
 ---
 
 ## 💳 7. MÉTODOS DE PAGO PARA EL SALVADOR
 
-### Esenciales:
-1. **Tarjetas de crédito/débito** (Visa, Mastercard, Amex)
-   - Vía Stripe o PayPal
-2. **Transferencias bancarias ACH**
-   - Bancos locales: Agrícola, Cuscatlán, Davivienda
-3. **Bitcoin (BTC)** 
-   - ⚡ Importante para El Salvador (ley Bitcoin)
-   - Integración con Chivo Wallet u otros
-4. **PayPal**
-5. **Pago contra factura** (Enterprise solamente)
+### Métodos esenciales:
+1. **Tarjetas de crédito/débito** — Visa, Mastercard, Amex (vía Stripe)
+2. **Transferencia bancaria (ACH)** — Bancos Agrícola, Cuscatlán, Davivienda, Scotiabank
+3. **PayPal** — Muy usado para pagos internacionales
+4. **Bitcoin / Lightning Network** — Ley Bitcoin vigente, integración Chivo Wallet
+5. **Pago contra factura** — Para plan Corporativo solamente
 
-### Procesador recomendado:
-- **Stripe** (principal) - acepta tarjetas + ACH
-- **Openpay** o **2Checkout** (alternativa regional)
-- **Bitcoin via Lightning Network** (para microtransacciones)
+### Procesadores recomendados:
+- **Stripe** (principal) — tarjetas, ACH, facturas automáticas
+- **PayPal** — como método alternativo
+- **OpenPay o 2Checkout** — como respaldo regional
 
 ---
 
-## 📈 8. PROYECCIÓN DE INGRESOS
+## 📈 8. PROYECCIONES DE INGRESOS (Referencia)
 
-### Escenario Conservador (Año 1):
+### Escenario conservador — Año 1:
 
-| Mes | Starter | Pro | Business | Enterprise | MRR | Acumulado |
-|-----|---------|-----|----------|------------|-----|-----------|
-| 1-3 | 20 | 0 | 0 | 0 | $0 | $0 |
-| 4-6 | 50 | 5 | 0 | 0 | $145 | $435 |
-| 7-9 | 100 | 15 | 2 | 0 | $593 | $2,214 |
-| 10-12 | 150 | 30 | 5 | 1 | $1,564 | $6,906 |
+| Período | Básico | Intermedio | Avanzado | Corporativo | MRR aprox. |
+|---------|:--------:|:-----------:|:-----------:|:-----------:|:----------:|
+| Mes 1–3 (Beta) | 20–40 | 0 | 0 | 0 | $0 |
+| Mes 4–6 | 20 activos | 5 | 0 | 0 | ~$350 |
+| Mes 7–9 | 30 | 15 | 2 | 0 | ~$1,200 |
+| Mes 10–12 | 40 | 30 | 5 | 1 | ~$3,000 |
 
-**MRR al final del Año 1:** $1,564/mes  
-**ARR proyectado Año 1:** ~$7,000  
-
-### Escenario Optimista (Año 1):
-
-| Mes | Starter | Pro | Business | Enterprise | MRR | ARR |
-|-----|---------|-----|----------|------------|-----|-----|
-| 12 | 300 | 80 | 15 | 3 | $4,502 | $54,024 |
-
-**Desglose Optimista:**
-- 80 × $29 (Pro) = $2,320
-- 15 × $79 (Business) = $1,185
-- 3 × $299 (Enterprise promedio) = $897
-- **Total MRR:** $4,502
+### Escenario optimista — Año 1 mes 12:
+- 30 × Básico ~$35 = $1,050
+- 80 × Intermedio ~$70 = $5,600
+- 15 × Avanzado ~$150 = $2,250
+- 3 × Corporativo ~$350 = $1,050
+- **MRR total: ~$9,950/mes · ARR ~$120,000**
 
 ---
 
 ## 🎯 9. RECOMENDACIONES ESTRATÉGICAS
 
-### Timeline de Implementación:
+### 1. Propuesta de valor clara
+> *"CRM + WhatsApp Business + IA + Campañas en una sola plataforma, hecho para El Salvador. Paga según lo que usas."*
 
-#### **FASE 1: Preparación (Mes 1-2)**
-- [ ] Finalizar funcionalidades core
-- [ ] Implementar sistema de facturación (Stripe)
-- [ ] Crear páginas de pricing
-- [ ] Configurar límites por plan
-- [ ] Sistema de onboarding automático
-- [ ] Documentación completa
+Comparativa de precio vs herramientas separadas:
+- Wati Pro (inbox WA): $99/mes
+- Kommo Advanced 5 usuarios (CRM): $125/mes
+- ChatGPT Plus ×2 (IA): $40/mes
+- Mailchimp Essentials (campañas email): $20/mes
+- **Total herramientas separadas: ~$284/mes**
+- **Docre-A Intermedio: ~$65-80/mes → ahorro de ~70%**
 
-#### **FASE 2: Beta Privada (Mes 3-5)**
-- [ ] Invitar 20-30 empresas beta
-- [ ] Plan Starter GRATIS para todos
-- [ ] Recolectar feedback intensivo
-- [ ] Ajustar funcionalidades
-- [ ] Documentar casos de éxito
+### 2. Tácticas de adquisición para El Salvador
+- SEO local: "CRM WhatsApp El Salvador", "plataforma WhatsApp empresas SV"
+- Google Ads y Meta Ads segmentados por país + cargo (dueño de negocio, gerente de ventas)
+- Partnerships con agencias de marketing digital locales (referidos)
+- Charlas en eventos empresariales (Cámara de Comercio, CORSATUR, CONAMYPE)
+- Webinars mensuales "Cómo vender más por WhatsApp"
+- Programa de afiliados: 20% de comisión recurrente por referido
 
-#### **FASE 3: Beta Pública (Mes 6-8)**
-- [ ] Abrir registro público
-- [ ] Lanzar Plan Starter (Free)
-- [ ] Ofrecer Plan Pro con descuento 50% (3 primeros meses)
-- [ ] Marketing focalizado en PyMEs salvadoreñas
-- [ ] Webinars y demos semanales
+### 3. Descuentos estratégicos para acelerar adopción local
+- **Early Adopters (primeros 100 clientes):** 50% OFF el primer año + precio bloqueado permanentemente
+- **Pago anual:** 15-20% de descuento
+- **Emprendedor salvadoreño:** 15% OFF con RTU activo (Registro Tributario Único)
+- **Sector educativo / ONGs:** 30% OFF
+- **Referidos:** 1 mes gratis por cada 3 empresas que contraten plan pago
 
-#### **FASE 4: Lanzamiento Comercial (Mes 9+)**
-- [ ] Activar todos los planes
-- [ ] Programa de early adopters
-- [ ] Partnerships con cámaras de comercio
-- [ ] Alianzas con agencias de marketing
-- [ ] Participación en eventos empresariales
-
----
-
-### Factores Críticos de Éxito:
-
-#### 1. **Propuesta de Valor Clara**
-✅ "CRM + WhatsApp + IA en una sola plataforma por $29/mes"  
-✅ Más económico que contratar 3 herramientas separadas  
-✅ Hecho para el mercado latino
-
-#### 2. **Onboarding Excepcional**
-- Tutorial interactivo al crear cuenta
-- Video tours de 2-3 minutos
-- Templates pre-configurados
-- Soporte en español nativo
-
-#### 3. **Casos de Uso Salvadoreños**
-- Tiendas de retail
-- Restaurantes y delivery
-- Clínicas médicas
-- Agencias de bienes raíces
-- Escuelas y academias
-
-#### 4. **Estrategia de Marketing**
-- SEO local ("CRM WhatsApp El Salvador")
-- Facebook/Instagram Ads dirigidas
-- Partnerships con influencers de negocios locales
-- Eventos presenciales (San Salvador)
-- Programa de afiliados (20% comisión recurrente)
-
-#### 5. **Métricas a Monitorear**
-- **CAC** (Customer Acquisition Cost): Meta < $50
-- **LTV** (Lifetime Value): Meta > $500
-- **Churn Rate**: Meta < 10% mensual
-- **Conversion Free→Pro**: Meta > 15%
-- **NPS** (Net Promoter Score): Meta > 40
+### 4. Factores críticos de éxito
+| Factor | Métrica objetivo |
+|--------|----------------|
+| CAC (costo adquisición cliente) | < $50 USD |
+| LTV (valor de vida del cliente) | > $600 USD |
+| Churn mensual | < 8% |
+| Conversión demo → pago | > 25% |
+| NPS (satisfacción) | > 45 |
 
 ---
 
-## 💡 10. ADD-ONS Y SERVICIOS ADICIONALES
+## 💡 10. SERVICIOS ADICIONALES Y ADD-ONS
 
-### Servicios de Implementación:
+### Servicios de implementación (ingresos únicos):
 
-| Servicio | Precio | Descripción |
-|----------|--------|-------------|
-| **Setup Completo** | $150 | Configuración inicial completa (3hrs) |
-| **Migración de Datos** | $200 | Importación desde otra plataforma |
-| **Capacitación de Equipo** | $80/hora | Training personalizado (mín 2hrs) |
-| **Desarrollo Custom** | $100/hora | Features personalizadas |
-| **Diseño de Workflows** | $120 | 3 workflows custom diseñados |
-| **Plantillas de WhatsApp** | $50 | Diseño de 5 plantillas profesionales |
-| **Integración API Personalizada** | $300+ | Conectar con sistema existente |
+| Servicio | Precio sugerido | Descripción |
+|----------|----------------|-------------|
+| **Setup completo** | $120-180 | Configuración inicial (3hrs) |
+| **Migración de datos** | $180-250 | Importación desde otra plataforma |
+| **Capacitación de equipo** | $70-90/hora | Training personalizado (mín 2hrs) |
+| **Diseño de workflows** | $100-150 | 3-5 workflows custom diseñados |
+| **Plantillas de WhatsApp** | $40-60 | 5 plantillas profesionales |
+| **Integración API custom** | $250-400 | Conectar con sistema existente |
+| **Desarrollo a medida** | $80-120/hora | Features personalizadas |
 
-### Add-ons Mensuales:
+### Add-ons mensuales (para planes Básico e Intermedio):
 
-| Add-on | Precio | Descripción |
-|--------|--------|-------------|
-| **+5,000 conversaciones** | $50/mes | Incremento de límite |
-| **+10 usuarios adicionales** | $20/mes | Para plan Business |
-| **WhatsApp número adicional** | $15/mes | Conectar otro WABA |
-| **Storage adicional** | $10/mes | +50GB para media |
-| **Reportes avanzados** | $25/mes | Dashboards ejecutivos |
-| **Consultoría mensual** | $150/mes | 2hrs de asesoría estratégica |
+| Add-on | Precio aprox. | Descripción |
+|--------|--------------|-------------|
+| **+5 usuarios adicionales** | $15-20/mes | Ampliar equipo |
+| **+1 número de WhatsApp** | $10-15/mes | Número extra |
+| **Análisis IA avanzado** | $20/mes | Para plan Básico |
+| **Campañas masivas** | $15/mes | Para plan Básico |
+| **Consultoría mensual** | $120-150/mes | 2hrs de asesoría estratégica |
 
 ---
 
-## 🆚 11. COMPARACIÓN DIRECTA: DOCRECHAT VS COMPETENCIA
+## 🆚 11. COMPARACIÓN DOCRE-A VS PRINCIPALES COMPETIDORES
 
-| Característica | DoCreChat Pro | Chatfuel Business | Manychat Pro |
-|----------------|---------------|-------------------|--------------|
-| **Precio base** | $29/mes | $23.99/mes | $15/mes (escala) |
-| **Conversaciones** | 1,500/mes | 1,000/mes | Por contactos |
-| **CRM incluido** | ✅ Completo | ✅ Básico | ⚠️ Limitado |
-| **Tablero tareas** | ✅ Kanban | ❌ No | ❌ No |
-| **IA incluida** | ✅ Gemini | ⚠️ ChatGPT extra | ⚠️ Solo Pro+ |
-| **Gmail integrado** | ✅ Sí | ❌ No | ⚠️ Via Zapier |
-| **Workflows** | ✅ 15 incluidos | ✅ Ilimitados | ✅ Ilimitados |
-| **Multi-canal** | ✅ WA+IG+FB | ✅ WA+FB | ✅ WA+IG+FB+SMS |
-| **Usuarios** | 5 incluidos | 3 incluidos | 3 incluidos |
-| **API** | ✅ Incluida | ⚠️ JSON API | ⚠️ Limitada |
-| **Soporte** | Chat 24h | Email | Email |
+### Plan Intermedio (~$65-80/mes) vs competencia en rango similar:
 
-### Ventaja Competitiva de DoCreChat:
-💪 **TODO-EN-UNO:** CRM + Tareas + Chat + Campañas + IA  
-💪 **Mejor relación calidad-precio** en plan Pro  
-💪 **Hecho para Latinoamérica** (soporte en español, métodos de pago locales)  
-💪 **Menos dependencia de integraciones** (todo nativo)
+| Feature | **Docre-A Intermedio** | Wati Pro $99 | Respond.io Starter $79 | Callbell 10ag Advanced $250 |
+|---------|:-----------------------:|:------------:|:----------------------:|:---------------------------:|
+| WhatsApp Business API | ✅ oficial | ✅ oficial | ✅ | ✅ |
+| Gmail integrado | ✅ nativo | ❌ | ❌ | ❌ |
+| CRM con pipeline | ✅ avanzado | ❌ sin pipeline | ❌ sin CRM | ❌ básico |
+| Propiedades personalizadas CRM | ✅ | ❌ | ❌ | ❌ |
+| Form Builder embebible | ✅ | ❌ | ❌ | ❌ |
+| Listas dinámicas | ✅ | ❌ | ❌ | ❌ |
+| Tablero Kanban | ✅ | ❌ | ❌ | ❌ |
+| Campañas masivas WA | ✅ 5,000 msg/mes | ✅ | ✅ | ❌ |
+| Campañas masivas Email | ✅ | ❌ | ❌ | ❌ |
+| Workflows multi-paso | ✅ hasta 500 exec/mes | ✅ básico | ✅ avanzado | ❌ |
+| IA generativa | ✅ multi-proveedor | ❌ | ✅ básica | ❌ |
+| Números WA incluidos | ✅ 2 | ❌ 1 | ✅ por plan | limitado |
+| Usuarios incluidos | ✅ 10 | ✅ 10 | ✅ ilimitados | ⚠️ precio x agente |
+| Soporte en español | ✅ nativo | ⚠️ limitado | ⚠️ limitado | ✅ |
+
+**Conclusión:** Docre-A Intermedio ofrece la mayor cobertura funcional en el segmento $65-80/mes para el mercado latinoamericano, especialmente para PyMEs que requieren CRM + WhatsApp + IA integrados sin depender de herramientas externas.
 
 ---
 
 ## 📋 12. RESUMEN EJECUTIVO
 
-### ¿Cuándo empezar a cobrar?
-**RECOMENDACIÓN:** A partir del **mes 6-8** con modelo Freemium
+### Los 4 planes de Docre-A (modelo consumo + funcionalidad):
 
-### ¿Qué precios cobrar?
-```
-✅ Plan STARTER:    $0/mes        (250 conversaciones)
-✅ Plan PROFESIONAL: $29/mes      (1,500 conversaciones)
-✅ Plan BUSINESS:    $79/mes      (5,000 conversaciones)
-✅ Plan ENTERPRISE:  Desde $299/mes (personalizado)
-```
+| Plan | Perfil ideal | Consumo base | Precio sugerido | Diferencial clave |
+|------|-------------|:------------|----------------|------------------|
+| **Básico** | Microempresa / dueño solo | 500 contactos · 1K conv/mes · 500 camp. | $25-35/mes | CRM + Gmail + Kanban + IA desde el inicio |
+| **Intermedio** | PyME 4-15 personas | 2,500 contactos · 5K conv/mes · 5K camp. | $55-80/mes | Automatizaciones + campañas + Form Builder |
+| **Avanzado** | 15-50 personas, multi-org | 15K contactos · 25K conv/mes · 25K camp. | $120-180/mes | API + webhook + orgs múltiples |
+| **Corporativo** | 50+ personas, SLA | Ilimitado en todo | Cotizar $300+ | Manager dedicado + SLA + funciones próximamente |
 
-### ¿Por qué estos precios funcionan para El Salvador?
-1. **Accesibles:** Plan Pro = 8% del salario mínimo (viable para PyMEs)
-2. **Competitivos:** 20-30% más barato que competencia con más features
-3. **Escalables:** Modelo que crece con el cliente
-4. **Rentables:** CAC recuperable en 2-3 meses
+> ⚠️ **Nota sobre IA:** El asistente IA (Gemini, OpenAI, Claude) está disponible en todos los planes porque el usuario configura su propio token de API. La plataforma no cobra por el uso de IA — ese costo recae en la cuenta del proveedor del usuario.
 
-### Primeros Pasos Inmediatos:
-1. ✅ Implementar sistema de billing (Stripe + Bitcoin)
-2. ✅ Crear landing page de pricing
-3. ✅ Desarrollar plan Starter (gratis) con límites
-4. ✅ Programa de beta testers (primeros 50 usuarios)
-5. ✅ Documentación y tutoriales en español
+### Por qué funcionan en El Salvador:
+1. **Accesibles:** Básico = 7-9% del salario mínimo (viable para cualquier PyME)
+2. **Competitivos:** 20-40% más baratos que competencia global con más funciones
+3. **Escalables:** Un cliente puede crecer de Básico a Corporativo naturalmente
+4. **En su idioma:** Soporte en español, moneda USD, facturación local
 
-### Meta Año 1:
-- **50-100 usuarios activos**
-- **20-30 clientes de pago**
-- **MRR: $1,500 - $4,500**
-- **ARR: $18,000 - $54,000**
+### Próximos pasos inmediatos:
+1. ✅ Sección de planes visible en landing page (implementada sin precios)
+2. ⬜ Definir precios finales e implementar sistema de billing (Stripe)
+3. ⬜ Crear flujo de upgrade automático dentro de la plataforma
+4. ⬜ Preparar 20-50 empresas beta para validación
+5. ⬜ Configurar límites por plan en el backend (Edge Functions + RLS)
 
----
-
-## 📞 PRÓXIMOS PASOS
-
-### Decisiones Requeridas:
-- [ ] Aprobar estructura de planes propuesta
-- [ ] Definir fecha de lanzamiento beta
-- [ ] Seleccionar procesador de pagos
-- [ ] Diseñar página de pricing
-- [ ] Crear materiales de marketing
-- [ ] Definir términos y condiciones
-- [ ] Establecer política de reembolsos
-
-### Recursos Necesarios:
-- Sistema de facturación automatizado
-- Dashboard de métricas de uso
-- Sistema de límites por plan
-- Emails transaccionales (bienvenida, facturas, etc.)
-- Documentación para cada plan
-- Videos de onboarding
-
----
-
-**Documento preparado para:** DoCreChat  
-**Análisis basado en:** Chatfuel, Manychat y mercado LATAM  
-**Mercado objetivo:** El Salvador (PyMEs y empresas)  
-**Modelo recomendado:** Freemium con 4 planes escalables  
-
----
-
-## ℹ️ Referencias y Fuentes
-
-1. **Chatfuel Pricing:** https://chatfuel.com/pricing  
-2. **Manychat Pricing:** https://manychat.com/pricing  
-3. **Salario mínimo El Salvador 2026:** ~$365/mes (sector comercio/servicios)  
-4. **Penetración WhatsApp Business LATAM:** 85%+ en PyMEs  
-5. **Convertibilidad USD en El Salvador:** Moneda oficial desde 2001  
-
----
-
-*Este documento es una guía estratégica y puede ajustarse según feedback del mercado y métricas reales de adopción.*

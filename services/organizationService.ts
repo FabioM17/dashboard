@@ -71,19 +71,28 @@ export const organizationService = {
     }
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('organizations')
         .update(updates)
-        .eq('id', organizationId)
-        .select()
-        .single();
+        .eq('id', organizationId);
 
       if (error) {
         console.error('Error updating organization details:', error);
         throw error;
       }
 
-      return data as Organization;
+      const { data: updatedData, error: fetchError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', organizationId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching updated organization:', fetchError);
+        throw fetchError;
+      }
+
+      return updatedData as Organization;
     } catch (err: any) {
       console.error('Exception in updateOrganizationDetails:', err);
       throw err;

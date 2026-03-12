@@ -1042,6 +1042,34 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
+CREATE TABLE IF NOT EXISTS "public"."ai_usage_log" (
+    "id" bigint NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "provider" "text" NOT NULL,
+    "task_type" "text" DEFAULT 'chat_reply'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."ai_usage_log" OWNER TO "postgres";
+
+
+CREATE SEQUENCE IF NOT EXISTS "public"."ai_usage_log_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE "public"."ai_usage_log_id_seq" OWNER TO "postgres";
+
+
+ALTER SEQUENCE "public"."ai_usage_log_id_seq" OWNED BY "public"."ai_usage_log"."id";
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."api_endpoint_configs" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "organization_id" "uuid" NOT NULL,
@@ -1221,6 +1249,37 @@ COMMENT ON COLUMN "public"."crm_contacts"."team_lead_id" IS 'Manager responsable
 
 
 COMMENT ON COLUMN "public"."crm_contacts"."assigned_to_user_id" IS 'Community user asignado a este contacto.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."crm_forms" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text" DEFAULT ''::"text",
+    "fields" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "style" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "allowed_origins" "text"[] DEFAULT ARRAY[]::"text"[],
+    "is_active" boolean DEFAULT true NOT NULL,
+    "submission_count" integer DEFAULT 0 NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."crm_forms" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."crm_forms" IS 'Embeddable HTML forms that capture leads into the CRM. The form id is public; no secret token is embedded.';
+
+
+
+COMMENT ON COLUMN "public"."crm_forms"."allowed_origins" IS 'Allowed Origin domains for CORS and validation. Empty = all origins allowed. Example: {"https://mysite.com","https://landing.mysite.com"}';
+
+
+
+COMMENT ON COLUMN "public"."crm_forms"."submission_count" IS 'Running total of successful submissions for analytics.';
 
 
 
@@ -1463,6 +1522,31 @@ CREATE TABLE IF NOT EXISTS "public"."snippets" (
 ALTER TABLE "public"."snippets" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."task_board_phases" (
+    "id" "text" NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "label" "text" NOT NULL,
+    "color" "text" DEFAULT 'bg-slate-500'::"text" NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."task_board_phases" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."task_board_phases" IS 'Custom kanban phases per organization. id matches the text value stored in tasks.status.';
+
+
+
+COMMENT ON COLUMN "public"."task_board_phases"."id" IS 'Text key used as tasks.status value (e.g. ''todo'', ''in_progress'', ''done'', ''custom_xxx'').';
+
+
+
+COMMENT ON COLUMN "public"."task_board_phases"."position" IS 'Display order for columns in the kanban board (ascending).';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."tasks" (
     "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "organization_id" "uuid" NOT NULL,
@@ -1475,8 +1559,7 @@ CREATE TABLE IF NOT EXISTS "public"."tasks" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "team_lead_id" "uuid",
     "assigned_to_team_lead" "uuid",
-    "whatsapp_phone_number_id" "uuid",
-    CONSTRAINT "tasks_status_check" CHECK (("status" = ANY (ARRAY['todo'::"text", 'in_progress'::"text", 'done'::"text"])))
+    "whatsapp_phone_number_id" "uuid"
 );
 
 
@@ -1710,6 +1793,15 @@ COMMENT ON COLUMN "public"."workflows"."whatsapp_phone_number_id" IS 'Número de
 
 
 
+ALTER TABLE ONLY "public"."ai_usage_log" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."ai_usage_log_id_seq"'::"regclass");
+
+
+
+ALTER TABLE ONLY "public"."ai_usage_log"
+    ADD CONSTRAINT "ai_usage_log_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."api_endpoint_configs"
     ADD CONSTRAINT "api_endpoint_configs_pkey" PRIMARY KEY ("id");
 
@@ -1742,6 +1834,11 @@ ALTER TABLE ONLY "public"."creator_org_limits"
 
 ALTER TABLE ONLY "public"."crm_contacts"
     ADD CONSTRAINT "crm_contacts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."crm_forms"
+    ADD CONSTRAINT "crm_forms_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1807,6 +1904,11 @@ ALTER TABLE ONLY "public"."scheduled_notifications"
 
 ALTER TABLE ONLY "public"."snippets"
     ADD CONSTRAINT "snippets_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."task_board_phases"
+    ADD CONSTRAINT "task_board_phases_pkey" PRIMARY KEY ("id", "organization_id");
 
 
 
@@ -1896,6 +1998,10 @@ CREATE INDEX "campaigns_status_idx" ON "public"."campaigns" USING "btree" ("stat
 
 
 
+CREATE INDEX "idx_ai_usage_org_time" ON "public"."ai_usage_log" USING "btree" ("organization_id", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_api_endpoint_configs_org" ON "public"."api_endpoint_configs" USING "btree" ("organization_id");
 
 
@@ -1961,6 +2067,14 @@ CREATE INDEX "idx_crm_contacts_organization_id" ON "public"."crm_contacts" USING
 
 
 CREATE INDEX "idx_crm_contacts_team_lead_id" ON "public"."crm_contacts" USING "btree" ("team_lead_id");
+
+
+
+CREATE INDEX "idx_crm_forms_active" ON "public"."crm_forms" USING "btree" ("id", "is_active") WHERE ("is_active" = true);
+
+
+
+CREATE INDEX "idx_crm_forms_organization_id" ON "public"."crm_forms" USING "btree" ("organization_id");
 
 
 
@@ -2092,6 +2206,10 @@ CREATE INDEX "idx_snippets_org" ON "public"."snippets" USING "btree" ("organizat
 
 
 
+CREATE INDEX "idx_task_board_phases_org" ON "public"."task_board_phases" USING "btree" ("organization_id", "position");
+
+
+
 CREATE INDEX "idx_tasks_assigned_to_team" ON "public"."tasks" USING "btree" ("assigned_to_team_lead");
 
 
@@ -2196,6 +2314,10 @@ CREATE OR REPLACE TRIGGER "set_creator_org_limits_updated_at" BEFORE UPDATE ON "
 
 
 
+CREATE OR REPLACE TRIGGER "set_crm_forms_updated_at" BEFORE UPDATE ON "public"."crm_forms" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
 CREATE OR REPLACE TRIGGER "trig_scheduled_notifications_updated_at" BEFORE UPDATE ON "public"."scheduled_notifications" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
@@ -2225,6 +2347,16 @@ CREATE OR REPLACE TRIGGER "update_whatsapp_phone_numbers_updated_at" BEFORE UPDA
 
 
 CREATE OR REPLACE TRIGGER "update_workflows_updated_at" BEFORE UPDATE ON "public"."workflows" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+ALTER TABLE ONLY "public"."ai_usage_log"
+    ADD CONSTRAINT "ai_usage_log_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."ai_usage_log"
+    ADD CONSTRAINT "ai_usage_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -2290,6 +2422,11 @@ ALTER TABLE ONLY "public"."crm_contacts"
 
 ALTER TABLE ONLY "public"."crm_contacts"
     ADD CONSTRAINT "crm_contacts_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id");
+
+
+
+ALTER TABLE ONLY "public"."crm_forms"
+    ADD CONSTRAINT "crm_forms_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -2395,6 +2532,11 @@ ALTER TABLE ONLY "public"."scheduled_notifications"
 
 ALTER TABLE ONLY "public"."snippets"
     ADD CONSTRAINT "snippets_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."task_board_phases"
+    ADD CONSTRAINT "task_board_phases_org_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -2518,6 +2660,10 @@ CREATE POLICY "Admins can add members" ON "public"."organization_members" FOR IN
 
 
 
+CREATE POLICY "Admins can manage org phases" ON "public"."task_board_phases" USING ((("organization_id" = "public"."get_my_org_id"()) AND ("public"."get_current_user_role"() = 'admin'::"text")));
+
+
+
 CREATE POLICY "Admins can manage phone numbers" ON "public"."whatsapp_phone_numbers" USING ((("organization_id" = "public"."get_my_org_id"()) AND ("public"."get_current_user_role"() = 'admin'::"text")));
 
 
@@ -2594,7 +2740,23 @@ CREATE POLICY "Manage org tasks" ON "public"."tasks" USING (("organization_id" =
 
 
 
+CREATE POLICY "Members can view their org phases" ON "public"."task_board_phases" FOR SELECT USING (("organization_id" = "public"."get_my_org_id"()));
+
+
+
 CREATE POLICY "Only creator admins can create organizations" ON "public"."organizations" FOR INSERT TO "authenticated" WITH CHECK ((("created_by" = "auth"."uid"()) AND "public"."can_current_user_create_organization"()));
+
+
+
+CREATE POLICY "Org admins can update organization details" ON "public"."organizations" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "om"
+  WHERE (("om"."organization_id" = "organizations"."id") AND ("om"."user_id" = "auth"."uid"()) AND ("om"."role" = 'admin'::"text"))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_members" "om"
+  WHERE (("om"."organization_id" = "organizations"."id") AND ("om"."user_id" = "auth"."uid"()) AND ("om"."role" = 'admin'::"text")))));
+
+
+
+CREATE POLICY "Org members can read own ai usage" ON "public"."ai_usage_log" FOR SELECT USING (("organization_id" = "public"."get_auth_user_org_id"()));
 
 
 
@@ -2611,6 +2773,10 @@ CREATE POLICY "Service role can manage message statuses" ON "public"."message_st
 
 
 CREATE POLICY "Service role can manage messages" ON "public"."messages" USING (("auth"."role"() = 'service_role'::"text"));
+
+
+
+CREATE POLICY "Service role full access on ai_usage_log" ON "public"."ai_usage_log" USING (("auth"."role"() = 'service_role'::"text")) WITH CHECK (("auth"."role"() = 'service_role'::"text"));
 
 
 
@@ -2948,6 +3114,17 @@ CREATE POLICY "View org notes" ON "public"."notes" FOR SELECT USING ((EXISTS ( S
 
 
 
+CREATE POLICY "admin_manager_all_crm_forms" ON "public"."crm_forms" USING (("organization_id" IN ( SELECT "organization_members"."organization_id"
+   FROM "public"."organization_members"
+  WHERE (("organization_members"."user_id" = "auth"."uid"()) AND ("organization_members"."role" = ANY (ARRAY['admin'::"text", 'manager'::"text"])))))) WITH CHECK (("organization_id" IN ( SELECT "organization_members"."organization_id"
+   FROM "public"."organization_members"
+  WHERE (("organization_members"."user_id" = "auth"."uid"()) AND ("organization_members"."role" = ANY (ARRAY['admin'::"text", 'manager'::"text"]))))));
+
+
+
+ALTER TABLE "public"."ai_usage_log" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."api_endpoint_configs" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2955,6 +3132,12 @@ ALTER TABLE "public"."api_keys" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."campaigns" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "community_read_crm_forms" ON "public"."crm_forms" FOR SELECT USING (("organization_id" IN ( SELECT "organization_members"."organization_id"
+   FROM "public"."organization_members"
+  WHERE ("organization_members"."user_id" = "auth"."uid"()))));
+
 
 
 ALTER TABLE "public"."conversations" ENABLE ROW LEVEL SECURITY;
@@ -2992,6 +3175,9 @@ CREATE POLICY "crm_contacts_select_community" ON "public"."crm_contacts" FOR SEL
 
 CREATE POLICY "crm_contacts_select_manager" ON "public"."crm_contacts" FOR SELECT USING ((("public"."get_current_user_role"() = 'manager'::"text") AND ("team_lead_id" = "auth"."uid"())));
 
+
+
+ALTER TABLE "public"."crm_forms" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."crm_property_definitions" ENABLE ROW LEVEL SECURITY;
@@ -3038,6 +3224,9 @@ ALTER TABLE "public"."scheduled_notifications" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."snippets" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."task_board_phases" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."tasks" ENABLE ROW LEVEL SECURITY;
@@ -3239,6 +3428,18 @@ GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."ai_usage_log" TO "anon";
+GRANT ALL ON TABLE "public"."ai_usage_log" TO "authenticated";
+GRANT ALL ON TABLE "public"."ai_usage_log" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."ai_usage_log_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."ai_usage_log_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."ai_usage_log_id_seq" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "anon";
 GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "authenticated";
 GRANT ALL ON TABLE "public"."api_endpoint_configs" TO "service_role";
@@ -3272,6 +3473,12 @@ GRANT ALL ON TABLE "public"."creator_org_limits" TO "service_role";
 GRANT ALL ON TABLE "public"."crm_contacts" TO "anon";
 GRANT ALL ON TABLE "public"."crm_contacts" TO "authenticated";
 GRANT ALL ON TABLE "public"."crm_contacts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."crm_forms" TO "anon";
+GRANT ALL ON TABLE "public"."crm_forms" TO "authenticated";
+GRANT ALL ON TABLE "public"."crm_forms" TO "service_role";
 
 
 
@@ -3344,6 +3551,12 @@ GRANT ALL ON TABLE "public"."scheduled_notifications" TO "service_role";
 GRANT ALL ON TABLE "public"."snippets" TO "anon";
 GRANT ALL ON TABLE "public"."snippets" TO "authenticated";
 GRANT ALL ON TABLE "public"."snippets" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."task_board_phases" TO "anon";
+GRANT ALL ON TABLE "public"."task_board_phases" TO "authenticated";
+GRANT ALL ON TABLE "public"."task_board_phases" TO "service_role";
 
 
 
