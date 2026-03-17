@@ -15,11 +15,50 @@ import EmailEditor from './EmailEditor';
 import { supabase } from '../services/supabaseClient';
 import { whatsappPhoneService } from '../services/whatsappPhoneService';
 
+const COUNTRIES: string[] = [
+  'Afganistán','Albania','Alemania','Andorra','Angola','Antigua y Barbuda','Arabia Saudita','Argelia','Argentina',
+  'Armenia','Australia','Austria','Azerbaiyán','Bahamas','Bangladés','Barbados','Baréin','Bélgica','Belice',
+  'Benín','Bielorrusia','Bolivia','Bosnia y Herzegovina','Botsuana','Brasil','Brunéi','Bulgaria','Burkina Faso',
+  'Burundi','Bután','Cabo Verde','Camboya','Camerún','Canadá','Catar','Chad','Chile','China','Chipre',
+  'Colombia','Comoras','Corea del Norte','Corea del Sur','Costa de Marfil','Costa Rica','Croacia','Cuba',
+  'Dinamarca','Dominica','Ecuador','Egipto','El Salvador','Emiratos Árabes Unidos','Eritrea',
+  'Eslovaquia','Eslovenia','España','Estados Unidos','Estonia','Etiopía','Filipinas','Finlandia','Fiyi',
+  'Francia','Gabón','Gambia','Georgia','Ghana','Granada','Grecia','Guatemala','Guinea','Guinea-Bisáu',
+  'Guinea Ecuatorial','Guyana','Haití','Honduras','Hungría','India','Indonesia','Irak','Irán','Irlanda',
+  'Islandia','Islas Marshall','Islas Salomón','Israel','Italia','Jamaica','Japón','Jordania','Kazajistán',
+  'Kenia','Kirguistán','Kiribati','Kuwait','Laos','Lesoto','Letonia','Líbano','Liberia','Libia',
+  'Liechtenstein','Lituania','Luxemburgo','Macedonia del Norte','Madagascar','Malasia','Malaui','Maldivas',
+  'Malí','Malta','Marruecos','Mauricio','Mauritania','México','Micronesia','Moldavia','Mónaco','Mongolia',
+  'Montenegro','Mozambique','Myanmar','Namibia','Nauru','Nepal','Nicaragua','Níger','Nigeria','Noruega',
+  'Nueva Zelanda','Omán','Países Bajos','Pakistán','Palaos','Palestina','Panamá','Papúa Nueva Guinea',
+  'Paraguay','Perú','Polonia','Portugal','Reino Unido','República Centroafricana','República Checa',
+  'República del Congo','República Democrática del Congo','República Dominicana','Ruanda','Rumania',
+  'Rusia','Samoa','San Cristóbal y Nieves','San Marino','San Vicente y las Granadinas','Santa Lucía',
+  'Santo Tomé y Príncipe','Senegal','Serbia','Seychelles','Sierra Leona','Singapur','Siria','Somalia',
+  'Sri Lanka','Suazilandia','Sudáfrica','Sudán','Sudán del Sur','Suecia','Suiza','Surinam','Tailandia',
+  'Tanzania','Tayikistán','Timor Oriental','Togo','Tonga','Trinidad y Tobago','Túnez','Turkmenistán',
+  'Turquía','Tuvalu','Ucrania','Uganda','Uruguay','Uzbekistán','Vanuatu','Venezuela','Vietnam',
+  'Yemen','Yibuti','Zambia','Zimbabue',
+];
+
+const COUNTRY_REGIONS: { label: string; emoji: string; countries: string[] }[] = [
+  { label: 'América del Norte', emoji: '🌎', countries: ['Canadá','Estados Unidos','México'] },
+  { label: 'América Central', emoji: '🌎', countries: ['Belice','Costa Rica','El Salvador','Guatemala','Honduras','Nicaragua','Panamá'] },
+  { label: 'Caribe', emoji: '🌴', countries: ['Antigua y Barbuda','Bahamas','Barbados','Cuba','Dominica','Granada','Haití','Jamaica','República Dominicana','San Cristóbal y Nieves','San Vicente y las Granadinas','Santa Lucía','Trinidad y Tobago'] },
+  { label: 'América del Sur', emoji: '🌎', countries: ['Argentina','Bolivia','Brasil','Chile','Colombia','Ecuador','Guyana','Paraguay','Perú','Surinam','Uruguay','Venezuela'] },
+  { label: 'Europa', emoji: '🌍', countries: ['Albania','Alemania','Andorra','Armenia','Austria','Azerbaiyán','Bélgica','Bielorrusia','Bosnia y Herzegovina','Bulgaria','Chipre','Croacia','Dinamarca','Eslovaquia','Eslovenia','España','Estonia','Finlandia','Francia','Georgia','Grecia','Hungría','Irlanda','Islandia','Italia','Letonia','Liechtenstein','Lituania','Luxemburgo','Macedonia del Norte','Malta','Moldavia','Mónaco','Montenegro','Noruega','Países Bajos','Polonia','Portugal','Reino Unido','República Checa','Rumania','Rusia','San Marino','Serbia','Suecia','Suiza','Turquía','Ucrania'] },
+  { label: 'África', emoji: '🌍', countries: ['Angola','Argelia','Benín','Botsuana','Burkina Faso','Burundi','Cabo Verde','Camerún','Chad','Comoras','Costa de Marfil','Eritrea','Etiopía','Gabón','Gambia','Ghana','Guinea','Guinea Ecuatorial','Guinea-Bisáu','Kenia','Lesoto','Liberia','Libia','Madagascar','Malaui','Malí','Marruecos','Mauricio','Mauritania','Mozambique','Namibia','Níger','Nigeria','República Centroafricana','República del Congo','República Democrática del Congo','Ruanda','Santo Tomé y Príncipe','Senegal','Seychelles','Sierra Leona','Somalia','Sudáfrica','Sudán','Sudán del Sur','Suazilandia','Tanzania','Togo','Túnez','Uganda','Yibuti','Zambia','Zimbabue'] },
+  { label: 'Oriente Medio', emoji: '🕌', countries: ['Arabia Saudita','Baréin','Catar','Egipto','Emiratos Árabes Unidos','Irak','Irán','Israel','Jordania','Kuwait','Líbano','Omán','Palestina','Siria','Yemen'] },
+  { label: 'Asia', emoji: '🌏', countries: ['Afganistán','Bangladés','Brunéi','Bután','Camboya','China','Corea del Norte','Corea del Sur','Filipinas','India','Indonesia','Japón','Kazajistán','Kirguistán','Laos','Malasia','Maldivas','Mongolia','Myanmar','Nepal','Pakistán','Singapur','Sri Lanka','Tailandia','Tayikistán','Timor Oriental','Turkmenistán','Uzbekistán','Vietnam'] },
+  { label: 'Oceanía', emoji: '🌊', countries: ['Australia','Fiyi','Islas Marshall','Islas Salomón','Kiribati','Micronesia','Nauru','Nueva Zelanda','Palaos','Papúa Nueva Guinea','Samoa','Tonga','Tuvalu','Vanuatu'] },
+];
+
 interface CRMScreenProps {
     contacts: CRMContact[];
     onSaveContact: (contact: CRMContact) => void;
     properties: CustomProperty[];
     onAddProperty: (prop: CustomProperty) => void;
+    onUpdateProperty?: (prop: CustomProperty) => void;
     onDeleteContact?: (id: string) => void;
     onDeleteProperty?: (id: string) => void;
     onChatSelect?: (contact: CRMContact) => void;
@@ -29,7 +68,7 @@ interface CRMScreenProps {
     teamMembers?: User[];
 }
 
-const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properties: customProperties, onAddProperty, onDeleteContact, onDeleteProperty, onChatSelect, organizationId, currentUser, conversations = [], teamMembers: externalTeamMembers = [] }) => {
+const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properties: customProperties, onAddProperty, onUpdateProperty, onDeleteContact, onDeleteProperty, onChatSelect, organizationId, currentUser, conversations = [], teamMembers: externalTeamMembers = [] }) => {
   const [activeTab, setActiveTab] = useState<'contacts' | 'pipeline' | 'properties' | 'campaigns' | 'lists' | 'assignments' | 'forms'>('contacts');
   const [lists, setLists] = useState<CRMList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -855,9 +894,11 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
   const [contactFormError, setContactFormError] = useState<string>('');
   
   const [showPropModal, setShowPropModal] = useState(false);
+  const [editingPropId, setEditingPropId] = useState<string | null>(null);
   const [newPropName, setNewPropName] = useState('');
   const [newPropType, setNewPropType] = useState<CustomProperty['type']>('text');
   const [newPropOptions, setNewPropOptions] = useState<string>('');
+  const [countryModalSearch, setCountryModalSearch] = useState('');
 
   const handleOpenAddContact = () => {
       setContactForm({ id: Date.now().toString(), name: '', email: '', phone: '', company: '', pipelineStageId: 'lead', properties: {} });
@@ -869,8 +910,15 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
       // Normalize stored property keys to canonical p.id so form inputs can find them
       const normalizedProps: Record<string, any> = {};
       customProperties.forEach(p => {
-          const val = getPropValue(selectedContact.properties, p);
-          if (val !== '') normalizedProps[p.id] = val;
+          if (p.type === 'multiselect') {
+              const rawVal = selectedContact.properties?.[p.id];
+              if (Array.isArray(rawVal) && rawVal.length > 0) normalizedProps[p.id] = rawVal;
+              else if (typeof rawVal === 'string' && rawVal) normalizedProps[p.id] = rawVal.split(',').map((s: string) => s.trim()).filter(Boolean);
+              else normalizedProps[p.id] = [];
+          } else {
+              const val = getPropValue(selectedContact.properties, p);
+              if (val !== '') normalizedProps[p.id] = val;
+          }
       });
       setContactForm({
           id: selectedContact.id,
@@ -920,15 +968,42 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
   const handleCreateProperty = () => {
       if(!newPropName.trim()) return;
-      const id = newPropName.toLowerCase().replace(/\s+/g, '_');
-      const options = newPropType === 'select' && newPropOptions.trim() 
-          ? newPropOptions.split(',').map(o => o.trim()).filter(o => o)
-          : undefined;
-      const newProp: CustomProperty = { id, name: newPropName, type: newPropType, options };
-      onAddProperty(newProp);
+      let options: string[] | undefined;
+      if ((newPropType === 'select' || newPropType === 'multiselect') && newPropOptions.trim()) {
+          options = newPropOptions.split(',').map(o => o.trim()).filter(o => o);
+      } else if (newPropType === 'country' && newPropOptions.trim()) {
+          // Store only the filtered subset; empty means "all countries"
+          options = newPropOptions.split('|').filter(o => o);
+      }
+      if (editingPropId) {
+          const updated: CustomProperty = { id: editingPropId, name: newPropName, type: newPropType, options };
+          onUpdateProperty?.(updated);
+      } else {
+          const slug = newPropName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          const id = `${slug}_${Date.now()}`;
+          const newProp: CustomProperty = { id, name: newPropName, type: newPropType, options };
+          onAddProperty(newProp);
+      }
       setShowPropModal(false);
+      setEditingPropId(null);
       setNewPropName('');
       setNewPropOptions('');
+      setCountryModalSearch('');
+  };
+
+  const handleOpenEditProp = (prop: CustomProperty) => {
+      setEditingPropId(prop.id);
+      setNewPropName(prop.name);
+      setNewPropType(prop.type);
+      if (prop.type === 'country') {
+          setNewPropOptions(prop.options ? prop.options.join('|') : '');
+      } else if (prop.type === 'select' || prop.type === 'multiselect') {
+          setNewPropOptions(prop.options ? prop.options.join(', ') : '');
+      } else {
+          setNewPropOptions('');
+      }
+      setCountryModalSearch('');
+      setShowPropModal(true);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -1152,7 +1227,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                 ))}
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Custom Properties</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Propiedades personalizadas</label>
                                 {customProperties.map(p => (
                                     <div key={p.id} className="mb-2 flex items-center gap-2">
                                         <span className="w-40 text-xs text-slate-700 font-medium">{p.name}</span>
@@ -1344,7 +1419,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                 </div>
                               </th>
                               {visiblePropertyColumns.map(p => (
-                                <th key={p.id} className="px-4 py-4 hidden xl:table-cell select-none">
+                                <th key={p.id} className="px-4 py-4 select-none">
                                   <div className="relative flex items-center justify-between">
                                     <button className="flex items-center gap-1 hover:text-slate-700 truncate" onClick={e => { e.stopPropagation(); setSortMenuCol(v => v === p.id ? null : p.id); }}>{p.name}<SortIcon field={p.id}/></button>
                                     <SortMenu field={p.id} />
@@ -1385,7 +1460,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         <span className="block truncate px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 w-fit max-w-full">{pipelineStages.find(p => p.id === contact.pipelineStageId)?.name}</span>
                                     </td>
                                     {visiblePropertyColumns.map(p => (
-                                      <td key={p.id} className="px-4 py-4 text-slate-600 hidden xl:table-cell" style={{ overflow: 'hidden', maxWidth: 0 }}>
+                                      <td key={p.id} className="px-4 py-4 text-slate-600" style={{ overflow: 'hidden', maxWidth: 0 }}>
                                         <span className="block truncate">
                                           {(() => { const v = getPropValue(contact.properties, p); return v ? v : <span className="text-slate-300">—</span>; })()}
                                         </span>
@@ -1605,8 +1680,8 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
         {activeTab === 'properties' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-4xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <div><h3 className="text-lg font-bold text-slate-800">Custom Properties</h3></div>
-                    <button onClick={() => setShowPropModal(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2"><Plus size={16} /> Create Property</button>
+                    <div><h3 className="text-lg font-bold text-slate-800">Propiedades personalizadas</h3></div>
+                    <button onClick={() => { setEditingPropId(null); setNewPropName(''); setNewPropType('text'); setNewPropOptions(''); setShowPropModal(true); }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center gap-2"><Plus size={16} /> Crear propiedad</button>
                 </div>
                 <div className="space-y-2">
                     {customProperties.map(prop => (
@@ -1616,13 +1691,21 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                 <div>
                                     <h4 className="font-medium text-slate-800">{prop.name}</h4>
                                     <p className="text-xs text-slate-500 font-mono">ID: {prop.id}</p>
-                                    {prop.type === 'select' && prop.options && (
-                                        <p className="text-xs text-slate-400 mt-1">Options: {prop.options.join(', ')}</p>
+                                    {(prop.type === 'select' || prop.type === 'multiselect') && prop.options && (
+                                        <p className="text-xs text-slate-400 mt-1">{prop.type === 'multiselect' ? 'Opciones múltiples' : 'Opciones'}: {prop.options.join(', ')}</p>
+                                    )}
+                                    {prop.type === 'country' && (
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            {prop.options && prop.options.length > 0
+                                                ? `${prop.options.length} países filtrados: ${prop.options.slice(0, 3).join(', ')}${prop.options.length > 3 ? '...' : ''}`
+                                                : `Todos los países (${COUNTRIES.length})`}
+                                        </p>
                                     )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-full uppercase font-bold">{prop.type}</span>
+                                <button onClick={() => handleOpenEditProp(prop)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700"><Pencil size={16}/></button>
                                 <button onClick={() => onDeleteProperty?.(prop.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
                             </div>
                         </div>
@@ -2671,7 +2754,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
         {showContactModal && (
             <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 flex flex-col max-h-[90vh]">
-                     <h3 className="text-lg font-bold text-slate-800 mb-4">{contactForm.id ? 'Edit Contact' : 'Add New Contact'}</h3>
+                     <h3 className="text-lg font-bold text-slate-800 mb-4">{contactForm.id ? 'Editar contacto' : 'Nuevo contacto'}</h3>
                                          <div className="space-y-3 overflow-y-auto flex-1">
                                                 {contactFormError && (
                                                     <div className="bg-red-50 text-red-700 px-3 py-2 rounded mb-2 text-xs font-semibold border border-red-200">{contactFormError}</div>
@@ -2680,13 +2763,13 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                         <input type="email" className="w-full border p-2 rounded text-sm" placeholder="Correo electrónico" value={contactForm.email} onChange={e=>setContactForm({...contactForm, email: e.target.value})} />
                         <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Teléfono" value={contactForm.phone} onChange={e=>setContactForm({...contactForm, phone: e.target.value})} />
                         <input type="text" className="w-full border p-2 rounded text-sm" placeholder="Empresa" value={contactForm.company} onChange={e=>setContactForm({...contactForm, company: e.target.value})} />
-                        <label className="block text-xs font-bold text-slate-500 mt-4 uppercase">Stage</label>
+                        <label className="block text-xs font-bold text-slate-500 mt-4 uppercase">Etapa</label>
                         <select className="w-full border p-2 rounded text-sm" value={contactForm.pipelineStageId} onChange={e=>setContactForm({...contactForm, pipelineStageId: e.target.value})}>
                             {pipelineStages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         {customProperties.length > 0 && (
                             <div className="mt-4 pt-2 border-t">
-                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Custom Properties</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Propiedades personalizadas</label>
                                 {customProperties.map(p => (
                                     <div key={p.id} className="mb-2">
                                         <label className="text-xs text-slate-600">{p.name}</label>
@@ -2749,16 +2832,58 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                         )}
                                         {p.type === 'select' && (
                                             <select 
-                                                className="w-full border p-2 rounded text-sm bg-slate-50" 
+                                                className="w-full border p-2 rounded text-sm bg-slate-50"
                                                 value={contactForm.properties[p.id] || ''}
                                                 onChange={e => setContactForm({...contactForm, properties: {...contactForm.properties, [p.id]: e.target.value}})}
                                             >
-                                                <option value="">Select {p.name}</option>
+                                                <option value="">Seleccionar {p.name}</option>
                                                 {(p.options || []).map((option, idx) => (
                                                     <option key={idx} value={option}>{option}</option>
                                                 ))}
                                             </select>
                                         )}
+                                        {p.type === 'multiselect' && (
+                                            <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded p-2 bg-slate-50">
+                                                {(p.options || []).length === 0 && <p className="text-xs text-slate-400">Sin opciones definidas</p>}
+                                                {(p.options || []).map((option, idx) => {
+                                                    const current: string[] = Array.isArray(contactForm.properties[p.id]) ? contactForm.properties[p.id] : [];
+                                                    const checked = current.includes(option);
+                                                    return (
+                                                        <label key={idx} className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={() => {
+                                                                    const next = checked ? current.filter(v => v !== option) : [...current, option];
+                                                                    setContactForm({...contactForm, properties: {...contactForm.properties, [p.id]: next}});
+                                                                }}
+                                                                className="w-4 h-4 accent-emerald-600"
+                                                            />
+                                                            <span className="text-sm text-slate-700">{option}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {p.type === 'country' && (() => {
+                                            const countryList = (p.options && p.options.length > 0) ? p.options : COUNTRIES;
+                                            const listId = `country-list-${p.id}`;
+                                            return (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        list={listId}
+                                                        className="w-full border p-2 rounded text-sm bg-slate-50"
+                                                        placeholder="Buscar o escribir país..."
+                                                        value={contactForm.properties[p.id] || ''}
+                                                        onChange={e => setContactForm({...contactForm, properties: {...contactForm.properties, [p.id]: e.target.value}})}
+                                                    />
+                                                    <datalist id={listId}>
+                                                        {countryList.map(c => <option key={c} value={c} />)}
+                                                    </datalist>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 ))}
                             </div>
@@ -2789,21 +2914,31 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
         {showPropModal && (
             <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                     <h3 className="text-lg font-bold text-slate-800 mb-4">Add Custom Property</h3>
+                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+                     <h3 className="text-lg font-bold text-slate-800 mb-4">{editingPropId ? 'Editar propiedad' : 'Nueva propiedad personalizada'}</h3>
+                     <label className="block text-xs text-slate-500 mb-1">Nombre</label>
                      <input type="text" className="w-full border p-2 rounded mb-3" placeholder="Nombre de la propiedad" value={newPropName} onChange={e => setNewPropName(e.target.value)} />
-                     <select className="w-full border p-2 rounded mb-3" value={newPropType} onChange={e => setNewPropType(e.target.value as any)}>
-                         <option value="text">Text</option>
-                         <option value="number">Number</option>
-                         <option value="date">Date</option>
-                         <option value="time">Time</option>
-                         <option value="phone">Phone</option>
-                         <option value="percentage">Percentage</option>
-                         <option value="select">Select (Dropdown)</option>
+                     {!editingPropId && (
+                         <p className="text-xs text-slate-400 mb-3">
+                             ID generado: <span className="font-mono text-slate-600">{newPropName ? `${newPropName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}_` : ''}
+                             <span className="text-slate-400">[timestamp único]</span></span>
+                         </p>
+                     )}
+                     <label className="block text-xs text-slate-500 mb-1">Tipo</label>
+                     <select className="w-full border p-2 rounded mb-3" value={newPropType} onChange={e => { setNewPropType(e.target.value as any); setNewPropOptions(''); setCountryModalSearch(''); }}>
+                         <option value="text">Texto</option>
+                         <option value="number">Número</option>
+                         <option value="date">Fecha</option>
+                         <option value="time">Hora</option>
+                         <option value="phone">Teléfono</option>
+                         <option value="percentage">Porcentaje</option>
+                         <option value="select">Selección (Dropdown)</option>
+                         <option value="multiselect">Selección múltiple</option>
+                         <option value="country">País</option>
                      </select>
-                     {newPropType === 'select' && (
+                     {(newPropType === 'select' || newPropType === 'multiselect') && (
                          <div className="mb-3">
-                             <label className="block text-xs text-slate-600 mb-1">Options (comma-separated)</label>
+                             <label className="block text-xs text-slate-600 mb-1">Opciones (separadas por coma)</label>
                              <input 
                                  type="text" 
                                  className="w-full border p-2 rounded text-sm" 
@@ -2811,11 +2946,106 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                  value={newPropOptions} 
                                  onChange={e => setNewPropOptions(e.target.value)} 
                              />
-                             <p className="text-xs text-slate-400 mt-1">Example: Lead, Qualified, Customer</p>
+                             <p className="text-xs text-slate-400 mt-1">Ejemplo: Lead, Qualified, Customer</p>
                          </div>
                      )}
+                     {newPropType === 'country' && (() => {
+                         const selectedArr = newPropOptions.split('|').filter(x => x);
+                         const visibleCountries = COUNTRIES.filter(c => c.toLowerCase().includes(countryModalSearch.toLowerCase()));
+                         const allVisibleSelected = visibleCountries.length > 0 && visibleCountries.every(c => selectedArr.includes(c));
+                         const toggleVisible = () => {
+                             const s = new Set(selectedArr);
+                             if (allVisibleSelected) visibleCountries.forEach(c => s.delete(c));
+                             else visibleCountries.forEach(c => s.add(c));
+                             setNewPropOptions(Array.from(s).join('|'));
+                         };
+                         return (
+                         <div className="mb-3">
+                             <label className="block text-xs text-slate-600 mb-2 font-medium">
+                                 Países disponibles <span className="text-slate-400 font-normal">(opcional — sin selección = todos los países)</span>
+                             </label>
+
+                             {/* Region quick-select */}
+                             <p className="text-xs text-slate-500 mb-1">Selección rápida por región:</p>
+                             <div className="flex flex-wrap gap-1 mb-3">
+                                 {COUNTRY_REGIONS.map(region => {
+                                     const allSel = region.countries.every(c => selectedArr.includes(c));
+                                     return (
+                                         <button key={region.label} type="button"
+                                             onClick={() => {
+                                                 const s = new Set(selectedArr);
+                                                 if (allSel) region.countries.forEach(c => s.delete(c));
+                                                 else region.countries.forEach(c => s.add(c));
+                                                 setNewPropOptions(Array.from(s).join('|'));
+                                             }}
+                                             className={`text-xs px-2 py-1 rounded border transition-colors ${
+                                                 allSel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400 hover:text-emerald-700'
+                                             }`}>
+                                             {region.emoji} {region.label}
+                                         </button>
+                                     );
+                                 })}
+                             </div>
+
+                             {/* Search bar */}
+                             <div className="relative mb-1">
+                                 <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+                                 <input type="text"
+                                     className="w-full border pl-8 pr-3 py-1.5 rounded text-sm outline-none focus:border-emerald-500"
+                                     placeholder="Buscar país..."
+                                     value={countryModalSearch}
+                                     onChange={e => setCountryModalSearch(e.target.value)}
+                                 />
+                             </div>
+
+                             {/* Select all visible row */}
+                             <div className="flex justify-between items-center mb-2 text-xs">
+                                 <span className="text-slate-400">{visibleCountries.length} país(es) en lista</span>
+                                 <button type="button" onClick={toggleVisible} className="text-emerald-600 hover:underline font-medium">
+                                     {allVisibleSelected ? 'Deseleccionar visibles' : 'Seleccionar todos los visibles'}
+                                 </button>
+                             </div>
+
+                             {/* Selected chips */}
+                             {selectedArr.length > 0 && (
+                                 <div className="flex flex-wrap gap-1 mb-2">
+                                     {selectedArr.map(c => (
+                                         <span key={c} className="flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full">
+                                             {c}
+                                             <button type="button" onClick={() => setNewPropOptions(selectedArr.filter(x => x !== c).join('|'))} className="hover:text-red-500"><X size={10}/></button>
+                                         </span>
+                                     ))}
+                                     <button type="button" onClick={() => setNewPropOptions('')} className="text-xs text-slate-400 hover:text-red-500 underline ml-1">Limpiar todo</button>
+                                 </div>
+                             )}
+
+                             {/* Country checkbox list */}
+                             <div className="border rounded max-h-40 overflow-y-auto">
+                                 {visibleCountries.map(c => {
+                                     const checked = selectedArr.includes(c);
+                                     return (
+                                         <label key={c} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm hover:bg-slate-50 ${checked ? 'bg-emerald-50' : ''}`}>
+                                             <input type="checkbox" checked={checked}
+                                                 onChange={() => {
+                                                     const s = new Set(selectedArr);
+                                                     if (checked) s.delete(c); else s.add(c);
+                                                     setNewPropOptions(Array.from(s).join('|'));
+                                                 }}
+                                                 className="accent-emerald-600"
+                                             />
+                                             {c}
+                                         </label>
+                                     );
+                                 })}
+                             </div>
+                             <p className="text-xs text-slate-400 mt-1">
+                                 {selectedArr.length > 0 ? `${selectedArr.length} países seleccionados` : `Todos los países (${COUNTRIES.length}) disponibles`}
+                             </p>
+                         </div>
+                         );
+                     })()}
                      <button onClick={handleCreateProperty} className="w-full bg-emerald-600 text-white py-2 rounded">Guardar</button>
-                     <button onClick={()=>setShowPropModal(false)} className="w-full bg-slate-200 text-slate-700 py-2 rounded mt-2">Cancel</button>
+                     <button onClick={() => { setShowPropModal(false); setEditingPropId(null); setCountryModalSearch(''); }} className="w-full bg-slate-200 text-slate-700 py-2 rounded mt-2">Cancelar</button>
                  </div>
             </div>
         )}
@@ -2890,27 +3120,41 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                                     onClick={() => { onChatSelect(selectedContact); setSelectedContact(null); }}
                                     className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold hover:bg-emerald-700 flex items-center justify-center gap-2"
                                 >
-                                    <MessageCircle size={18} /> Go to Chat
+                                    <MessageCircle size={18} /> Ir al chat
                                 </button>
                             )}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-50 p-2 rounded"><span className="text-xs font-bold text-slate-400">EMAIL</span><p className="text-sm">{selectedContact.email}</p></div>
-                            <div className="bg-slate-50 p-2 rounded"><span className="text-xs font-bold text-slate-400">PHONE</span><p className="text-sm">{selectedContact.phone}</p></div>
+                            <div className="bg-slate-50 p-2 rounded"><span className="text-xs font-bold text-slate-400">CORREO</span><p className="text-sm">{selectedContact.email}</p></div>
+                            <div className="bg-slate-50 p-2 rounded"><span className="text-xs font-bold text-slate-400">TELÉFONO</span><p className="text-sm">{selectedContact.phone}</p></div>
                         </div>
                         {customProperties.length > 0 && (
                             <div className="border-t pt-2">
                                 <h4 className="font-bold mb-2 text-sm">Propiedades</h4>
                                 <div className="grid grid-cols-1 gap-1">
                                 {customProperties.map(p => {
+                                    const rawVal = selectedContact.properties?.[p.id];
                                     const val = getPropValue(selectedContact.properties, p);
                                     const hasValue = val !== '' && val !== undefined && val !== null;
+                                    const multiArr: string[] = p.type === 'multiselect'
+                                        ? (Array.isArray(rawVal) ? rawVal : (typeof rawVal === 'string' && rawVal ? rawVal.split(',').map((s: string) => s.trim()).filter(Boolean) : []))
+                                        : [];
                                     return (
-                                        <div key={p.id} className="flex justify-between items-center border-b border-slate-100 py-1.5">
-                                            <span className="text-sm text-slate-500">{p.name}</span>
-                                            <span className={`text-sm font-medium ${hasValue ? 'text-slate-800' : 'text-slate-300'}`}>
-                                                {hasValue ? String(val) : '—'}
-                                            </span>
+                                        <div key={p.id} className="flex justify-between items-start border-b border-slate-100 py-1.5">
+                                            <span className="text-sm text-slate-500 shrink-0 mr-2">{p.name}</span>
+                                            {p.type === 'multiselect' ? (
+                                                multiArr.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1 justify-end">
+                                                        {multiArr.map(v => (
+                                                            <span key={v} className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">{v}</span>
+                                                        ))}
+                                                    </div>
+                                                ) : <span className="text-sm text-slate-300">—</span>
+                                            ) : (
+                                                <span className={`text-sm font-medium text-right ${hasValue ? 'text-slate-800' : 'text-slate-300'}`}>
+                                                    {hasValue ? String(val) : '—'}
+                                                </span>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -2922,7 +3166,7 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
                         <div className="pt-4 mt-2 border-t flex justify-end">
                             <button onClick={handleEditContactFromModal} className="flex items-center gap-2 text-slate-600 hover:text-emerald-600 font-medium">
-                                <Edit2 size={16}/> Edit Contact
+                                <Edit2 size={16}/> Editar contacto
                             </button>
                         </div>
                     </div>

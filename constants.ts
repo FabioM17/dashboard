@@ -273,3 +273,42 @@ export const MOCK_TASKS: Task[] = [
         dueDate: new Date(Date.now() + 1000 * 60 * 60 * 48)
     }
 ];
+
+// ─── Countries ────────────────────────────────────────────────────────────────
+export const COUNTRIES: string[] = [
+  'Afganistán','Albania','Alemania','Andorra','Angola','Antigua y Barbuda','Arabia Saudita','Argelia','Argentina',
+  'Armenia','Australia','Austria','Azerbaiyán','Bahamas','Bangladés','Barbados','Baréin','Bélgica','Belice',
+  'Benín','Bielorrusia','Bolivia','Bosnia y Herzegovina','Botsuana','Brasil','Brunéi','Bulgaria','Burkina Faso',
+  'Burundi','Bután','Cabo Verde','Camboya','Camerún','Canadá','Catar','Chad','Chile','China','Chipre',
+  'Colombia','Comoras','Corea del Norte','Corea del Sur','Costa de Marfil','Costa Rica','Croacia','Cuba',
+  'Dinamarca','Dominica','Ecuador','Egipto','El Salvador','Emiratos Árabes Unidos','Eritrea',
+  'Eslovaquia','Eslovenia','España','Estados Unidos','Estonia','Etiopía','Filipinas','Finlandia','Fiyi',
+  'Francia','Gabón','Gambia','Georgia','Ghana','Granada','Grecia','Guatemala','Guinea','Guinea-Bisáu',
+  'Guinea Ecuatorial','Guyana','Haití','Honduras','Hungría','India','Indonesia','Irak','Irán','Irlanda',
+  'Islandia','Islas Marshall','Islas Salomón','Israel','Italia','Jamaica','Japón','Jordania','Kazajistán',
+  'Kenia','Kirguistán','Kiribati','Kuwait','Laos','Lesoto','Letonia','Líbano','Liberia','Libia',
+  'Liechtenstein','Lituania','Luxemburgo','Macedonia del Norte','Madagascar','Malasia','Malaui','Maldivas',
+  'Malí','Malta','Marruecos','Mauricio','Mauritania','México','Micronesia','Moldavia','Mónaco','Mongolia',
+  'Montenegro','Mozambique','Myanmar','Namibia','Nauru','Nepal','Nicaragua','Níger','Nigeria','Noruega',
+  'Nueva Zelanda','Omán','Países Bajos','Pakistán','Palaos','Palestina','Panamá','Papúa Nueva Guinea',
+  'Paraguay','Perú','Polonia','Portugal','Reino Unido','República Centroafricana','República Checa',
+  'República del Congo','República Democrática del Congo','República Dominicana','Ruanda','Rumania',
+  'Rusia','Samoa','San Cristóbal y Nieves','San Marino','San Vicente y las Granadinas','Santa Lucía',
+  'Santo Tomé y Príncipe','Senegal','Serbia','Seychelles','Sierra Leona','Singapur','Siria','Somalia',
+  'Sri Lanka','Suazilandia','Sudáfrica','Sudán','Sudán del Sur','Suecia','Suiza','Surinam','Tailandia',
+  'Tanzania','Tayikistán','Timor Oriental','Togo','Tonga','Trinidad y Tobago','Túnez','Turkmenistán',
+  'Turquía','Tuvalu','Ucrania','Uganda','Uruguay','Uzbekistán','Vanuatu','Venezuela','Vietnam',
+  'Yemen','Yibuti','Zambia','Zimbabue',
+];
+
+export const COUNTRY_REGIONS: { label: string; emoji: string; countries: string[] }[] = [
+  { label: 'América del Norte', emoji: '🌎', countries: ['Canadá','Estados Unidos','México'] },
+  { label: 'América Central',   emoji: '🌎', countries: ['Belice','Costa Rica','El Salvador','Guatemala','Honduras','Nicaragua','Panamá'] },
+  { label: 'Caribe',            emoji: '🌴', countries: ['Antigua y Barbuda','Bahamas','Barbados','Cuba','Dominica','Granada','Haití','Jamaica','República Dominicana','San Cristóbal y Nieves','San Vicente y las Granadinas','Santa Lucía','Trinidad y Tobago'] },
+  { label: 'América del Sur',   emoji: '🌎', countries: ['Argentina','Bolivia','Brasil','Chile','Colombia','Ecuador','Guyana','Paraguay','Perú','Surinam','Uruguay','Venezuela'] },
+  { label: 'Europa',            emoji: '🌍', countries: ['Albania','Alemania','Andorra','Armenia','Austria','Azerbaiyán','Bélgica','Bielorrusia','Bosnia y Herzegovina','Bulgaria','Chipre','Croacia','Dinamarca','Eslovaquia','Eslovenia','España','Estonia','Finlandia','Francia','Georgia','Grecia','Hungría','Irlanda','Islandia','Italia','Letonia','Liechtenstein','Lituania','Luxemburgo','Macedonia del Norte','Malta','Moldavia','Mónaco','Montenegro','Noruega','Países Bajos','Polonia','Portugal','Reino Unido','República Checa','Rumania','Rusia','San Marino','Serbia','Suecia','Suiza','Turquía','Ucrania'] },
+  { label: 'África',            emoji: '🌍', countries: ['Angola','Argelia','Benín','Botsuana','Burkina Faso','Burundi','Cabo Verde','Camerún','Chad','Comoras','Costa de Marfil','Eritrea','Etiopía','Gabón','Gambia','Ghana','Guinea','Guinea Ecuatorial','Guinea-Bisáu','Kenia','Lesoto','Liberia','Libia','Madagascar','Malaui','Malí','Marruecos','Mauricio','Mauritania','Mozambique','Namibia','Níger','Nigeria','República Centroafricana','República del Congo','República Democrática del Congo','Ruanda','Santo Tomé y Príncipe','Senegal','Seychelles','Sierra Leona','Somalia','Sudáfrica','Sudán','Sudán del Sur','Suazilandia','Tanzania','Togo','Túnez','Uganda','Yibuti','Zambia','Zimbabue'] },
+  { label: 'Oriente Medio',     emoji: '🕌', countries: ['Arabia Saudita','Baréin','Catar','Egipto','Emiratos Árabes Unidos','Irak','Irán','Israel','Jordania','Kuwait','Líbano','Omán','Palestina','Siria','Yemen'] },
+  { label: 'Asia',              emoji: '🌏', countries: ['Afganistán','Bangladés','Brunéi','Bután','Camboya','China','Corea del Norte','Corea del Sur','Filipinas','India','Indonesia','Japón','Kazajistán','Kirguistán','Laos','Malasia','Maldivas','Mongolia','Myanmar','Nepal','Pakistán','Singapur','Sri Lanka','Tailandia','Tayikistán','Timor Oriental','Turkmenistán','Uzbekistán','Vietnam'] },
+  { label: 'Oceanía',           emoji: '🌊', countries: ['Australia','Fiyi','Islas Marshall','Islas Salomón','Kiribati','Micronesia','Nauru','Nueva Zelanda','Palaos','Papúa Nueva Guinea','Samoa','Tonga','Tuvalu','Vanuatu'] },
+];

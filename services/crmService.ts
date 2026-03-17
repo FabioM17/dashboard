@@ -106,12 +106,27 @@ export const crmService = {
         type: property.type,
         organization_id: organizationId
       };
-      if (property.type === 'select' && property.options) {
-      payload.options = property.options;
+      if ((property.type === 'select' || property.type === 'multiselect' || property.type === 'country') && property.options) {
+        payload.options = property.options;
       }
       const { error } = await supabase.from('crm_property_definitions').insert(payload);
       if (error) throw error;
     },
+
+  async updateProperty(property: CustomProperty, organizationId: string) {
+    if (!organizationId) throw new Error("Organization ID required");
+    const payload: any = {
+      name: property.name,
+      type: property.type,
+      options: (property.type === 'select' || property.type === 'multiselect' || property.type === 'country') && property.options ? property.options : null,
+    };
+    const { error } = await supabase
+      .from('crm_property_definitions')
+      .update(payload)
+      .eq('id', property.id)
+      .eq('organization_id', organizationId);
+    if (error) throw error;
+  },
 
   async deleteProperty(id: string, organizationId: string) {
     if (!organizationId) throw new Error("Organization ID required");

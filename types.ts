@@ -153,8 +153,8 @@ export interface PipelineStage {
 export interface CustomProperty {
   id: string;
   name: string;
-  type: 'text' | 'number' | 'date' | 'time' | 'select' | 'phone' | 'percentage';
-  options?: string[]; // For select type
+  type: 'text' | 'number' | 'date' | 'time' | 'select' | 'multiselect' | 'phone' | 'percentage' | 'country';
+  options?: string[]; // For select / country (subset filter) types
 }
 
 // Settings Types

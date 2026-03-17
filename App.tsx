@@ -765,6 +765,12 @@ const App: React.FC = () => {
       setProperties(prev => [...prev, prop]);
   };
 
+  const handleUpdateProperty = async (prop: CustomProperty) => {
+      if (!currentUser?.organizationId) return;
+      await crmService.updateProperty(prop, currentUser.organizationId);
+      setProperties(prev => prev.map(p => p.id === prop.id ? prop : p));
+  };
+
   const handleDeleteProperty = async (id: string) => {
       if (!currentUser?.organizationId) return;
       await crmService.deleteProperty(id, currentUser.organizationId);
@@ -804,6 +810,7 @@ const App: React.FC = () => {
             onSaveContact={handleSaveContact} 
             properties={properties} 
             onAddProperty={handleAddProperty} 
+            onUpdateProperty={handleUpdateProperty}
             onDeleteContact={handleDeleteContact} 
             onDeleteProperty={handleDeleteProperty}
             onChatSelect={handleChatFromContact}

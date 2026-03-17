@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient';
 export interface CRMFormField {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'tel' | 'number' | 'select' | 'date' | 'time' | 'textarea';
+  type: 'text' | 'email' | 'tel' | 'number' | 'select' | 'multiselect' | 'date' | 'time' | 'textarea' | 'country';
   required: boolean;
   placeholder: string;
   options?: string[];
@@ -27,6 +27,8 @@ export interface FormStyle {
   showTitle: boolean;
   titleText: string;
   subtitleText: string;
+  multiselectLayout?: 'pills' | 'list';
+  multiselectColumns?: 1 | 2;
 }
 
 export interface CRMForm {

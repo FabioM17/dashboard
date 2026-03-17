@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Code2, Copy, Check, AlertTriangle, CheckCircle,
   X, Globe, FileText, Palette, Eye, ChevronDown, ChevronUp,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { CustomProperty } from '../types';
 import { formService, CRMForm, CRMFormField, FormStyle, getFormSubmitUrl } from '../services/formService';
+import { COUNTRIES } from '../constants';
 
 type Step = 'list' | 'fields' | 'style' | 'code';
 
@@ -25,9 +26,15 @@ const FONT_OPTIONS = [
 function propTypeToFieldType(t: CustomProperty['type']): CRMFormField['type'] {
   const map: Record<CustomProperty['type'], CRMFormField['type']> = {
     text: 'text', number: 'number', date: 'date',
-    time: 'time', select: 'select', phone: 'tel', percentage: 'number',
+    time: 'time', select: 'select', multiselect: 'multiselect', phone: 'tel',
+    percentage: 'number', country: 'country',
   };
   return map[t] ?? 'text';
+}
+
+/** Returns the list of countries to use for a given property (filtered subset or all). */
+function resolveCountryOptions(prop: CustomProperty): string[] {
+  return (prop.options && prop.options.length > 0) ? prop.options : COUNTRIES;
 }
 
 const DEFAULT_STYLE: FormStyle = {
@@ -40,6 +47,8 @@ const DEFAULT_STYLE: FormStyle = {
   borderRadius: '8',
   fontFamily: 'Inter, sans-serif',
   submitLabel: 'Enviar',
+  multiselectLayout: 'pills',
+  multiselectColumns: 1,
   successMessage: '¡Gracias! Tu mensaje ha sido recibido.',
   errorMessage: 'Ha ocurrido un error. Inténtalo de nuevo.',
   showTitle: true,
@@ -76,9 +85,31 @@ function generateEmbedCode(form: CRMForm): string {
     let inp = '';
     if (f.type === 'textarea') {
       inp = `<textarea id="${id}" name="${f.key}" ${f.required ? 'required' : ''} placeholder="${f.placeholder}" rows="3" style="${iStyle}"></textarea>`;
-    } else if (f.type === 'select' && f.options?.length) {
+    } else if (f.type === 'multiselect' && f.options?.length) {
+      const layout = s.multiselectLayout ?? 'pills';
+      const cols = s.multiselectColumns ?? 1;
+      if (layout === 'pills') {
+        const pillStyle = `display:inline-flex;align-items:center;padding:5px 14px;margin:4px;border:1.5px solid ${s.borderColor};border-radius:999px;font-size:13px;cursor:pointer;user-select:none;transition:background .15s,border-color .15s,color .15s;background:#fff;color:${s.textColor};word-break:break-word;max-width:220px`;
+        const pills = f.options.map(o =>
+          `<label style="${pillStyle}" onmouseover="this.style.borderColor='${s.primaryColor}';this.style.color='${s.primaryColor}'" onmouseout="var c=this.querySelector('input');if(!c.checked){this.style.borderColor='${s.borderColor}';this.style.color='${s.textColor}'}"><input type="checkbox" name="${f.key}" value="${o}" style="display:none" onchange="var l=this.parentElement;if(this.checked){l.style.background='${s.primaryColor}';l.style.borderColor='${s.primaryColor}';l.style.color='#fff'}else{l.style.background='#fff';l.style.borderColor='${s.borderColor}';l.style.color='${s.textColor}'}"> ${o}</label>`
+        ).join('');
+        inp = `<div style="display:flex;flex-wrap:wrap;margin:-4px;padding:4px 0">${pills}</div>`;
+      } else {
+        const colStyle = cols === 2
+          ? `display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;max-height:220px;overflow-y:auto;padding:10px 12px;border:1px solid ${s.borderColor};border-radius:${br};background:#fff`
+          : `display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;padding:10px 12px;border:1px solid ${s.borderColor};border-radius:${br};background:#fff`;
+        const items = f.options.map(o =>
+          `<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;line-height:1.4;padding:3px 0"><input type="checkbox" name="${f.key}" value="${o}" style="margin-top:2px;accent-color:${s.primaryColor};width:15px;height:15px;flex-shrink:0"><span style="color:${s.textColor};word-break:break-word">${o}</span></label>`
+        ).join('');
+        inp = `<div style="${colStyle}">${items}</div>`;
+      }
+    } else if ((f.type === 'select' || f.type === 'country') && f.options?.length) {
       const opts = f.options.map(o => `<option value="${o}">${o}</option>`).join('');
       inp = `<select id="${id}" name="${f.key}" ${f.required ? 'required' : ''} style="${iStyle}"><option value="">Seleccionar…</option>${opts}</select>`;
+    } else if (f.type === 'country') {
+      // country without pre-filtered options: use datalist for searchable input
+      const allOpts = COUNTRIES.map(c => `<option value="${c}">`).join('');
+      inp = `<input type="text" id="${id}" name="${f.key}" list="${id}_list" ${f.required ? 'required' : ''} placeholder="${f.placeholder || 'Buscar país…'}" style="${iStyle}"><datalist id="${id}_list">${allOpts}</datalist>`;
     } else {
       inp = `<input type="${f.type}" id="${id}" name="${f.key}" ${f.required ? 'required' : ''} placeholder="${f.placeholder}" style="${iStyle}">`;
     }
@@ -117,7 +148,13 @@ ${fieldsHtml}
     btn.disabled = true; btn.style.opacity = '0.65';
     err.style.display = 'none';
     var data = {};
-    new FormData(form).forEach(function(v, k) { data[k] = v; });
+    var fd = new FormData(form);
+    var keys = [];
+    fd.forEach(function(v, k) { if (keys.indexOf(k) < 0) keys.push(k); });
+    keys.forEach(function(k) {
+      var vals = fd.getAll(k);
+      data[k] = vals.length === 1 ? vals[0] : vals;
+    });
     fetch(URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, body: j }; }); })
       .then(function(res) {
@@ -170,23 +207,64 @@ function FormPreview({ fields, style, formName }: { fields: CRMFormField[]; styl
             Activa campos para ver la vista previa
           </p>
         )}
-        {fields.map(f => (
-          <div key={f.key} style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 500, color: s.labelColor }}>
-              {f.label}{f.required && <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>}
-            </label>
-            {f.type === 'textarea' ? (
-              <textarea readOnly placeholder={f.placeholder} rows={3} style={{ ...inputStyle, resize: 'none' }} />
-            ) : f.type === 'select' && f.options?.length ? (
+        {fields.map(f => {
+          let input: React.ReactNode;
+          if (f.type === 'textarea') {
+            input = <textarea readOnly placeholder={f.placeholder} rows={3} style={{ ...inputStyle, resize: 'none' }} />;
+          } else if (f.type === 'multiselect' && f.options?.length) {
+            const layout = s.multiselectLayout ?? 'pills';
+            const cols = s.multiselectColumns ?? 1;
+            if (layout === 'pills') {
+              input = (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px 0' }}>
+                  {f.options.map(o => (
+                    <span key={o} style={{
+                      display: 'inline-flex', alignItems: 'center',
+                      padding: '5px 14px', border: `1.5px solid ${s.borderColor}`,
+                      borderRadius: '999px', fontSize: '13px', color: s.textColor,
+                      background: '#fff', cursor: 'default', wordBreak: 'break-word', maxWidth: '220px',
+                    }}>{o}</span>
+                  ))}
+                </div>
+              );
+            } else {
+              input = (
+                <div style={{
+                  display: 'grid', gridTemplateColumns: cols === 2 ? '1fr 1fr' : '1fr',
+                  gap: '4px 16px', maxHeight: '220px', overflowY: 'auto',
+                  padding: '10px 12px', border: `1px solid ${s.borderColor}`,
+                  borderRadius: br, background: '#fff',
+                }}>
+                  {f.options.map(o => (
+                    <label key={o} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', cursor: 'default', lineHeight: 1.4, padding: '3px 0' }}>
+                      <input type="checkbox" disabled style={{ marginTop: '2px', width: '15px', height: '15px', flexShrink: 0 }} />
+                      <span style={{ color: s.textColor, wordBreak: 'break-word' }}>{o}</span>
+                    </label>
+                  ))}
+                </div>
+              );
+            }
+          } else if ((f.type === 'select' || f.type === 'country') && f.options?.length) {
+            input = (
               <select disabled style={inputStyle}>
                 <option>Seleccionar…</option>
                 {f.options.map(o => <option key={o}>{o}</option>)}
               </select>
-            ) : (
-              <input type={f.type} readOnly placeholder={f.placeholder} style={inputStyle} />
-            )}
+            );
+          } else if (f.type === 'country') {
+            input = <input type="text" readOnly placeholder={f.placeholder || 'Buscar país…'} style={inputStyle} />;
+          } else {
+            input = <input type={f.type} readOnly placeholder={f.placeholder} style={inputStyle} />;
+          }
+          return (
+          <div key={f.key} style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 500, color: s.labelColor }}>
+              {f.label}{f.required && <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>}
+            </label>
+            {input}
           </div>
-        ))}
+        );
+        })}
         <button style={{ width: '100%', padding: '10px', background: s.primaryColor, color: '#fff', border: 'none', borderRadius: br, fontFamily: s.fontFamily, fontSize: '14px', fontWeight: 600, cursor: 'default' }}>
           {s.submitLabel}
         </button>
@@ -257,7 +335,7 @@ const FieldCard: React.FC<FieldCardProps> = ({
           </div>
         )}
       </div>
-      {open && field && (
+          {open && field && (
         <div className="mx-5 mb-4 bg-white rounded-lg border border-blue-100 shadow-sm overflow-hidden">
           <div className="px-4 pt-3 pb-4 grid grid-cols-2 gap-3">
             <div>
@@ -270,7 +348,25 @@ const FieldCard: React.FC<FieldCardProps> = ({
               <input value={field.placeholder ?? ''} onChange={e => onUpdateField({ placeholder: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
-            {(opts ?? []).length > 0 && (
+            {field.type === 'multiselect' ? (
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Opciones</label>
+                <p className="text-xs text-gray-500 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                  ☑️ {field.options?.length
+                    ? `${field.options.length} opciones. El diseño se configura en la pestaña “Estilo”.`
+                    : 'Sin opciones. Edita la propiedad para añadir opciones.'}
+                </p>
+              </div>
+            ) : field.type === 'country' ? (
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Países disponibles</label>
+                <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                  🌎 {field.options?.length
+                    ? `${field.options.length} países filtrados. Edita la propiedad para cambiar la selección.`
+                    : `Todos los países (${COUNTRIES.length}). Edita la propiedad para filtrar.`}
+                </p>
+              </div>
+            ) : (opts ?? []).length > 0 ? (
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Opciones del desplegable</label>
                 <input
@@ -280,7 +376,7 @@ const FieldCard: React.FC<FieldCardProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>
-            )}
+            ) : null}
             <div className="col-span-2 flex items-center gap-2 pt-1">
               <input type="checkbox" id={`req_${fieldKey}`} checked={field.required}
                 onChange={e => onUpdateField({ required: e.target.checked })}
@@ -313,6 +409,30 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
 
   useEffect(() => { loadForms(); }, [organizationId]);
 
+  // Sync customProperties changes into the form currently being edited.
+  // When a property is renamed or its options change, update matching fields so
+  // the editor and the generated code stay consistent.
+  useEffect(() => {
+    if (!editingForm) return;
+    setEditingForm(prev => {
+      if (!prev) return prev;
+      const fields = ((prev.fields as CRMFormField[]) ?? []).map(f => {
+        if (f.isBase) return f;
+        const prop = customProperties.find(p => p.id === f.key);
+        if (!prop) return f;
+        const newType  = propTypeToFieldType(prop.type);
+        const newOpts  = prop.type === 'country'
+          ? resolveCountryOptions(prop)
+          : (prop.type === 'select' || prop.type === 'multiselect') ? (prop.options ?? []) : f.options;
+        // Only return a new object when something actually changed (avoids unnecessary re-renders)
+        if (f.label === prop.name && f.type === newType && JSON.stringify(f.options) === JSON.stringify(newOpts)) return f;
+        return { ...f, label: prop.name, type: newType, options: newOpts };
+      });
+      return { ...prev, fields };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customProperties]);
+
   async function loadForms() {
     setLoading(true); setError(null);
     try { setForms(await formService.getForms(organizationId)); }
@@ -329,14 +449,30 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
     setEditingForm({ name: '', description: '', fields: [], style: { ...DEFAULT_STYLE }, allowed_origins: [], is_active: true });
     setOriginsInput(''); setIsNew(true); setExpandedField(null); setStep('fields');
   }
+  function syncFieldsWithProps(form: CRMForm): CRMForm {
+    const fields = ((form.fields as CRMFormField[]) ?? []).map(f => {
+      if (f.isBase) return f;
+      const prop = customProperties.find(p => p.id === f.key);
+      if (!prop) return f;
+      const newType = propTypeToFieldType(prop.type);
+      const newOpts = prop.type === 'country'
+        ? resolveCountryOptions(prop)
+        : (prop.type === 'select' || prop.type === 'multiselect') ? (prop.options ?? []) : f.options;
+      return { ...f, label: prop.name, type: newType, options: newOpts };
+    });
+    return { ...form, fields };
+  }
+
   function openEdit(form: CRMForm) {
-    setEditingForm({ ...form });
+    const synced = syncFieldsWithProps(form);
+    setEditingForm(synced);
     setOriginsInput((form.allowed_origins ?? []).join(', '));
     setIsNew(false); setExpandedField(null); setStep('fields');
   }
   function openCode(form: CRMForm) {
-    setEditingForm({ ...form });
-    setGeneratedCode(generateEmbedCode(form));
+    const synced = syncFieldsWithProps(form);
+    setEditingForm(synced);
+    setGeneratedCode(generateEmbedCode(synced));
     setStep('code');
   }
   function goBack() { setStep('list'); setEditingForm(null); }
@@ -359,7 +495,11 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
     setEditingForm(prev => {
       const fields = [...currentFields()];
       if (activate) {
-        fields.push({ key: prop.id, label: prop.name, type: propTypeToFieldType(prop.type), required: false, placeholder: '', isBase: false, options: prop.options });
+        const fieldType = propTypeToFieldType(prop.type);
+        const options = prop.type === 'country'
+          ? resolveCountryOptions(prop)
+          : prop.options;
+        fields.push({ key: prop.id, label: prop.name, type: fieldType, required: false, placeholder: prop.type === 'country' ? 'Buscar país…' : '', isBase: false, options: options });
       } else {
         const idx = fields.findIndex(f => f.key === prop.id);
         if (idx !== -1) fields.splice(idx, 1);
@@ -423,8 +563,8 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
 
   async function handleToggleActive(form: CRMForm) {
     try {
-      const updated = await formService.toggleActive(form.id, organizationId, !form.is_active);
-      setForms(prev => prev.map(f => f.id === updated.id ? updated : f));
+      await formService.toggleActive(form.id, organizationId, !form.is_active);
+      setForms(prev => prev.map(f => f.id === form.id ? { ...f, is_active: !form.is_active } : f));
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error actualizando formulario'); }
   }
 
@@ -780,6 +920,45 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
                   <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje de error</label>
                   <input value={s.errorMessage} onChange={e => updateStyle({ errorMessage: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Selección múltiple</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Diseño de visualización</label>
+                      <div className="flex gap-2">
+                        {(['pills', 'list'] as const).map(opt => (
+                          <button key={opt} type="button"
+                            onClick={() => updateStyle({ multiselectLayout: opt })}
+                            className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                              (s.multiselectLayout ?? 'pills') === opt
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'border-gray-300 text-gray-600 hover:border-blue-400'
+                            }`}>
+                            {opt === 'pills' ? '🏷️ Etiquetas (pills)' : '☑️ Lista con scroll'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {(s.multiselectLayout ?? 'pills') === 'list' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Columnas en la lista</label>
+                        <div className="flex gap-2">
+                          {([1, 2] as const).map(n => (
+                            <button key={n} type="button"
+                              onClick={() => updateStyle({ multiselectColumns: n })}
+                              className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                                (s.multiselectColumns ?? 1) === n
+                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  : 'border-gray-300 text-gray-600 hover:border-blue-400'
+                              }`}>
+                              {n === 1 ? '1 columna' : '2 columnas'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

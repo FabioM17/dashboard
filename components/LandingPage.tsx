@@ -25,6 +25,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Handle URL hash on initial load (e.g. /#ai-transparency from external links)
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (!hash) return;
+    const timer = setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.currentTarget as HTMLFormElement;
@@ -844,6 +854,97 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
         </div>
       </section>
 
+      {/* AI TRANSPARENCY SECTION */}
+      <section id="ai-transparency" className="w-full bg-slate-50 border-y border-slate-200 py-16 lg:py-20">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-violet-100 border border-violet-200 text-violet-700 text-xs font-semibold px-4 py-1.5 rounded-full mb-4">
+              <Brain className="w-3.5 h-3.5" />
+              Transparencia de Inteligencia Artificial
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
+              ¿Qué servicios de IA usa Docre-A?
+            </h2>
+            <p className="text-slate-500 text-sm max-w-2xl mx-auto leading-relaxed">
+              Docre-A integra inteligencia artificial a través de proveedores externos de confianza.
+              Cada organización configura y aporta su propia clave de API
+              (<span className="text-violet-700 font-medium">modelo BYOK — Bring Your Own Key</span>).
+              Docre-A no almacena ni comparte tus credenciales de IA con terceros.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[
+              {
+                name: 'Google Gemini',
+                logo: '🤖',
+                description: 'Modelos generativos de Google DeepMind (Gemini 2.5 Flash y otros). API oficial de Google AI.',
+                color: 'bg-blue-50 border-blue-200',
+                nameColor: 'text-blue-800',
+                badge: 'google.com',
+                badgeColor: 'text-blue-500',
+              },
+              {
+                name: 'OpenAI',
+                logo: '⚡',
+                description: 'Modelos GPT de OpenAI (GPT-4o, GPT-4o mini y otros). API oficial de OpenAI.',
+                color: 'bg-emerald-50 border-emerald-200',
+                nameColor: 'text-emerald-800',
+                badge: 'openai.com',
+                badgeColor: 'text-emerald-500',
+              },
+              {
+                name: 'Anthropic Claude',
+                logo: '✦',
+                description: 'Modelos Claude de Anthropic (Claude 3.5 Haiku, Sonnet y otros). API oficial de Anthropic.',
+                color: 'bg-orange-50 border-orange-200',
+                nameColor: 'text-orange-800',
+                badge: 'anthropic.com',
+                badgeColor: 'text-orange-500',
+              },
+              {
+                name: 'Proveedor Propio',
+                logo: '🔧',
+                description: 'Compatible con cualquier API compatible con OpenAI, incluyendo modelos self-hosted o privados.',
+                color: 'bg-slate-100 border-slate-200',
+                nameColor: 'text-slate-700',
+                badge: 'self-hosted',
+                badgeColor: 'text-slate-400',
+              },
+            ].map((provider) => (
+              <div
+                key={provider.name}
+                className={`${provider.color} border rounded-2xl p-5 flex flex-col gap-3`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{provider.logo}</span>
+                  <div>
+                    <div className={`${provider.nameColor} font-semibold text-sm`}>{provider.name}</div>
+                    <div className={`${provider.badgeColor} text-xs`}>{provider.badge}</div>
+                  </div>
+                </div>
+                <p className="text-slate-500 text-xs leading-relaxed">{provider.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start gap-4 max-w-3xl mx-auto shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Key className="w-4 h-4 text-violet-600" />
+            </div>
+            <div>
+              <h4 className="text-slate-800 font-semibold text-sm mb-1">Modelo BYOK — Bring Your Own Key</h4>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                Cada organización configura su propio proveedor de IA desde <span className="text-slate-700 font-medium">Ajustes &gt; IA</span>.
+                Las solicitudes se envían directamente al proveedor usando las credenciales de la organización.
+                Docre-A actúa únicamente como intermediario técnico y no accede, almacena ni entrena modelos con datos de conversaciones.
+                Los datos enviados al proveedor de IA están sujetos a los términos y políticas de privacidad de dicho proveedor.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* TESTIMONIALS */}
       <section className="w-full bg-white py-20 lg:py-28">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1093,6 +1194,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
                     className="text-slate-400 hover:text-white text-sm transition-colors flex items-center gap-1.5"
                   >
                     Políticas de privacidad <ExternalLink size={11} className="opacity-50" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#ai-transparency"
+                    className="text-slate-400 hover:text-violet-400 text-sm transition-colors flex items-center gap-1.5"
+                  >
+                    Transparencia de IA <Brain size={11} className="opacity-60" />
                   </a>
                 </li>
                 <li>

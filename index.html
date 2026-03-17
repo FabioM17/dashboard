@@ -14,6 +14,61 @@
     <meta name="googlebot" content="index, follow" />
     <link rel="canonical" href="https://dashboardchat.docreativelatam.com/" />
     <title>Docre-A - Business Messenger</title>
+
+    <!-- JSON-LD: AI services disclosure for Google verification bot -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Docre-A",
+      "url": "https://dashboardchat.docreativelatam.com/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "Plataforma de mensajería empresarial integrada con WhatsApp Business y Gmail, CRM, flujos de trabajo y asistente de inteligencia artificial.",
+      "offers": { "@type": "Offer", "category": "SaaS" },
+      "author": {
+        "@type": "Organization",
+        "name": "Domen Capital S.A. De C.V.",
+        "url": "https://docreativelatam.com",
+        "contactPoint": { "@type": "ContactPoint", "email": "notificaciones@docreativelatam.com" }
+      },
+      "featureList": [
+        "WhatsApp Business API integration",
+        "Gmail OAuth 2.0 send-only integration",
+        "CRM with pipeline management",
+        "AI Assistant powered by third-party providers (BYOK model)"
+      ],
+      "usesThirdPartyAIServices": [
+        {
+          "@type": "Service",
+          "name": "Google Gemini",
+          "provider": "Google DeepMind",
+          "url": "https://ai.google.dev/",
+          "description": "Generative AI models (Gemini 2.5 Flash and others). Used via official Google AI API with organization-provided API key."
+        },
+        {
+          "@type": "Service",
+          "name": "OpenAI",
+          "provider": "OpenAI",
+          "url": "https://openai.com/",
+          "description": "GPT models (GPT-4o, GPT-4o mini and others). Used via official OpenAI API with organization-provided API key."
+        },
+        {
+          "@type": "Service",
+          "name": "Anthropic Claude",
+          "provider": "Anthropic",
+          "url": "https://anthropic.com/",
+          "description": "Claude models (Claude 3.5 Haiku, Sonnet and others). Used via official Anthropic API with organization-provided API key."
+        },
+        {
+          "@type": "Service",
+          "name": "Custom / Self-hosted AI Provider",
+          "description": "Any OpenAI-compatible API endpoint, including self-hosted or private models."
+        }
+      ],
+      "privacyPolicy": "https://dashboardchat.docreativelatam.com/politicas-de-privacidad"
+    }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -298,6 +353,64 @@
         </div>
       </section>
 
+      <!-- ═══ AI TRANSPARENCY ═══ -->
+      <section id="ai-transparency" style="background-color:#f1f5f9;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:80px 24px;">
+        <div style="max-width:1200px;margin:0 auto;">
+          <div style="text-align:center;margin-bottom:48px;">
+            <p style="display:inline-block;background-color:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);color:#7c3aed;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:8px 16px;border-radius:20px;margin:0 0 16px;">Transparencia de Inteligencia Artificial</p>
+            <h2 style="font-size:32px;font-weight:800;color:#0f172a;margin:0 0 16px;">¿Qué servicios de IA usa Docre-A?</h2>
+            <p style="color:#475569;font-size:16px;line-height:1.7;max-width:700px;margin:0 auto;">
+              Docre-A integra inteligencia artificial a través de proveedores externos de confianza.
+              Cada organización configura y aporta su propia clave de API
+              (<strong style="color:#7c3aed;">modelo BYOK — Bring Your Own Key</strong>).
+              Docre-A no almacena ni comparte credenciales de IA con terceros.
+            </p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:32px;">
+            <div style="background:#dbeafe;border:1px solid #bfdbfe;border-radius:16px;padding:20px;">
+              <div style="font-size:24px;margin-bottom:8px;">🤖</div>
+              <h3 style="font-size:14px;font-weight:700;color:#1e3a8a;margin:0 0 4px;">Google Gemini</h3>
+              <p style="font-size:12px;color:#3b82f6;margin:0 0 8px;">google.com</p>
+              <p style="font-size:13px;color:#1e40af;line-height:1.5;margin:0;">Modelos de Google DeepMind (Gemini 2.5 Flash y otros). API oficial de Google AI.</p>
+            </div>
+            <div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:16px;padding:20px;">
+              <div style="font-size:24px;margin-bottom:8px;">⚡</div>
+              <h3 style="font-size:14px;font-weight:700;color:#14532d;margin:0 0 4px;">OpenAI</h3>
+              <p style="font-size:12px;color:#16a34a;margin:0 0 8px;">openai.com</p>
+              <p style="font-size:13px;color:#166534;line-height:1.5;margin:0;">Modelos GPT (GPT-4o, GPT-4o mini y otros). API oficial de OpenAI.</p>
+            </div>
+            <div style="background:#ffedd5;border:1px solid #fed7aa;border-radius:16px;padding:20px;">
+              <div style="font-size:24px;margin-bottom:8px;">✦</div>
+              <h3 style="font-size:14px;font-weight:700;color:#7c2d12;margin:0 0 4px;">Anthropic Claude</h3>
+              <p style="font-size:12px;color:#ea580c;margin:0 0 8px;">anthropic.com</p>
+              <p style="font-size:13px;color:#9a3412;line-height:1.5;margin:0;">Modelos Claude (Claude 3.5 Haiku, Sonnet y otros). API oficial de Anthropic.</p>
+            </div>
+            <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:16px;padding:20px;">
+              <div style="font-size:24px;margin-bottom:8px;">🔧</div>
+              <h3 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 4px;">Proveedor Propio</h3>
+              <p style="font-size:12px;color:#64748b;margin:0 0 8px;">self-hosted</p>
+              <p style="font-size:13px;color:#334155;line-height:1.5;margin:0;">Compatible con cualquier API OpenAI-compatible, incluyendo modelos self-hosted.</p>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;max-width:800px;margin:0 auto;display:flex;gap:16px;align-items:flex-start;">
+            <div style="background:#ede9fe;border-radius:10px;padding:8px;flex-shrink:0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </div>
+            <div>
+              <h4 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 6px;">Modelo BYOK — Bring Your Own Key</h4>
+              <p style="font-size:13px;color:#475569;line-height:1.6;margin:0;">
+                Cada organización configura su propio proveedor de IA desde <strong>Ajustes &gt; IA</strong>.
+                Las solicitudes se envían directamente al proveedor usando las credenciales de la organización.
+                Docre-A actúa únicamente como intermediario técnico y <strong>no accede, almacena ni entrena modelos</strong> con datos de conversaciones.
+                Los datos enviados al proveedor están sujetos a los términos y políticas de privacidad de dicho proveedor.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ═══ CONTACT ═══ -->
       <section style="background-color:#f8fafc;padding:80px 24px;">
         <div style="max-width:1200px;margin:0 auto;">
@@ -338,6 +451,7 @@
             <div style="display:flex;gap:16px;">
               <a href="https://dashboardchat.docreativelatam.com/politicas-de-privacidad" style="color:#94a3b8;font-size:12px;text-decoration:underline;">Políticas de Privacidad</a>
               <a href="https://dashboardchat.docreativelatam.com/eliminacion-de-datos" style="color:#94a3b8;font-size:12px;text-decoration:underline;">Eliminación de datos</a>
+              <a href="#ai-transparency" style="color:#a78bfa;font-size:12px;text-decoration:underline;">Transparencia de IA</a>
               <a href="mailto:notificaciones@docreativelatam.com" style="color:#94a3b8;font-size:12px;">notificaciones@docreativelatam.com</a>
             </div>
           </div>

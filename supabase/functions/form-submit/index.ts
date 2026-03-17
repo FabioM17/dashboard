@@ -209,7 +209,10 @@ Deno.serve(async (req) => {
   for (const field of fields) {
     if (field.required) {
       const val = body[field.key];
-      if (val === undefined || val === null || String(val).trim() === '') {
+      // For multiselect, val may be an array — check it has at least one item
+      const isEmpty = val === undefined || val === null ||
+        (Array.isArray(val) ? val.length === 0 : String(val).trim() === '');
+      if (isEmpty) {
         missingFields.push(field.label || field.key);
       }
     }
@@ -232,8 +235,22 @@ Deno.serve(async (req) => {
 
   for (const field of fields) {
     const rawValue = body[field.key];
-    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') continue;
+    if (rawValue === undefined || rawValue === null) continue;
 
+    // Multiselect: value is an array — sanitize each item, skip if empty
+    if (Array.isArray(rawValue)) {
+      const sanitizedArr = rawValue.map(v => sanitize(v)).filter(v => v !== '');
+      if (sanitizedArr.length === 0) continue;
+      if (BASE_FIELD_KEYS.has(field.key)) {
+        // base fields don't support arrays — join as fallback
+        if (field.key === 'name') contactData.name = sanitizedArr.join(', ');
+      } else {
+        (contactData.custom_properties as Record<string, unknown>)[field.key] = sanitizedArr;
+      }
+      continue;
+    }
+
+    if (String(rawValue).trim() === '') continue;
     const sanitized = sanitize(rawValue);
 
     if (field.key === 'name')            contactData.name = sanitized;
