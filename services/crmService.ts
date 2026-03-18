@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { CRMContact, CustomProperty } from '../types';
+import { CRMContact, CustomProperty, WhatsAppFlowResponse } from '../types';
 
 export const crmService = {
   // === CONTACTS ===
@@ -136,5 +136,63 @@ export const crmService = {
       .eq('id', id)
       .eq('organization_id', organizationId);
     if (error) throw error;
+  },
+
+  // === WHATSAPP FLOW RESPONSES ===
+
+  async getFlowResponsesByContact(
+    contactId: string,
+    organizationId: string
+  ): Promise<WhatsAppFlowResponse[]> {
+    if (!contactId || !organizationId) return [];
+    const { data, error } = await supabase
+      .from('crm_flow_responses')
+      .select('*')
+      .eq('contact_id', contactId)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false });
+    if (error) { console.error('getFlowResponsesByContact:', error); return []; }
+    return (data || []).map((r: any): WhatsAppFlowResponse => ({
+      id: r.id,
+      organizationId: r.organization_id,
+      contactId: r.contact_id,
+      conversationId: r.conversation_id,
+      flowToken: r.flow_token,
+      templateName: r.template_name,
+      phoneNumber: r.phone_number,
+      responseData: r.response_data || {},
+      rawResponseJson: r.raw_response_json,
+      wasEncrypted: r.was_encrypted,
+      wamid: r.wamid,
+      createdAt: new Date(r.created_at),
+    }));
+  },
+
+  async getFlowResponsesByPhone(
+    phone: string,
+    organizationId: string
+  ): Promise<WhatsAppFlowResponse[]> {
+    if (!phone || !organizationId) return [];
+    const { data, error } = await supabase
+      .from('crm_flow_responses')
+      .select('*')
+      .eq('phone_number', phone)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false });
+    if (error) { console.error('getFlowResponsesByPhone:', error); return []; }
+    return (data || []).map((r: any): WhatsAppFlowResponse => ({
+      id: r.id,
+      organizationId: r.organization_id,
+      contactId: r.contact_id,
+      conversationId: r.conversation_id,
+      flowToken: r.flow_token,
+      templateName: r.template_name,
+      phoneNumber: r.phone_number,
+      responseData: r.response_data || {},
+      rawResponseJson: r.raw_response_json,
+      wasEncrypted: r.was_encrypted,
+      wamid: r.wamid,
+      createdAt: new Date(r.created_at),
+    }));
   }
 };

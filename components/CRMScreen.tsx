@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as XLSX from 'xlsx';
 import { Plus, Search, MoreHorizontal, X, Database, Trash2, Edit2, Clock, MessageCircle, Send, Mail, CheckSquare, Square, Users, UserPlus, Filter, List, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, GripVertical, Loader2, Copy, Settings, Pencil, Check, ChevronUp, ChevronDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { pipelineStageService, PipelineStageConfig } from '../services/pipelineStageService';
-import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment, WhatsAppPhoneNumber } from '../types';
+import { CRMContact, CustomProperty, Template, Campaign, CRMList, CRMFilter, User, Conversation, LeadAssignment, WhatsAppPhoneNumber, WhatsAppFlowResponse } from '../types';
 import { campaignService } from '../services/campaignService';
 import { templateService } from '../services/templateService';
 import { listService } from '../services/listService';
@@ -14,6 +14,7 @@ import CRMFormBuilder from './CRMFormBuilder';
 import EmailEditor from './EmailEditor';
 import { supabase } from '../services/supabaseClient';
 import { whatsappPhoneService } from '../services/whatsappPhoneService';
+import { crmService } from '../services/crmService';
 
 const COUNTRIES: string[] = [
   'Afganistán','Albania','Alemania','Andorra','Angola','Antigua y Barbuda','Arabia Saudita','Argelia','Argentina',
@@ -457,6 +458,9 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                 setResultNotice({ show: true, status: 'success', title: 'Importación completada', message: 'Los contactos se han importado correctamente.' });
     };
   const [selectedContact, setSelectedContact] = useState<CRMContact | null>(null);
+  const [contactFlowResponses, setContactFlowResponses] = useState<WhatsAppFlowResponse[]>([]);
+  const [loadingFlowResponses, setLoadingFlowResponses] = useState(false);
+  const [expandedFlowResponse, setExpandedFlowResponse] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
       id: '',
       name: '', email: '', phone: '', company: '', pipelineStageId: 'lead', properties: {} as Record<string, any>
@@ -935,6 +939,15 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
 
   const openContactDetail = (contact: CRMContact) => {
       setSelectedContact(contact);
+      setContactFlowResponses([]);
+      setExpandedFlowResponse(null);
+      if (contact.id && organizationId) {
+        setLoadingFlowResponses(true);
+        crmService.getFlowResponsesByContact(contact.id, organizationId)
+          .then(responses => setContactFlowResponses(responses))
+          .catch(console.error)
+          .finally(() => setLoadingFlowResponses(false));
+      }
   };
 
 
@@ -3162,7 +3175,65 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                             </div>
                         )}
 
-
+                        {/* WhatsApp Flow Responses */}
+                        <div className="border-t pt-3 mt-1">
+                            <h4 className="font-bold mb-2 text-sm flex items-center gap-2">
+                                <span>📋</span> Respuestas de Formulario WhatsApp
+                                {loadingFlowResponses && <span className="text-xs font-normal text-slate-400">Cargando...</span>}
+                                {!loadingFlowResponses && contactFlowResponses.length > 0 && (
+                                    <span className="text-xs font-normal bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{contactFlowResponses.length}</span>
+                                )}
+                            </h4>
+                            {!loadingFlowResponses && contactFlowResponses.length === 0 && (
+                                <p className="text-xs text-slate-400 italic">Sin respuestas de formulario aún.</p>
+                            )}
+                            {contactFlowResponses.map((resp) => {
+                                const isExpanded = expandedFlowResponse === resp.id;
+                                const fields = Object.entries(resp.responseData).filter(([k]) => !['flow_token', 'template_name'].includes(k));
+                                const date = resp.createdAt.toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                return (
+                                    <div key={resp.id} className="mb-2 border border-slate-200 rounded-lg overflow-hidden">
+                                        <button
+                                            className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 text-left"
+                                            onClick={() => setExpandedFlowResponse(isExpanded ? null : resp.id)}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className="text-xs font-semibold text-slate-700 truncate">
+                                                    {resp.templateName || resp.flowToken || 'Formulario sin nombre'}
+                                                </span>
+                                                {resp.wasEncrypted && (
+                                                    <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 rounded-full shrink-0">🔒 cifrado</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                <span className="text-[10px] text-slate-400">{date}</span>
+                                                <ChevronDown size={14} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </button>
+                                        {isExpanded && (
+                                            <div className="px-3 py-2 bg-white divide-y divide-slate-50">
+                                                {fields.length === 0 && (
+                                                    <p className="text-xs text-slate-400 py-1 italic">Sin campos en esta respuesta.</p>
+                                                )}
+                                                {fields.map(([key, value]) => (
+                                                    <div key={key} className="flex justify-between items-start py-1.5 gap-2">
+                                                        <span className="text-xs text-slate-500 shrink-0 capitalize">{key.replace(/_/g, ' ')}</span>
+                                                        <span className="text-xs font-medium text-slate-800 text-right break-all">
+                                                            {Array.isArray(value) ? value.join(', ') : String(value)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                                {resp.flowToken && (
+                                                    <div className="pt-1.5 mt-1">
+                                                        <span className="text-[10px] text-slate-400">Token: {resp.flowToken}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
 
                         <div className="pt-4 mt-2 border-t flex justify-end">
                             <button onClick={handleEditContactFromModal} className="flex items-center gap-2 text-slate-600 hover:text-emerald-600 font-medium">

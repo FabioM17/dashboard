@@ -352,6 +352,22 @@ export interface OrganizationMembership {
   createdAt: Date;
 }
 
+// WhatsApp Flow Response (form submissions via interactive template messages)
+export interface WhatsAppFlowResponse {
+  id: string;
+  organizationId: string;
+  contactId?: string;
+  conversationId?: string;
+  flowToken?: string;
+  templateName?: string;
+  phoneNumber: string;
+  responseData: Record<string, any>;
+  rawResponseJson?: string;
+  wasEncrypted: boolean;
+  wamid?: string;
+  createdAt: Date;
+}
+
 // WhatsApp Phone Number Types (Multi-number support)
 export interface WhatsAppPhoneNumber {
   id: string;

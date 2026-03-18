@@ -856,6 +856,37 @@ const CRMFormBuilder: React.FC<CRMFormBuilderProps> = ({ organizationId, customP
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* ── Settings ── */}
             <div className="space-y-4">
+              {/* Field order */}
+              {fields.length > 1 && (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <ArrowUp className="w-3.5 h-3.5" /> Orden de campos
+                  </h4>
+                  <div className="space-y-1.5">
+                    {fields.map((f, idx) => (
+                      <div key={f.key} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg group">
+                        <span className="flex-1 text-sm text-gray-700 truncate">{f.label}</span>
+                        {f.required && <span className="text-xs text-red-400 shrink-0">*</span>}
+                        <button
+                          onClick={() => moveField(f.key, -1)}
+                          disabled={idx === 0}
+                          className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded hover:bg-white transition-colors"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveField(f.key, 1)}
+                          disabled={idx === fields.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded hover:bg-white transition-colors"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Colors */}
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Colores</h4>

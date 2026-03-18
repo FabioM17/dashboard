@@ -540,6 +540,261 @@ async function resolveOrgByMetaIds(
   return { orgId: best.orgId, credentials: best.credentials };
 }
 
+// ============================================
+// WHATSAPP FLOW RESPONSE: RSA/AES DECRYPTION
+// ============================================
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----(?:BEGIN|END) PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function base64ToUint8Array(b64: string): Uint8Array {
+  const padded = b64.replace(/-/g, "+").replace(/_/g, "/");
+  const padLen = (4 - (padded.length % 4)) % 4;
+  const padded2 = padded + "=".repeat(padLen);
+  const binary = atob(padded2);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function tryDecryptFlowResponse(
+  responseJson: string
+): Promise<Record<string, any> | null> {
+  try {
+    const privateKeyPem = Deno.env.get("WHATSAPP_FLOW_PRIVATE_KEY");
+    if (!privateKeyPem) return null;
+
+    // Try to parse as wrapped encrypted payload
+    let parsed: any;
+    try {
+      // Some implementations base64-encode the encrypted wrapper
+      const decoded = atob(responseJson.replace(/-/g, "+").replace(/_/g, "/"));
+      parsed = JSON.parse(decoded);
+    } catch {
+      // Try direct JSON parse (maybe already is JSON with encrypted fields)
+      try {
+        parsed = JSON.parse(responseJson);
+      } catch {
+        return null;
+      }
+    }
+
+    const { encrypted_flow_data, encrypted_aes_key, initial_vector } = parsed;
+    if (!encrypted_flow_data || !encrypted_aes_key || !initial_vector) return null;
+
+    // Decrypt AES key with RSA-OAEP private key
+    const privKey = await crypto.subtle.importKey(
+      "pkcs8",
+      pemToArrayBuffer(privateKeyPem),
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      false,
+      ["decrypt"]
+    );
+    const aesKeyBytes = await crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      privKey,
+      base64ToUint8Array(encrypted_aes_key)
+    );
+
+    // Decrypt Flow data with AES-GCM
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      aesKeyBytes,
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"]
+    );
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64ToUint8Array(initial_vector) },
+      aesKey,
+      base64ToUint8Array(encrypted_flow_data)
+    );
+
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  } catch {
+    return null;
+  }
+}
+
+async function parseFlowResponseJson(
+  rawResponseJson: string,
+  orgId: string
+): Promise<{ data: Record<string, any>; wasEncrypted: boolean }> {
+  // 1. Try plain JSON (most common case)
+  try {
+    const data = JSON.parse(rawResponseJson);
+    if (typeof data === "object" && data !== null) {
+      return { data, wasEncrypted: false };
+    }
+  } catch {
+    // Not plain JSON — try encrypted
+  }
+
+  // 2. Try RSA+AES decryption
+  const decrypted = await tryDecryptFlowResponse(rawResponseJson);
+  if (decrypted) {
+    log("info", orgId, "flow_response_decrypted_rsa_aes", {});
+    return { data: decrypted, wasEncrypted: true };
+  }
+
+  log("warn", orgId, "flow_response_parse_failed", { rawLength: rawResponseJson.length });
+  return { data: {}, wasEncrypted: false };
+}
+
+// ============================================
+// WHATSAPP FLOW RESPONSE: SAVE TO CRM
+// ============================================
+async function handleSaveFlowResponse(
+  responseData: Record<string, any>,
+  rawResponseJson: string,
+  wasEncrypted: boolean,
+  senderPhone: string,
+  senderName: string,
+  conversationId: string,
+  wamid: string,
+  orgId: string,
+  supabaseAdmin: any
+): Promise<void> {
+  try {
+    const flowToken: string | undefined = responseData?.flow_token;
+    const templateName: string | undefined = responseData?.template_name;
+
+    // 1. Get property definitions to attempt field mapping
+    const { data: propDefs } = await supabaseAdmin
+      .from("crm_property_definitions")
+      .select("id, name, type")
+      .eq("organization_id", orgId);
+
+    // 2. Extract standard CRM fields + map custom properties
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const contactUpdates: Record<string, any> = {};
+    const customPropertiesFromForm: Record<string, any> = {};
+
+    const STD_NAME = ["name", "nombre", "fullname", "nombrecompleto", "full_name", "nombre_completo"];
+    const STD_EMAIL = ["email", "correo", "mail", "correoelectronico", "email_address"];
+    const STD_COMPANY = ["company", "empresa", "companyname", "organizacion", "organization", "negocio"];
+
+    for (const [key, value] of Object.entries(responseData)) {
+      if (["flow_token", "template_name"].includes(key)) continue;
+      const normKey = normalize(key);
+
+      if (STD_NAME.includes(normKey)) {
+        contactUpdates.name = String(value);
+      } else if (STD_EMAIL.includes(normKey)) {
+        contactUpdates.email = String(value);
+      } else if (STD_COMPANY.includes(normKey)) {
+        contactUpdates.company = String(value);
+      } else {
+        // Try matching against custom property definitions by name
+        const matchingProp = (propDefs as any[] || []).find(
+          (p: any) => normalize(p.name) === normKey || normalize(p.id) === normKey
+        );
+        if (matchingProp) {
+          customPropertiesFromForm[matchingProp.id] = value;
+        } else {
+          // Store with original key as fallback
+          customPropertiesFromForm[key] = value;
+        }
+      }
+    }
+
+    // 3. Find or create CRM contact by phone number
+    const { data: existingContact } = await supabaseAdmin
+      .from("crm_contacts")
+      .select("id, name, custom_properties")
+      .eq("phone", senderPhone)
+      .eq("organization_id", orgId)
+      .single();
+
+    let contactId: string | null = existingContact?.id || null;
+
+    if (existingContact) {
+      // Merge new form data into existing contact
+      const existingCustomProps = existingContact.custom_properties || {};
+      const mergedCustomProps = { ...existingCustomProps, ...customPropertiesFromForm };
+      const updatePayload: Record<string, any> = {
+        custom_properties: mergedCustomProps,
+        updated_at: new Date().toISOString(),
+      };
+      // Only update standard fields if they were in the form and don't override non-empty values
+      if (contactUpdates.name) updatePayload.name = contactUpdates.name;
+      if (contactUpdates.email) updatePayload.email = contactUpdates.email;
+      if (contactUpdates.company) updatePayload.company = contactUpdates.company;
+
+      await supabaseAdmin
+        .from("crm_contacts")
+        .update(updatePayload)
+        .eq("id", contactId);
+
+      log("info", orgId, "flow_contact_updated", { contactId });
+    } else {
+      // Create new CRM contact from form data
+      const contactName = contactUpdates.name || senderName || senderPhone;
+      const { data: newContact, error: createErr } = await supabaseAdmin
+        .from("crm_contacts")
+        .insert({
+          name: contactName,
+          phone: senderPhone,
+          email: contactUpdates.email || null,
+          company: contactUpdates.company || null,
+          pipeline_stage: "lead",
+          organization_id: orgId,
+          custom_properties: Object.keys(customPropertiesFromForm).length > 0
+            ? customPropertiesFromForm
+            : null,
+        })
+        .select("id")
+        .single();
+
+      if (createErr) {
+        log("error", orgId, "flow_contact_create_failed", { error: createErr.message });
+      } else {
+        contactId = newContact.id;
+        log("info", orgId, "flow_contact_created", { contactId });
+      }
+    }
+
+    // 4. Save the flow response record
+    const { error: insertErr } = await supabaseAdmin
+      .from("crm_flow_responses")
+      .insert({
+        organization_id: orgId,
+        contact_id: contactId,
+        conversation_id: conversationId,
+        flow_token: flowToken || null,
+        template_name: templateName || null,
+        phone_number: senderPhone,
+        response_data: responseData,
+        raw_response_json: rawResponseJson,
+        was_encrypted: wasEncrypted,
+        wamid,
+      });
+
+    if (insertErr) {
+      log("error", orgId, "flow_response_insert_failed", { error: insertErr.message });
+    } else {
+      log("info", orgId, "flow_response_saved", { contactId, conversationId, fieldCount: Object.keys(responseData).length });
+    }
+
+    // 5. Link conversation to the CRM contact (if not already linked)
+    if (contactId) {
+      await supabaseAdmin
+        .from("conversations")
+        .update({ lead_id: contactId })
+        .eq("id", conversationId)
+        .is("lead_id", null);
+    }
+  } catch (e) {
+    log("error", orgId, "handleSaveFlowResponse_exception", { error: (e as Error).message });
+  }
+}
+
 serve(async (req) => {
   const { method } = req;
   const url = new URL(req.url);
@@ -754,7 +1009,24 @@ serve(async (req) => {
           const contact = value.contacts?.[0];
           const senderPhone = message.from;
           const senderName = contact?.profile?.name || senderPhone;
-          const textBody = message.text?.body || "[Multimedia]";
+
+          // Detect WhatsApp Flow responses (nfm_reply)
+          let isFlowResponse = false;
+          let parsedFlowData: Record<string, any> = {};
+          let rawFlowJson = "";
+          let wasFlowEncrypted = false;
+          if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
+            isFlowResponse = true;
+            rawFlowJson = message.interactive.nfm_reply?.response_json || "{}";
+            const parsed = await parseFlowResponseJson(rawFlowJson, orgId);
+            parsedFlowData = parsed.data;
+            wasFlowEncrypted = parsed.wasEncrypted;
+          }
+
+          const fieldCount = Object.keys(parsedFlowData).filter(k => k !== "flow_token").length;
+          const textBody = isFlowResponse
+            ? `\uD83D\uDCCB Formulario WhatsApp Flow completado (${fieldCount} campos)`
+            : (message.text?.body || "[Multimedia]");
 
           log("info", orgId, "message_received", {
             from: senderPhone,
@@ -838,10 +1110,10 @@ serve(async (req) => {
           let savedMediaPath: string | null = null;
           let savedMimeType: string | null = null;
           let savedSize: number | null = null;
-          let savedType: string = message.type === "text" ? "text" : "media";
+          let savedType: string = isFlowResponse ? "template" : (message.type === "text" ? "text" : "media");
           let mediaSkippedMeta: Record<string, unknown> | null = null;
 
-          if (message.type !== "text") {
+          if (message.type !== "text" && !isFlowResponse) {
             const accessToken = perPhoneAccessToken || (credentials.access_token as string);
 
             if (!accessToken) {
@@ -954,10 +1226,23 @@ serve(async (req) => {
             media_path: savedMediaPath,
             media_mime_type: savedMimeType,
             media_size: savedSize,
-            metadata: { wamid: message.id, ...(mediaSkippedMeta || {}) },
+            metadata: {
+              wamid: message.id,
+              ...(mediaSkippedMeta || {}),
+              ...(isFlowResponse ? { is_flow_response: true, flow_token: parsedFlowData?.flow_token || null } : {}),
+            },
           });
 
           log("info", orgId, "message_saved", { conversationId, wamid: message.id, type: savedType });
+
+          // E. GUARDAR RESPUESTA DE FLOW EN CRM
+          if (isFlowResponse) {
+            await handleSaveFlowResponse(
+              parsedFlowData, rawFlowJson, wasFlowEncrypted,
+              senderPhone, senderName, conversationId,
+              message.id, orgId, supabaseAdmin
+            );
+          }
 
           // D. ENVIAR A N8N (AUTOMATIZACIÓN)
           const { data: n8nConfig } = await supabaseAdmin
