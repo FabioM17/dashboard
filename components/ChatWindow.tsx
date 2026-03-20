@@ -893,6 +893,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 <div>
                     <h2 className="font-semibold text-slate-800 flex items-center gap-2 cursor-pointer hover:underline" onClick={() => setShowPropertySidebar(!showPropertySidebar)}>
                         {conversation.contactName}
+                        {existingContact && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowContactModal(true); }}
+                                className="flex items-center gap-1 text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full hover:bg-blue-100 transition-colors"
+                                title={`CRM: ${existingContact.name}${existingContact.company ? ' · ' + existingContact.company : ''}`}
+                            >
+                                <UserCheck size={10} />
+                                <span className="max-w-[100px] truncate">{existingContact.name}</span>
+                            </button>
+                        )}
+                        {conversation.assignedTo && (() => {
+                            const agent = teamMembers.find(m => m.id === conversation.assignedTo);
+                            return agent ? (
+                                <span className="flex items-center gap-1 text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full" title={`Asignado a: ${agent.name}`}>
+                                    <img src={agent.avatar} alt="" className="w-3.5 h-3.5 rounded-full" />
+                                    <span className="max-w-[80px] truncate">{agent.name}</span>
+                                </span>
+                            ) : null;
+                        })()}
                     </h2>
                     <div className="flex items-center gap-1.5">
                         <p className="text-xs text-slate-500 capitalize flex items-center gap-1">

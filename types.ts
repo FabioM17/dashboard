@@ -120,7 +120,7 @@ export enum AppState {
   DASHBOARD
 }
 
-export type DashboardView = 'chats' | 'crm' | 'stats' | 'settings' | 'tasks' | 'team' | 'properties' | 'integrations' | 'workflows' | 'ai_assistant';
+export type DashboardView = 'chats' | 'crm' | 'stats' | 'settings' | 'tasks' | 'team' | 'properties' | 'integrations' | 'workflows' | 'ai_assistant' | 'whatsapp_flows';
 
 // CRM Types
 export interface CRMContact {
@@ -366,6 +366,29 @@ export interface WhatsAppFlowResponse {
   wasEncrypted: boolean;
   wamid?: string;
   createdAt: Date;
+}
+
+// WhatsApp Flow definition (stored in whatsapp_flows table)
+// crm_property_id values: UUID for custom property | '__name__' | '__email__' | '__company__' | null (unassigned)
+export interface WhatsAppFlowFieldMapping {
+  label?: string;
+  crm_property_id: string | null;
+}
+
+export interface WhatsAppFlow {
+  id: string;
+  organization_id: string;
+  meta_flow_id: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'inactive' | 'deprecated';
+  flow_type: 'static' | 'dynamic';
+  body_text: string;
+  cta_text: string;
+  first_screen?: string;
+  field_mappings: Record<string, WhatsAppFlowFieldMapping>;
+  created_at: string;
+  updated_at: string;
 }
 
 // WhatsApp Phone Number Types (Multi-number support)

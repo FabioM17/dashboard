@@ -131,7 +131,11 @@ serve(async (req) => {
       media_size,
       fileName,
       // MULTI-PHONE: ID del número específico desde whatsapp_phone_numbers
-      whatsapp_phone_number_id
+      whatsapp_phone_number_id,
+      // WHATSAPP FLOWS: campos para enviar un flow interactivo
+      flow_id,           // whatsapp_flows.id (UUID interno de nuestra BD)
+      flow_cta,          // Texto del botón CTA (ej: "Abrir formulario")
+      flow_body,         // Texto del cuerpo del mensaje
     } = await req.json();
 
     // VALIDATIONS
@@ -334,7 +338,111 @@ serve(async (req) => {
         to: contactPhone
     };
 
-    if (type === 'template' && template_name) {
+    if (type === 'flow' && flow_id) {
+      // ================================================================
+      // WHATSAPP FLOWS: Enviar un formulario interactivo de varias pantallas
+      // El flow_id es el UUID interno (whatsapp_flows.id).
+      // Buscamos el registro del flow para obtener el meta_flow_id, cta, body y first_screen.
+      // Generamos un flow_token único para rastrear esta entrega.
+      // ================================================================
+
+      // Validate flow_id format
+      if (!validateUUID(flow_id)) {
+        return new Response(JSON.stringify({ error: 'Invalid flow_id format' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { data: flowRecord, error: flowErr } = await supabaseAdmin
+        .from('whatsapp_flows')
+        .select('meta_flow_id, cta_text, body_text, first_screen, field_mappings, status')
+        .eq('id', flow_id)
+        .eq('organization_id', orgId)
+        .single();
+
+      if (flowErr || !flowRecord) {
+        return new Response(JSON.stringify({ error: 'Flow no encontrado o no pertenece a esta organización.' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (flowRecord.status === 'inactive' || flowRecord.status === 'deprecated') {
+        return new Response(JSON.stringify({ error: 'El flow está inactivo o deprecado.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Generate a unique flow_token for this specific delivery
+      const flowToken = `ft_${crypto.randomUUID().replace(/-/g, '')}`;
+
+      // Resolve contact_id from conversation if available
+      let contactIdForSend: string | null = null;
+      if (finalConversationId) {
+        const { data: convContact } = await supabaseAdmin
+          .from('conversations')
+          .select('lead_id')
+          .eq('id', finalConversationId)
+          .single();
+        contactIdForSend = convContact?.lead_id || null;
+      }
+
+      // Pre-register the send so we can match on nfm_reply
+      const { data: flowSendRecord, error: flowSendErr } = await supabaseAdmin
+        .from('whatsapp_flow_sends')
+        .insert({
+          organization_id: orgId,
+          flow_id: flow_id,
+          contact_id: contactIdForSend,
+          conversation_id: finalConversationId || null,
+          phone_number: contactPhone,
+          flow_token: flowToken,
+          status: 'sent',
+        })
+        .select('id')
+        .single();
+
+      if (flowSendErr) {
+        console.error('[whatsapp-send] Failed to save flow_send record:', flowSendErr);
+        // Non-fatal — continue sending; we'll lose token matching but still deliver the message
+      }
+
+      // Build the interactive flow payload
+      const interactiveAction: Record<string, unknown> = {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3',
+          flow_token: flowToken,
+          flow_id: flowRecord.meta_flow_id,
+          flow_cta: flow_cta || flowRecord.cta_text || 'Abrir formulario',
+          flow_action: 'navigate',
+        },
+      };
+
+      if (flowRecord.first_screen) {
+        (interactiveAction.parameters as Record<string, unknown>).flow_action_payload = {
+          screen: flowRecord.first_screen,
+        };
+      }
+
+      metaBody.type = 'interactive';
+      metaBody.interactive = {
+        type: 'flow',
+        body: {
+          text: flow_body || flowRecord.body_text || 'Por favor, completa el formulario.',
+        },
+        action: interactiveAction,
+      };
+
+      console.log('[whatsapp-send] Sending flow', {
+        meta_flow_id: flowRecord.meta_flow_id,
+        flow_token: flowToken,
+        flow_send_id: flowSendRecord?.id,
+      });
+
+    } else if (type === 'template' && template_name) {
       // TEMPLATES: Las variables son OPCIONALES - depende de la plantilla
       metaBody.type = "template";
       metaBody.template = {
@@ -516,6 +624,18 @@ serve(async (req) => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const finalId = (id && uuidRegex.test(id)) ? id : undefined;
 
+    // E1. If this was a flow send, update the wamid on the send record
+    if (type === 'flow' && metaMessageId) {
+      await supabaseAdmin
+        .from('whatsapp_flow_sends')
+        .update({ wamid: metaMessageId })
+        .eq('organization_id', orgId)
+        // Find by phone + very recent send (within last 30s) to avoid updating wrong record if token wasn't stored
+        .eq('phone_number', contactPhone)
+        .is('wamid', null)
+        .gte('sent_at', new Date(Date.now() - 30000).toISOString());
+    }
+
     // F. ACTUALIZADO: Guardar en Base de Datos con campos de media
     const { data: msgData, error: insertError } = await supabaseAdmin
       .from('messages')
@@ -539,7 +659,8 @@ serve(async (req) => {
             attachmentUrl: attachmentUrl,
             fileName: fileName,
             template_name: template_name,
-            media_mime_type: media_mime_type
+            media_mime_type: media_mime_type,
+            flow_id: flow_id || null,
         }
       })
       .select()

@@ -662,16 +662,61 @@ async function handleSaveFlowResponse(
   supabaseAdmin: any
 ): Promise<void> {
   try {
-    const flowToken: string | undefined = responseData?.flow_token;
+    const flowTokenFromPayload: string | undefined = responseData?.flow_token;
     const templateName: string | undefined = responseData?.template_name;
 
-    // 1. Get property definitions to attempt field mapping
+    // ----------------------------------------------------------------
+    // 1. Look up the outbound send record via flow_token
+    //    This gives us the exact flow definition + contact that was targeted.
+    // ----------------------------------------------------------------
+    let flowSendId: string | null = null;
+    let flowDbId: string | null = null;
+    let knownContactId: string | null = null;
+    let fieldMappings: Record<string, { label?: string; crm_property_id?: string | null }> = {};
+
+    if (flowTokenFromPayload) {
+      const { data: sendRecord } = await supabaseAdmin
+        .from("whatsapp_flow_sends")
+        .select("id, flow_id, contact_id, conversation_id")
+        .eq("flow_token", flowTokenFromPayload)
+        .eq("organization_id", orgId)
+        .single();
+
+      if (sendRecord) {
+        flowSendId = sendRecord.id;
+        flowDbId = sendRecord.flow_id || null;
+        knownContactId = sendRecord.contact_id || null;
+
+        // Mark as completed
+        await supabaseAdmin
+          .from("whatsapp_flow_sends")
+          .update({ status: "completed", responded_at: new Date().toISOString() })
+          .eq("id", flowSendId);
+
+        // Fetch the flow's configured field mappings for precise CRM property matching
+        if (flowDbId) {
+          const { data: flowDef } = await supabaseAdmin
+            .from("whatsapp_flows")
+            .select("field_mappings")
+            .eq("id", flowDbId)
+            .single();
+
+          if (flowDef?.field_mappings) {
+            fieldMappings = flowDef.field_mappings as typeof fieldMappings;
+          }
+        }
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 2. Build CRM updates from response_data using field_mappings
+    //    Priority: configured field_mappings → fallback name normalization
+    // ----------------------------------------------------------------
     const { data: propDefs } = await supabaseAdmin
       .from("crm_property_definitions")
       .select("id, name, type")
       .eq("organization_id", orgId);
 
-    // 2. Extract standard CRM fields + map custom properties
     const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     const contactUpdates: Record<string, any> = {};
     const customPropertiesFromForm: Record<string, any> = {};
@@ -682,6 +727,24 @@ async function handleSaveFlowResponse(
 
     for (const [key, value] of Object.entries(responseData)) {
       if (["flow_token", "template_name"].includes(key)) continue;
+
+      // Check if this field has a configured mapping
+      const mapping = fieldMappings[key];
+      if (mapping?.crm_property_id) {
+        // Standard field markers have special handling
+        if (mapping.crm_property_id === '__name__') {
+          contactUpdates.name = String(value);
+        } else if (mapping.crm_property_id === '__email__') {
+          contactUpdates.email = String(value);
+        } else if (mapping.crm_property_id === '__company__') {
+          contactUpdates.company = String(value);
+        } else {
+          customPropertiesFromForm[mapping.crm_property_id] = value;
+        }
+        continue;
+      }
+
+      // Fallback: normalize key and match standard or custom property by name
       const normKey = normalize(key);
 
       if (STD_NAME.includes(normKey)) {
@@ -691,50 +754,56 @@ async function handleSaveFlowResponse(
       } else if (STD_COMPANY.includes(normKey)) {
         contactUpdates.company = String(value);
       } else {
-        // Try matching against custom property definitions by name
         const matchingProp = (propDefs as any[] || []).find(
           (p: any) => normalize(p.name) === normKey || normalize(p.id) === normKey
         );
         if (matchingProp) {
           customPropertiesFromForm[matchingProp.id] = value;
         } else {
-          // Store with original key as fallback
           customPropertiesFromForm[key] = value;
         }
       }
     }
 
-    // 3. Find or create CRM contact by phone number
-    const { data: existingContact } = await supabaseAdmin
-      .from("crm_contacts")
-      .select("id, name, custom_properties")
-      .eq("phone", senderPhone)
-      .eq("organization_id", orgId)
-      .single();
+    // ----------------------------------------------------------------
+    // 3. Upsert the CRM contact
+    //    If we have a knownContactId from the send record, use that first.
+    // ----------------------------------------------------------------
+    let contactId: string | null = knownContactId;
 
-    let contactId: string | null = existingContact?.id || null;
+    if (!contactId) {
+      // Try looking up by phone
+      const { data: existingByPhone } = await supabaseAdmin
+        .from("crm_contacts")
+        .select("id")
+        .eq("phone", senderPhone)
+        .eq("organization_id", orgId)
+        .single();
+      contactId = existingByPhone?.id || null;
+    }
 
-    if (existingContact) {
-      // Merge new form data into existing contact
-      const existingCustomProps = existingContact.custom_properties || {};
+    if (contactId) {
+      // Update existing contact
+      const { data: existing } = await supabaseAdmin
+        .from("crm_contacts")
+        .select("custom_properties")
+        .eq("id", contactId)
+        .single();
+
+      const existingCustomProps = existing?.custom_properties || {};
       const mergedCustomProps = { ...existingCustomProps, ...customPropertiesFromForm };
       const updatePayload: Record<string, any> = {
         custom_properties: mergedCustomProps,
         updated_at: new Date().toISOString(),
       };
-      // Only update standard fields if they were in the form and don't override non-empty values
       if (contactUpdates.name) updatePayload.name = contactUpdates.name;
       if (contactUpdates.email) updatePayload.email = contactUpdates.email;
       if (contactUpdates.company) updatePayload.company = contactUpdates.company;
 
-      await supabaseAdmin
-        .from("crm_contacts")
-        .update(updatePayload)
-        .eq("id", contactId);
-
+      await supabaseAdmin.from("crm_contacts").update(updatePayload).eq("id", contactId);
       log("info", orgId, "flow_contact_updated", { contactId });
     } else {
-      // Create new CRM contact from form data
+      // Create new contact from form data
       const contactName = contactUpdates.name || senderName || senderPhone;
       const { data: newContact, error: createErr } = await supabaseAdmin
         .from("crm_contacts")
@@ -760,14 +829,18 @@ async function handleSaveFlowResponse(
       }
     }
 
-    // 4. Save the flow response record
+    // ----------------------------------------------------------------
+    // 4. Save the flow response record (with flow_send_id + flow_id links)
+    // ----------------------------------------------------------------
     const { error: insertErr } = await supabaseAdmin
       .from("crm_flow_responses")
       .insert({
         organization_id: orgId,
         contact_id: contactId,
         conversation_id: conversationId,
-        flow_token: flowToken || null,
+        flow_token: flowTokenFromPayload || null,
+        flow_send_id: flowSendId,
+        flow_id: flowDbId,
         template_name: templateName || null,
         phone_number: senderPhone,
         response_data: responseData,
@@ -779,10 +852,17 @@ async function handleSaveFlowResponse(
     if (insertErr) {
       log("error", orgId, "flow_response_insert_failed", { error: insertErr.message });
     } else {
-      log("info", orgId, "flow_response_saved", { contactId, conversationId, fieldCount: Object.keys(responseData).length });
+      log("info", orgId, "flow_response_saved", {
+        contactId,
+        conversationId,
+        flowSendId,
+        fieldCount: Object.keys(responseData).length,
+      });
     }
 
+    // ----------------------------------------------------------------
     // 5. Link conversation to the CRM contact (if not already linked)
+    // ----------------------------------------------------------------
     if (contactId) {
       await supabaseAdmin
         .from("conversations")

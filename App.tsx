@@ -14,10 +14,11 @@ import CRMScreen from './components/CRMScreen';
 import TaskBoard from './components/TaskBoard';
 import WorkflowsScreen from './components/WorkflowsScreen';
 import AIAssistantScreen from './components/AIAssistantScreen';
+import WhatsAppFlowsScreen from './components/WhatsAppFlowsScreen';
 import PrivacyPolicyScreen from './components/PrivacyPolicyScreen';
 import DataDeletionPolicyScreen from './components/DataDeletionPolicyScreen';
 import DataDeletionScreen from './components/DataDeletionScreen';
-import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff, Zap, Building2, Sparkles } from 'lucide-react';
+import { Settings, LogOut, Users, BarChart3, MessageSquare, CheckSquare, Loader2, Lock, Eye, EyeOff, Zap, Building2, Sparkles, Layers } from 'lucide-react';
 import { AppearanceProvider } from './contexts/AppearanceContext';
 import { chatService } from './services/chatService';
 import { authService } from './services/authService';
@@ -848,6 +849,9 @@ const App: React.FC = () => {
           conversations={conversations}
         />
       );
+      case 'whatsapp_flows': return (
+        <WhatsAppFlowsScreen organizationId={currentUser?.organizationId || ''} />
+      );
       case 'settings': return <SettingsScreen />;
       default:
         return (
@@ -976,6 +980,7 @@ const App: React.FC = () => {
       { view: 'tasks' as DashboardView, icon: <CheckSquare size={20}/>, label: 'Tareas', roles: ['admin','manager'] },
       { view: 'workflows' as DashboardView, icon: <Zap size={20}/>, label: 'Flujos', roles: ['admin','manager'] },
       { view: 'ai_assistant' as DashboardView, icon: <Sparkles size={20}/>, label: 'Asistente IA', roles: ['admin','manager'] },
+      { view: 'whatsapp_flows' as DashboardView, icon: <Layers size={20}/>, label: 'WA Flows', roles: ['admin'] },
       { view: 'stats' as DashboardView, icon: <BarChart3 size={20}/>, label: 'Estadísticas', roles: ['admin','manager'] },
   ];
 
