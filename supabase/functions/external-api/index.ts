@@ -112,9 +112,10 @@ Deno.serve(async (req) => {
     }
 
     // 5. Map endpoint+method to a scope requirement
-    const endpointName = endpoint === 'contacts' && id === 'search' && method === 'POST'
-      ? 'contacts-search'
-      : endpoint;  
+    const endpointName =
+      endpoint === 'contacts' && id === 'search' && method === 'POST' ? 'contacts-search' :
+      endpoint === 'contacts' && id === 'bulk'  && method === 'POST' ? 'contacts-bulk' :
+      endpoint;
     
     const scopeMap: Record<string, Record<string, string>> = {
       'contacts': {
@@ -124,6 +125,7 @@ Deno.serve(async (req) => {
         'DELETE': 'contacts:write',
       },
       'contacts-search': { 'POST': 'contacts:read' },
+      'contacts-bulk':   { 'POST': 'contacts:write' },
       'conversations': {
         'GET': 'conversations:read',
         'PUT': 'conversations:write',
@@ -143,17 +145,47 @@ Deno.serve(async (req) => {
       return errorResponse(403, 'Insufficient scope', `This API key does not have the "${requiredScope}" scope`);
     }
 
-    // 7. Check if endpoint is enabled for this organization
+    // 7. Check if endpoint is enabled + enforce rate limit
+    // contacts-bulk shares the contacts/POST config row
+    const configEndpoint = endpointName === 'contacts-bulk' ? 'contacts' : endpointName;
+    const configMethod   = endpointName === 'contacts-bulk' ? 'POST' : method;
+
     const { data: endpointConfig } = await supabase
       .from('api_endpoint_configs')
       .select('is_enabled, rate_limit_per_minute')
       .eq('organization_id', organizationId)
-      .eq('endpoint_name', endpointName)
-      .eq('method', method)
+      .eq('endpoint_name', configEndpoint)
+      .eq('method', configMethod)
       .single();
 
     if (endpointConfig && !endpointConfig.is_enabled) {
       return errorResponse(403, 'Endpoint disabled', `The ${method} /${endpoint} endpoint has been disabled by your organization admin`);
+    }
+
+    // Enforce rate limit using a rolling-minute counter in api_rate_counters
+    if (endpointConfig?.rate_limit_per_minute) {
+      const windowStart = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
+      const counterKey  = `${keyRecord.id}:${configEndpoint}:${configMethod}:${windowStart}`;
+
+      const { data: counterRow } = await supabase
+        .from('api_rate_counters')
+        .select('count')
+        .eq('counter_key', counterKey)
+        .maybeSingle();
+
+      const currentCount = counterRow?.count ?? 0;
+      if (currentCount >= endpointConfig.rate_limit_per_minute) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded', retryAfterSeconds: 60 }),
+          { status: 429, headers: { ...corsHeaders, 'Retry-After': '60' } }
+        );
+      }
+
+      // Increment counter (fire-and-forget)
+      supabase.rpc('increment_rate_counter', {
+        p_key: counterKey,
+        p_expires_at: new Date(Math.floor(Date.now() / 60000) * 60000 + 120000).toISOString()
+      }).then(() => {});
     }
 
     // 8. Update last_used_at (fire-and-forget)
@@ -169,6 +201,8 @@ Deno.serve(async (req) => {
         return await handleContacts(method, id, organizationId, req);
       case 'contacts-search':
         return await handleContactsSearch(organizationId, req);
+      case 'contacts-bulk':
+        return await handleContactsBulk(organizationId, req);
       case 'conversations':
         return await handleConversations(method, id, organizationId, req);
       case 'messages':
@@ -301,6 +335,87 @@ async function handleContactsSearch(orgId: string, req: Request) {
 
   if (error) return errorResponse(500, 'Error searching contacts', error.message);
   return jsonResponse({ data, pagination: { total: count, limit, offset } });
+}
+
+// --- CONTACTS BULK UPSERT ---
+// POST /contacts/bulk
+// Body: { contacts: Array<{ name, email, phone, company, pipeline_stage, custom_properties }>, upsert_on?: 'phone' | 'email' }
+// Max 100 contacts per request. Upserts by phone (default) or email if upsert_on is set.
+async function handleContactsBulk(orgId: string, req: Request) {
+  const body = await req.json();
+  const { contacts: rawContacts, upsert_on = 'phone' } = body;
+
+  if (!Array.isArray(rawContacts) || rawContacts.length === 0) {
+    return errorResponse(400, 'contacts array is required and must not be empty');
+  }
+  if (rawContacts.length > 100) {
+    return errorResponse(400, 'Maximum 100 contacts per bulk request');
+  }
+
+  const results: { index: number; status: 'created' | 'updated' | 'error'; id?: string; error?: string }[] = [];
+
+  for (let i = 0; i < rawContacts.length; i++) {
+    const c = rawContacts[i];
+    if (!c.name) {
+      results.push({ index: i, status: 'error', error: 'name is required' });
+      continue;
+    }
+
+    // Check for existing contact by upsert key
+    let existingId: string | null = null;
+    if (upsert_on === 'phone' && c.phone) {
+      const { data: existing } = await supabase
+        .from('crm_contacts')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('phone', c.phone)
+        .maybeSingle();
+      existingId = existing?.id ?? null;
+    } else if (upsert_on === 'email' && c.email) {
+      const { data: existing } = await supabase
+        .from('crm_contacts')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('email', c.email)
+        .maybeSingle();
+      existingId = existing?.id ?? null;
+    }
+
+    const payload = {
+      name: c.name,
+      email: c.email ?? null,
+      phone: c.phone ?? null,
+      company: c.company ?? null,
+      pipeline_stage: c.pipeline_stage || 'lead',
+      custom_properties: c.custom_properties || {},
+      organization_id: orgId,
+    };
+
+    if (existingId) {
+      const { data, error } = await supabase
+        .from('crm_contacts')
+        .update(payload)
+        .eq('id', existingId)
+        .select('id')
+        .single();
+      if (error) results.push({ index: i, status: 'error', error: error.message });
+      else results.push({ index: i, status: 'updated', id: data.id });
+    } else {
+      const { data, error } = await supabase
+        .from('crm_contacts')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (error) results.push({ index: i, status: 'error', error: error.message });
+      else results.push({ index: i, status: 'created', id: data.id });
+    }
+  }
+
+  const created = results.filter(r => r.status === 'created').length;
+  const updated = results.filter(r => r.status === 'updated').length;
+  const errors  = results.filter(r => r.status === 'error').length;
+
+  return jsonResponse({ summary: { created, updated, errors, total: rawContacts.length }, results }, 207);
 }
 
 // --- CONVERSATIONS ---

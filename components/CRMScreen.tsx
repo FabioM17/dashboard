@@ -570,7 +570,16 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
     }
   };
 
-  // Filtrado y ordenamiento de contactos
+  // Paginación
+  const [pageSize, setPageSize] = useState<20 | 50 | 100>(20);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Server-side fetch state for the contacts table
+  const [pageContacts, setPageContacts] = useState<CRMContact[]>([]);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+
+  // Filtrado del prop contacts (sigue usándose para campañas, pipeline, listas)
   const filteredContacts = useMemo(() => {
     const base = filterContactsByCriteria(contacts, searchTerm, filters as CRMFilter[]);
     if (!sortField) return base;
@@ -582,6 +591,32 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [contacts, searchTerm, filters, sortField, sortDir, customProperties]);
+
+  // Reset page when filters/search/sort change
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filters, sortField, sortDir]);
+
+  // Fetch only the current page from the server (server-side pagination)
+  useEffect(() => {
+    if (!organizationId || activeTab !== 'contacts') return;
+    let cancelled = false;
+    setIsLoadingContacts(true);
+    crmService.getContactsPage(organizationId, {
+      page: currentPage,
+      pageSize,
+      search: searchTerm,
+      sortField: sortField ?? undefined,
+      sortDir,
+      filters,
+    }).then(({ data, total }) => {
+      if (cancelled) return;
+      setPageContacts(data);
+      setServerTotal(total);
+    }).catch(console.error)
+      .finally(() => { if (!cancelled) setIsLoadingContacts(false); });
+    return () => { cancelled = true; };
+  }, [organizationId, activeTab, currentPage, pageSize, searchTerm, sortField, sortDir, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(serverTotal / pageSize));
 
   // Cargar campaigns, templates y lists al montar
   useEffect(() => {
@@ -1449,7 +1484,11 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                                                        {filteredContacts
+                                                        {isLoadingContacts ? (
+                                                            <tr><td colSpan={5 + visiblePropertyColumns.length} className="text-center py-10 text-slate-400 text-sm"><Loader2 size={20} className="inline animate-spin mr-2"/>Cargando contactos...</td></tr>
+                                                        ) : pageContacts.length === 0 ? (
+                                                            <tr><td colSpan={5 + visiblePropertyColumns.length} className="text-center py-10 text-slate-400 text-sm">No se encontraron contactos</td></tr>
+                                                        ) : pageContacts
                                                             .map(contact => (
                                 <tr key={contact.id} className="hover:bg-slate-50/50 cursor-pointer group" onClick={() => openContactDetail(contact)}>
                                     <td className="px-3 py-4" style={{ overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
@@ -1499,6 +1538,49 @@ const CRMScreen: React.FC<CRMScreenProps> = ({ contacts, onSaveContact, properti
                             ))}
                         </tbody>
                     </table>
+                </div>
+                {/* Pagination controls */}
+                <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>Mostrar</span>
+                        {([20, 50, 100] as const).map(n => (
+                            <button
+                                key={n}
+                                onClick={() => { setPageSize(n); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-md border font-medium transition-colors ${
+                                    pageSize === n
+                                        ? 'bg-emerald-600 text-white border-emerald-600'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >{n}</button>
+                        ))}
+                        <span>por página · <span className="font-medium text-slate-700">{serverTotal}</span> contactos</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className="px-2 py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        >«</button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-2 py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        ><ArrowLeft size={13}/></button>
+                        <span className="px-3 py-1 text-xs text-slate-600 font-medium">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-2 py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        ><ArrowRight size={13}/></button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className="px-2 py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        >»</button>
+                    </div>
                 </div>
             </div>
         )}
