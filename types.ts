@@ -258,7 +258,7 @@ export interface AIConfig {
 // Workflow Types
 export type WorkflowStatus = 'active' | 'completed' | 'failed' | 'paused';
 
-export type WorkflowStepChannel = 'whatsapp' | 'email' | 'n8n';
+export type WorkflowStepChannel = 'whatsapp' | 'email' | 'webhook';
 
 export interface VariableMapping {
   variable: string;     // e.g. "name", "1", "custom_field"
@@ -278,10 +278,10 @@ export interface WorkflowStep {
   emailSubject?: string;
   emailBody?: string;
   variableMappings?: VariableMapping[];
-  n8nWebhookUrl?: string;
-  n8nAuthHeader?: string;
-  n8nCustomBody?: string;
-  n8nContactFields?: string[]; // empty/undefined = send all fields
+  webhookUrl?: string;
+  webhookAuthHeader?: string;
+  webhookCustomBody?: string;
+  webhookContactFields?: string[]; // empty/undefined = send all fields
 }
 
 export interface Workflow {

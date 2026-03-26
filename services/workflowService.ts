@@ -85,10 +85,10 @@ export const workflowService = {
           variableMappings: s.variable_mappings || [],
           delayDays: s.delay_days,
           sendTime: s.send_time ? workflowService.utcTimeToLocal(s.send_time) : null,
-          n8nWebhookUrl: s.n8n_webhook_url || undefined,
-          n8nAuthHeader: s.n8n_auth_header || undefined,
-          n8nCustomBody: s.n8n_custom_body || undefined,
-          n8nContactFields: Array.isArray(s.n8n_contact_fields) && s.n8n_contact_fields.length > 0 ? s.n8n_contact_fields : undefined,
+          webhookUrl: s.webhook_url || undefined,
+          webhookAuthHeader: s.webhook_auth_header || undefined,
+          webhookCustomBody: s.webhook_custom_body || undefined,
+          webhookContactFields: Array.isArray(s.webhook_contact_fields) && s.webhook_contact_fields.length > 0 ? s.webhook_contact_fields : undefined,
           template: s.meta_templates ? {
             id: s.meta_templates.id,
             name: s.meta_templates.name,
@@ -146,10 +146,10 @@ export const workflowService = {
       delayDays: number;
       sendTime?: string | null;
       stepOrder: number;
-      n8nWebhookUrl?: string;
-      n8nAuthHeader?: string;
-      n8nCustomBody?: string;
-      n8nContactFields?: string[];
+      webhookUrl?: string;
+      webhookAuthHeader?: string;
+      webhookCustomBody?: string;
+      webhookContactFields?: string[];
     }>,
     isActive: boolean = false,
     createdBy?: string,
@@ -167,10 +167,10 @@ export const workflowService = {
         delay_days: step.delayDays,
         send_time: step.sendTime ? workflowService.localTimeToUTC(step.sendTime) : null,
         step_order: step.stepOrder,
-        n8n_webhook_url: step.n8nWebhookUrl || null,
-        n8n_auth_header: step.n8nAuthHeader || null,
-        n8n_custom_body: step.n8nCustomBody || null,
-        n8n_contact_fields: Array.isArray(step.n8nContactFields) && step.n8nContactFields.length > 0 ? step.n8nContactFields : null
+        webhook_url: step.webhookUrl || null,
+        webhook_auth_header: step.webhookAuthHeader || null,
+        webhook_custom_body: step.webhookCustomBody || null,
+        webhook_contact_fields: Array.isArray(step.webhookContactFields) && step.webhookContactFields.length > 0 ? step.webhookContactFields : null
       }));
 
       const { data, error } = await supabase.functions.invoke('workflows-manage?action=create', {
@@ -311,9 +311,9 @@ export const workflowService = {
   },
 
   /**
-   * Test an n8n webhook URL (server-side fetch to avoid CORS)
+   * Test a webhook URL (server-side fetch to avoid CORS)
    */
-  async testN8nWebhook(
+  async testWebhook(
     webhookUrl: string,
     authHeader?: string,
     customBody?: string,

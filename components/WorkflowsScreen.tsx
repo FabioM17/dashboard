@@ -358,10 +358,10 @@ function CreateWorkflowModal({
     delayDays: number;
     sendTime: string;
     stepOrder: number;
-    n8nWebhookUrl: string;
-    n8nAuthHeader: string;
-    n8nCustomBody: string;
-    n8nContactFields: string[];
+    webhookUrl: string;
+    webhookAuthHeader: string;
+    webhookCustomBody: string;
+    webhookContactFields: string[];
   }>>([]);
   const [isActive, setIsActive] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -371,31 +371,31 @@ function CreateWorkflowModal({
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [phoneNumbers, setPhoneNumbers] = useState<WhatsAppPhoneNumber[]>([]);
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>('');
-  // n8n test state: keyed by step index
-  const [n8nTestState, setN8nTestState] = useState<Record<number, {
+  // Webhook test state: keyed by step index
+  const [webhookTestState, setWebhookTestState] = useState<Record<number, {
     loading: boolean;
     result?: { success: boolean; httpStatus: number | null; httpStatusText: string | null; elapsedMs: number; responsePreview?: string; error?: string; payloadSent?: any };
     showPayload: boolean;
   }>>();
 
-  function getN8nTest(index: number) {
-    return n8nTestState?.[index] ?? { loading: false, result: undefined, showPayload: false };
+  function getWebhookTest(index: number) {
+    return webhookTestState?.[index] ?? { loading: false, result: undefined, showPayload: false };
   }
 
-  async function handleTestN8nWebhook(index: number) {
+  async function handleTestWebhook(index: number) {
     const step = steps[index];
-    if (!step.n8nWebhookUrl.trim()) return;
-    setN8nTestState(prev => ({ ...prev, [index]: { loading: true, result: undefined, showPayload: false } }));
+    if (!step.webhookUrl.trim()) return;
+    setWebhookTestState(prev => ({ ...prev, [index]: { loading: true, result: undefined, showPayload: false } }));
     try {
-      const result = await workflowService.testN8nWebhook(
-        step.n8nWebhookUrl,
-        step.n8nAuthHeader || undefined,
-        step.n8nCustomBody || undefined,
-        step.n8nContactFields.length > 0 ? step.n8nContactFields : undefined
+      const result = await workflowService.testWebhook(
+        step.webhookUrl,
+        step.webhookAuthHeader || undefined,
+        step.webhookCustomBody || undefined,
+        step.webhookContactFields.length > 0 ? step.webhookContactFields : undefined
       );
-      setN8nTestState(prev => ({ ...prev, [index]: { loading: false, result, showPayload: false } }));
+      setWebhookTestState(prev => ({ ...prev, [index]: { loading: false, result, showPayload: false } }));
     } catch (err: any) {
-      setN8nTestState(prev => ({ ...prev, [index]: { loading: false, result: { success: false, httpStatus: null, httpStatusText: null, elapsedMs: 0, error: err.message || String(err), payloadSent: null }, showPayload: false } }));
+      setWebhookTestState(prev => ({ ...prev, [index]: { loading: false, result: { success: false, httpStatus: null, httpStatusText: null, elapsedMs: 0, error: err.message || String(err), payloadSent: null }, showPayload: false } }));
     }
   }
 
@@ -445,10 +445,10 @@ function CreateWorkflowModal({
         delayDays: 0,
         sendTime: '',
         stepOrder: steps.length + 1,
-        n8nWebhookUrl: '',
-        n8nAuthHeader: '',
-        n8nCustomBody: '',
-        n8nContactFields: []
+        webhookUrl: '',
+        webhookAuthHeader: '',
+        webhookCustomBody: '',
+        webhookContactFields: []
       }
     ]);
   }
@@ -530,17 +530,17 @@ function CreateWorkflowModal({
         setError(`El paso ${step.stepOrder} (Email) requiere asunto y cuerpo`);
         return;
       }
-      if (step.channel === 'n8n' && !step.n8nWebhookUrl.trim()) {
-        setError(`El paso ${step.stepOrder} (n8n) requiere una URL de webhook`);
+      if (step.channel === 'webhook' && !step.webhookUrl.trim()) {
+        setError(`El paso ${step.stepOrder} (Webhook) requiere una URL de webhook`);
         return;
       }
-      if (step.channel === 'n8n' && !step.n8nWebhookUrl.startsWith('http')) {
-        setError(`El paso ${step.stepOrder} (n8n): la URL del webhook debe comenzar con http(s)://`);
+      if (step.channel === 'webhook' && !step.webhookUrl.startsWith('http')) {
+        setError(`El paso ${step.stepOrder} (Webhook): la URL del webhook debe comenzar con http(s)://`);
         return;
       }
-      if (step.channel === 'n8n' && step.n8nCustomBody.trim()) {
-        try { JSON.parse(step.n8nCustomBody); } catch {
-          setError(`El paso ${step.stepOrder} (n8n): el body personalizado no es JSON válido`);
+      if (step.channel === 'webhook' && step.webhookCustomBody.trim()) {
+        try { JSON.parse(step.webhookCustomBody); } catch {
+          setError(`El paso ${step.stepOrder} (Webhook): el body personalizado no es JSON válido`);
           return;
         }
       }
@@ -557,10 +557,10 @@ function CreateWorkflowModal({
         steps.map(s => ({
           ...s,
           sendTime: s.sendTime || null,
-          n8nWebhookUrl: s.n8nWebhookUrl || undefined,
-          n8nAuthHeader: s.n8nAuthHeader || undefined,
-          n8nCustomBody: s.n8nCustomBody || undefined,
-          n8nContactFields: s.n8nContactFields.length > 0 ? s.n8nContactFields : undefined
+          webhookUrl: s.webhookUrl || undefined,
+          webhookAuthHeader: s.webhookAuthHeader || undefined,
+          webhookCustomBody: s.webhookCustomBody || undefined,
+          webhookContactFields: s.webhookContactFields.length > 0 ? s.webhookContactFields : undefined
         })),
         isActive,
         userId,
@@ -779,14 +779,14 @@ function CreateWorkflowModal({
                           </button>
                           <button
                             type="button"
-                            onClick={() => updateStep(index, 'channel', 'n8n')}
+                            onClick={() => updateStep(index, 'channel', 'webhook')}
                             className={`flex-1 px-3 py-2 rounded text-sm font-medium border transition-colors ${
-                              step.channel === 'n8n'
+                              step.channel === 'webhook'
                                 ? 'bg-purple-50 border-purple-500 text-purple-700'
                                 : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                             }`}
                           >
-                            🔗 n8n
+                            🔗 Webhook
                           </button>
                         </div>
                         {/* Gmail not configured warning for email steps */}
@@ -881,8 +881,8 @@ function CreateWorkflowModal({
                         </>
                       )}
 
-                      {/* n8n: Delay + Time */}
-                      {step.channel === 'n8n' && (
+                      {/* Webhook: Delay + Time */}
+                      {step.channel === 'webhook' && (
                         <>
                           <div>
                             <label className="block text-xs text-gray-700 mb-1">Espera (días)</label>
@@ -909,11 +909,11 @@ function CreateWorkflowModal({
                       )}
                     </div>
 
-                    {/* n8n: Webhook configuration (below the grid) */}
-                    {step.channel === 'n8n' && (
+                    {/* Webhook: HTTP configuration (below the grid) */}
+                    {step.channel === 'webhook' && (
                       <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
                         <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">
-                          🔗 Configuración del webhook n8n
+                          🔗 Configuración del webhook HTTP
                         </p>
                         {/* Webhook URL */}
                         <div>
@@ -922,9 +922,9 @@ function CreateWorkflowModal({
                           </label>
                           <input
                             type="url"
-                            value={step.n8nWebhookUrl}
-                            onChange={(e) => updateStep(index, 'n8nWebhookUrl', e.target.value)}
-                            placeholder="https://tu-n8n.com/webhook/..."
+                            value={step.webhookUrl}
+                            onChange={(e) => updateStep(index, 'webhookUrl', e.target.value)}
+                            placeholder="https://tuservicio.com/webhook/..."
                             className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 bg-white"
                           />
                           <p className="text-[10px] text-gray-500 mt-0.5">
@@ -938,8 +938,8 @@ function CreateWorkflowModal({
                           </label>
                           <input
                             type="text"
-                            value={step.n8nAuthHeader}
-                            onChange={(e) => updateStep(index, 'n8nAuthHeader', e.target.value)}
+                            value={step.webhookAuthHeader}
+                            onChange={(e) => updateStep(index, 'webhookAuthHeader', e.target.value)}
                             placeholder="Authorization: Bearer tu-token"
                             className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 bg-white font-mono"
                           />
@@ -956,14 +956,14 @@ function CreateWorkflowModal({
                             <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
                               <input
                                 type="checkbox"
-                                checked={step.n8nContactFields.length === 0}
-                                onChange={(e) => updateStep(index, 'n8nContactFields', e.target.checked ? [] : ['name', 'email', 'phone'])}
+                                checked={step.webhookContactFields.length === 0}
+                                onChange={(e) => updateStep(index, 'webhookContactFields', e.target.checked ? [] : ['name', 'email', 'phone'])}
                                 className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                               />
                               <span className="font-medium text-purple-700">Todos los campos</span>
                             </label>
                           </div>
-                          {step.n8nContactFields.length > 0 && (
+                          {step.webhookContactFields.length > 0 && (
                             <div className="p-2 bg-white border border-purple-100 rounded space-y-2">
                               <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Campos estándar</p>
                               <div className="grid grid-cols-3 gap-1">
@@ -971,10 +971,10 @@ function CreateWorkflowModal({
                                   <label key={field} className="flex items-center gap-1 text-xs text-gray-700 cursor-pointer select-none">
                                     <input
                                       type="checkbox"
-                                      checked={step.n8nContactFields.includes(field)}
+                                      checked={step.webhookContactFields.includes(field)}
                                       onChange={(e) => {
-                                        const current = step.n8nContactFields;
-                                        updateStep(index, 'n8nContactFields', e.target.checked
+                                        const current = step.webhookContactFields;
+                                        updateStep(index, 'webhookContactFields', e.target.checked
                                           ? [...current, field]
                                           : current.filter(f => f !== field)
                                         );
@@ -993,10 +993,10 @@ function CreateWorkflowModal({
                                       <label key={p.name} className="flex items-center gap-1 text-xs text-gray-700 cursor-pointer select-none">
                                         <input
                                           type="checkbox"
-                                          checked={step.n8nContactFields.includes(p.name)}
+                                          checked={step.webhookContactFields.includes(p.name)}
                                           onChange={(e) => {
-                                            const current = step.n8nContactFields;
-                                            updateStep(index, 'n8nContactFields', e.target.checked
+                                            const current = step.webhookContactFields;
+                                            updateStep(index, 'webhookContactFields', e.target.checked
                                               ? [...current, p.name]
                                               : current.filter(f => f !== p.name)
                                             );
@@ -1012,7 +1012,7 @@ function CreateWorkflowModal({
                             </div>
                           )}
                           <p className="text-[10px] text-gray-500 mt-0.5">
-                            {step.n8nContactFields.length === 0 ? 'Se enviarán todos los campos del contacto.' : `Se enviarán solo: ${step.n8nContactFields.join(', ')}`}
+                            {step.webhookContactFields.length === 0 ? 'Se enviarán todos los campos del contacto.' : `Se enviarán solo: ${step.webhookContactFields.join(', ')}`}
                           </p>
                         </div>
 
@@ -1022,8 +1022,8 @@ function CreateWorkflowModal({
                             Campos extra en el payload <span className="text-gray-400">(opcional)</span>
                           </label>
                           <textarea
-                            value={step.n8nCustomBody}
-                            onChange={(e) => updateStep(index, 'n8nCustomBody', e.target.value)}
+                            value={step.webhookCustomBody}
+                            onChange={(e) => updateStep(index, 'webhookCustomBody', e.target.value)}
                             placeholder={'{\n  "mi_campo": "valor_extra"\n}'}
                             rows={3}
                             className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 bg-white font-mono resize-none"
@@ -1041,13 +1041,13 @@ function CreateWorkflowModal({
                           </summary>
                           <pre className="px-3 pb-3 text-[10px] text-gray-600 overflow-auto max-h-48 leading-relaxed">{(() => {
                             const allContact: Record<string, any> = { id: '<id>', name: '<nombre>', email: '<email>', phone: '<teléfono>', company: '<empresa>', custom_properties: {} };
-                            const contactPreview = step.n8nContactFields.length > 0
-                              ? Object.fromEntries(step.n8nContactFields.map(f => [f, allContact[f] ?? `<${f}>`]))
+                            const contactPreview = step.webhookContactFields.length > 0
+                              ? Object.fromEntries(step.webhookContactFields.map(f => [f, allContact[f] ?? `<${f}>`]))
                               : allContact;
                             return JSON.stringify({
                               contact: contactPreview,
                               workflow: { id: '<workflow_id>', name: '<nombre_flujo>', enrollment_id: '<enrollment_id>', step_order: step.stepOrder },
-                              ...(step.n8nCustomBody ? (() => { try { return JSON.parse(step.n8nCustomBody); } catch { return { _error: 'JSON inválido' }; } })() : {})
+                              ...(step.webhookCustomBody ? (() => { try { return JSON.parse(step.webhookCustomBody); } catch { return { _error: 'JSON inválido' }; } })() : {})
                             }, null, 2);
                           })()}</pre>
                         </details>
@@ -1057,11 +1057,11 @@ function CreateWorkflowModal({
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              disabled={!step.n8nWebhookUrl.trim() || getN8nTest(index).loading}
-                              onClick={() => handleTestN8nWebhook(index)}
+                              disabled={!step.webhookUrl.trim() || getWebhookTest(index).loading}
+                              onClick={() => handleTestWebhook(index)}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium rounded transition-colors"
                             >
-                              {getN8nTest(index).loading ? (
+                              {getWebhookTest(index).loading ? (
                                 <>
                                   <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -1073,15 +1073,15 @@ function CreateWorkflowModal({
                                 <>🧪 Probar webhook</>
                               )}
                             </button>
-                            {!step.n8nWebhookUrl.trim() && (
+                            {!step.webhookUrl.trim() && (
                               <p className="text-[10px] text-gray-400">Ingresa la URL primero</p>
                             )}
                           </div>
 
                           {/* Test result */}
-                          {getN8nTest(index).result && (() => {
-                            const r = getN8nTest(index).result!;
-                            const test = getN8nTest(index);
+                          {getWebhookTest(index).result && (() => {
+                            const r = getWebhookTest(index).result!;
+                            const test = getWebhookTest(index);
                             return (
                               <div className={`mt-2 rounded-lg border p-3 text-xs ${r.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                                 <div className="flex items-start justify-between gap-2">
@@ -1105,7 +1105,7 @@ function CreateWorkflowModal({
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => setN8nTestState(prev => ({ ...prev, [index]: { ...test, showPayload: !test.showPayload } }))}
+                                  onClick={() => setWebhookTestState(prev => ({ ...prev, [index]: { ...test, showPayload: !test.showPayload } }))}
                                   className="mt-2 text-[10px] text-gray-400 hover:text-gray-600 underline"
                                 >
                                   {test.showPayload ? 'Ocultar' : 'Ver'} payload enviado en la prueba
@@ -1114,7 +1114,7 @@ function CreateWorkflowModal({
                                   <pre className="mt-1 text-[10px] text-gray-600 bg-white border rounded p-2 overflow-auto max-h-32">{JSON.stringify(r.payloadSent, null, 2)}</pre>
                                 )}
                                 <div className={`mt-2 p-2 rounded text-[10px] ${r.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                  <strong>💡 Importante:</strong> Esta prueba solo confirma que el webhook de n8n <strong>recibió</strong> la petición y respondió con {r.success ? `HTTP ${r.httpStatus}` : 'un error'}. <strong>No verifica que el flujo de n8n se completó correctamente</strong> — n8n responde inmediatamente al recibir el webhook, antes de ejecutar los nodos. Para verificar la ejecución completa revisa los logs en tu panel de n8n.
+                                  <strong>💡 Importante:</strong> Esta prueba solo confirma que el servidor <strong>recibió</strong> la petición y respondió con {r.success ? `HTTP ${r.httpStatus}` : 'un error'}. <strong>No verifica que el proceso remoto se completó correctamente</strong> — la mayoría de servicios (n8n, Make, Zapier, etc.) responden inmediatamente al recibir el webhook, antes de ejecutar sus acciones. Revisa los logs de tu servicio para verificar la ejecución completa.
                                 </div>
                               </div>
                             );
@@ -1355,23 +1355,23 @@ function WorkflowDetailsModal({
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <span className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
-                              step.channel === 'email' ? 'bg-blue-100 text-blue-700' : step.channel === 'n8n' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
+                              step.channel === 'email' ? 'bg-blue-100 text-blue-700' : step.channel === 'webhook' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
                             }`}>
                               {step.stepOrder}
                             </span>
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-gray-900">
-                                  {step.channel === 'email' ? (step.emailSubject || 'Email') : step.channel === 'n8n' ? (step.n8nWebhookUrl ? new URL(step.n8nWebhookUrl).pathname.slice(0, 40) : 'n8n Webhook') : step.templateName}
+                                  {step.channel === 'email' ? (step.emailSubject || 'Email') : step.channel === 'webhook' ? (step.webhookUrl ? new URL(step.webhookUrl).pathname.slice(0, 40) : 'Webhook HTTP') : step.templateName}
                                 </p>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                   step.channel === 'email'
                                     ? 'bg-blue-100 text-blue-700'
-                                    : step.channel === 'n8n'
+                                    : step.channel === 'webhook'
                                     ? 'bg-purple-100 text-purple-700'
                                     : 'bg-green-100 text-green-700'
                                 }`}>
-                                  {step.channel === 'email' ? '✉️ Email' : step.channel === 'n8n' ? '🔗 n8n' : '📱 WhatsApp'}
+                                  {step.channel === 'email' ? '✉️ Email' : step.channel === 'webhook' ? '🔗 Webhook' : '📱 WhatsApp'}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500">
@@ -1405,7 +1405,7 @@ function WorkflowDetailsModal({
                             </details>
                           </div>
                         )}
-                        {step.channel !== 'email' && step.channel !== 'n8n' && step.template && (
+                        {step.channel !== 'email' && step.channel !== 'webhook' && step.template && (
                           <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-100">
                             <p className="text-xs text-gray-500 mb-1 font-medium">Contenido del template:</p>
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">
@@ -1425,19 +1425,19 @@ function WorkflowDetailsModal({
                             )}
                           </div>
                         )}
-                        {step.channel === 'n8n' && (
+                        {step.channel === 'webhook' && (
                           <div className="mt-3 p-3 bg-purple-50 rounded border border-purple-100 space-y-2">
-                            <p className="text-xs font-semibold text-purple-700">Configuración del webhook n8n:</p>
+                            <p className="text-xs font-semibold text-purple-700">Configuración del webhook HTTP:</p>
                             <div>
                               <p className="text-xs text-gray-500 mb-0.5">URL:</p>
-                              <p className="text-xs text-gray-800 font-mono break-all">{step.n8nWebhookUrl}</p>
+                              <p className="text-xs text-gray-800 font-mono break-all">{step.webhookUrl}</p>
                             </div>
                             <div className="flex items-center gap-4">
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${step.n8nAuthHeader ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                {step.n8nAuthHeader ? '🔐 Auth configurada' : '🔓 Sin autenticación'}
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${step.webhookAuthHeader ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {step.webhookAuthHeader ? '🔐 Auth configurada' : '🔓 Sin autenticación'}
                               </span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${step.n8nCustomBody ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                                {step.n8nCustomBody ? '📋 Body personalizado' : '📋 Payload estándar'}
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${step.webhookCustomBody ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {step.webhookCustomBody ? '📋 Body personalizado' : '📋 Payload estándar'}
                               </span>
                             </div>
                           </div>

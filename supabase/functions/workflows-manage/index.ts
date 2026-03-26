@@ -45,7 +45,7 @@ serve(async (req) => {
       case 'sync-list':
         return await syncListEnrollments(supabase, body);
       case 'test-webhook':
-        return await testN8nWebhook(body);
+        return await testWebhook(body);
       default:
         console.error(`[workflows-manage] Invalid action: ${action}`);
         return errorResponse(`Invalid action: ${action}`, 400);
@@ -114,12 +114,12 @@ async function createWorkflow(supabase: any, body: any) {
         return errorResponse(`Email step ${step.step_order}: se requiere email_subject y email_body`, 400);
       }
       console.log(`[workflows-manage:create] Email step ${step.step_order} válido`);
-    } else if (channel === 'n8n') {
-      // n8n steps require a webhook URL
-      if (!step.n8n_webhook_url || !step.n8n_webhook_url.startsWith('http')) {
-        return errorResponse(`n8n step ${step.step_order}: se requiere n8n_webhook_url (URL válida)`, 400);
+    } else if (channel === 'webhook') {
+      // webhook steps require a webhook URL
+      if (!step.webhook_url || !step.webhook_url.startsWith('http')) {
+        return errorResponse(`webhook step ${step.step_order}: se requiere webhook_url (URL válida)`, 400);
       }
-      console.log(`[workflows-manage:create] n8n step ${step.step_order} válido: ${step.n8n_webhook_url}`);
+      console.log(`[workflows-manage:create] webhook step ${step.step_order} válido: ${step.webhook_url}`);
     } else {
       return errorResponse(`Canal no soportado: ${channel}`, 400);
     }
@@ -158,10 +158,10 @@ async function createWorkflow(supabase: any, body: any) {
       variable_mappings: step.variable_mappings || [],
       delay_days: step.delay_days || 0,
       send_time: step.send_time || null,
-      n8n_webhook_url: channel === 'n8n' ? step.n8n_webhook_url : null,
-      n8n_auth_header: channel === 'n8n' ? (step.n8n_auth_header || null) : null,
-      n8n_custom_body: channel === 'n8n' ? (step.n8n_custom_body || null) : null,
-      n8n_contact_fields: channel === 'n8n' ? (Array.isArray(step.n8n_contact_fields) && step.n8n_contact_fields.length > 0 ? step.n8n_contact_fields : null) : null
+      webhook_url: channel === 'webhook' ? step.webhook_url : null,
+      webhook_auth_header: channel === 'webhook' ? (step.webhook_auth_header || null) : null,
+      webhook_custom_body: channel === 'webhook' ? (step.webhook_custom_body || null) : null,
+      webhook_contact_fields: channel === 'webhook' ? (Array.isArray(step.webhook_contact_fields) && step.webhook_contact_fields.length > 0 ? step.webhook_contact_fields : null) : null
     };
   });
 
@@ -662,7 +662,7 @@ async function getWorkflowDetails(supabase: any, workflowId: string | null) {
 
   const { data: workflow, error } = await supabase
     .from('workflows')
-    .select(`*, lists:list_id (id, name, filters, manual_contact_ids), workflow_steps (id, step_order, channel, template_id, template_name, email_subject, email_body, variable_mappings, delay_days, send_time, n8n_webhook_url, n8n_auth_header, n8n_custom_body, n8n_contact_fields, meta_templates:template_id (id, name, body, language, status))`)
+    .select(`*, lists:list_id (id, name, filters, manual_contact_ids), workflow_steps (id, step_order, channel, template_id, template_name, email_subject, email_body, variable_mappings, delay_days, send_time, webhook_url, webhook_auth_header, webhook_custom_body, webhook_contact_fields, meta_templates:template_id (id, name, body, language, status))`)
     .eq('id', workflowId).single();
 
   if (error) return errorResponse('Workflow no encontrado', 404);
@@ -727,9 +727,9 @@ async function unenrollContact(supabase: any, body: any) {
 }
 
 // ============================================================
-// TEST N8N WEBHOOK
+// TEST WEBHOOK
 // ============================================================
-async function testN8nWebhook(body: any) {
+async function testWebhook(body: any) {
   const { url, auth_header, custom_body, contact_fields } = body;
 
   console.log(`[workflows-manage:test-webhook] url=${url}`);
