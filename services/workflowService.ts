@@ -85,6 +85,10 @@ export const workflowService = {
           variableMappings: s.variable_mappings || [],
           delayDays: s.delay_days,
           sendTime: s.send_time ? workflowService.utcTimeToLocal(s.send_time) : null,
+          n8nWebhookUrl: s.n8n_webhook_url || undefined,
+          n8nAuthHeader: s.n8n_auth_header || undefined,
+          n8nCustomBody: s.n8n_custom_body || undefined,
+          n8nContactFields: Array.isArray(s.n8n_contact_fields) && s.n8n_contact_fields.length > 0 ? s.n8n_contact_fields : undefined,
           template: s.meta_templates ? {
             id: s.meta_templates.id,
             name: s.meta_templates.name,
@@ -142,6 +146,10 @@ export const workflowService = {
       delayDays: number;
       sendTime?: string | null;
       stepOrder: number;
+      n8nWebhookUrl?: string;
+      n8nAuthHeader?: string;
+      n8nCustomBody?: string;
+      n8nContactFields?: string[];
     }>,
     isActive: boolean = false,
     createdBy?: string,
@@ -158,7 +166,11 @@ export const workflowService = {
         variable_mappings: step.variableMappings || [],
         delay_days: step.delayDays,
         send_time: step.sendTime ? workflowService.localTimeToUTC(step.sendTime) : null,
-        step_order: step.stepOrder
+        step_order: step.stepOrder,
+        n8n_webhook_url: step.n8nWebhookUrl || null,
+        n8n_auth_header: step.n8nAuthHeader || null,
+        n8n_custom_body: step.n8nCustomBody || null,
+        n8n_contact_fields: Array.isArray(step.n8nContactFields) && step.n8nContactFields.length > 0 ? step.n8nContactFields : null
       }));
 
       const { data, error } = await supabase.functions.invoke('workflows-manage?action=create', {
@@ -296,6 +308,45 @@ export const workflowService = {
       console.error('Error unenrolling contact:', error);
       throw error;
     }
+  },
+
+  /**
+   * Test an n8n webhook URL (server-side fetch to avoid CORS)
+   */
+  async testN8nWebhook(
+    webhookUrl: string,
+    authHeader?: string,
+    customBody?: string,
+    contactFields?: string[]
+  ): Promise<{
+    success: boolean;
+    httpStatus: number | null;
+    httpStatusText: string | null;
+    elapsedMs: number;
+    responsePreview?: string;
+    error?: string;
+    payloadSent: any;
+  }> {
+    const { data, error } = await supabase.functions.invoke('workflows-manage?action=test-webhook', {
+      body: {
+        url: webhookUrl,
+        auth_header: authHeader || null,
+        custom_body: customBody || null,
+        contact_fields: Array.isArray(contactFields) && contactFields.length > 0 ? contactFields : null
+      }
+    });
+
+    if (error) throw error;
+
+    return {
+      success: data.success,
+      httpStatus: data.http_status,
+      httpStatusText: data.http_status_text,
+      elapsedMs: data.elapsed_ms,
+      responsePreview: data.response_preview,
+      error: data.error,
+      payloadSent: data.payload_sent
+    };
   },
 
   /**

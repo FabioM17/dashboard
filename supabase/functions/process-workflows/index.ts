@@ -105,6 +105,7 @@ serve(async (req) => {
           .select(`
             id, step_order, delay_days, send_time, template_name, channel,
             email_subject, email_body, variable_mappings,
+            n8n_webhook_url, n8n_auth_header, n8n_custom_body, n8n_contact_fields,
             meta_templates:template_id (id, name, body, language, status)
           `)
           .eq('workflow_id', enrollment.workflow_id)
@@ -135,6 +136,14 @@ serve(async (req) => {
         }
         if (stepChannel === 'email' && (!step.email_subject || !step.email_body)) {
           const reason = `Paso ${enrollment.current_step} de email sin asunto o cuerpo configurado.`;
+          console.error(`${logPrefix} ❌ ${reason}`);
+          await markFailed(supabase, enrollment.id, reason);
+          failed++;
+          results.push({ enrollment_id: enrollment.id, contact_id: enrollment.contact_id, status: 'failed', detail: reason });
+          continue;
+        }
+        if (stepChannel === 'n8n' && !step.n8n_webhook_url) {
+          const reason = `Paso ${enrollment.current_step} (n8n) sin URL de webhook configurada.`;
           console.error(`${logPrefix} ❌ ${reason}`);
           await markFailed(supabase, enrollment.id, reason);
           failed++;
@@ -197,7 +206,76 @@ serve(async (req) => {
         // ---- SEND MESSAGE (WhatsApp or Email) ----
         let sendResult: { success: boolean; messageId?: string; error?: string };
 
-        if (stepChannel === 'email') {
+        if (stepChannel === 'n8n') {
+          console.log(`${logPrefix} 🔗 Calling n8n webhook step ${enrollment.current_step}: ${step.n8n_webhook_url}`);
+
+          // Build standard payload
+          const allContactFields = {
+            id: contact.id,
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone,
+            company: contact.company,
+            custom_properties: contact.custom_properties
+          };
+          const contactPayload = (Array.isArray(step.n8n_contact_fields) && step.n8n_contact_fields.length > 0)
+            ? Object.fromEntries(
+                step.n8n_contact_fields
+                  .map((f: string) => [f, (allContactFields as any)[f]])
+                  .filter(([, v]: [string, any]) => v !== undefined)
+              )
+            : allContactFields;
+          const standardPayload = {
+            contact: contactPayload,
+            workflow: {
+              id: enrollment.workflow_id,
+              name: workflow.name,
+              enrollment_id: enrollment.id,
+              step_order: enrollment.current_step
+            }
+          };
+
+          // Use custom body if provided, merging contact/workflow data into it
+          let bodyPayload: any;
+          if (step.n8n_custom_body) {
+            try {
+              const customBody = JSON.parse(step.n8n_custom_body);
+              bodyPayload = { ...standardPayload, ...customBody };
+            } catch {
+              bodyPayload = standardPayload;
+            }
+          } else {
+            bodyPayload = standardPayload;
+          }
+
+          // Build headers
+          const fetchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (step.n8n_auth_header) {
+            const colonIdx = step.n8n_auth_header.indexOf(':');
+            if (colonIdx > 0) {
+              const headerName = step.n8n_auth_header.substring(0, colonIdx).trim();
+              const headerValue = step.n8n_auth_header.substring(colonIdx + 1).trim();
+              fetchHeaders[headerName] = headerValue;
+            }
+          }
+
+          try {
+            const n8nRes = await fetch(step.n8n_webhook_url, {
+              method: 'POST',
+              headers: fetchHeaders,
+              body: JSON.stringify(bodyPayload)
+            });
+            if (n8nRes.ok) {
+              sendResult = { success: true, messageId: `n8n-${n8nRes.status}` };
+            } else {
+              const errText = await n8nRes.text().catch(() => '');
+              sendResult = { success: false, error: `HTTP ${n8nRes.status}: ${errText.slice(0, 200)}` };
+            }
+          } catch (fetchErr: any) {
+            sendResult = { success: false, error: `Fetch error: ${String(fetchErr)}` };
+          }
+
+        } else if (stepChannel === 'email') {
           console.log(`${logPrefix} 📧 Sending EMAIL step ${enrollment.current_step} to ${contact.name} (${contact.email})`);
           const personalizedSubject = replaceMergeTags(step.email_subject!, contact);
           const personalizedBody = replaceMergeTags(step.email_body!, contact);
